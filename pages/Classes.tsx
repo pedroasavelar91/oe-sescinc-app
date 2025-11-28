@@ -795,8 +795,8 @@ export const ClassesPage: React.FC = () => {
                 </div>
 
                 <div className="mt-8 flex justify-end space-x-3 pt-4 border-t border-gray-100">
-                    <button onClick={() => { setView('list'); resetForm(); }} className="px-6 py-2 border rounded-md text-gray-700 bg-white hover:bg-gray-50">Cancelar</button>
-                    <button onClick={handleSaveClass} className="px-6 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 flex items-center font-medium shadow-sm">
+                    <button onClick={() => { setView('list'); resetForm(); }} className="px-6 py-2.5 border rounded-lg text-gray-700 bg-white hover:bg-gray-50 font-medium transition-colors">Cancelar</button>
+                    <button onClick={handleSaveClass} className="btn-premium px-8 py-2.5 bg-gradient-to-r from-primary-600 to-primary-500 hover:from-primary-700 hover:to-primary-600 text-white rounded-lg flex items-center font-semibold shadow-md transition-all duration-200">
                         <Save size={18} className="mr-2" />
                         Salvar Turma
                     </button>
@@ -870,15 +870,18 @@ export const ClassesPage: React.FC = () => {
 
     // List View
     return (
-        <div className="space-y-6">
-            <div className="flex justify-between items-center">
-                <h1 className="text-2xl font-bold text-gray-900">Gerenciamento de Turmas</h1>
+        <div className="space-y-6 animate-fade-in">
+            <div className="flex justify-between items-center animate-slide-down">
+                <div>
+                    <h1 className="text-3xl font-bold text-gray-900">Gerenciamento de Turmas</h1>
+                    <p className="text-gray-500 mt-1">Gerencie turmas e cronogramas</p>
+                </div>
                 <button
                     onClick={() => setView('create')}
-                    className="flex items-center space-x-2 bg-primary-600 text-white px-4 py-2 rounded-md hover:bg-primary-700 transition"
+                    className="btn-premium flex items-center space-x-2 bg-gradient-to-r from-primary-600 to-primary-500 hover:from-primary-700 hover:to-primary-600 text-white px-6 py-3 rounded-lg shadow-md transition-all duration-200"
                 >
                     <Plus size={20} />
-                    <span>Nova Turma</span>
+                    <span className="font-semibold">Nova Turma</span>
                 </button>
             </div>
 
@@ -894,7 +897,7 @@ export const ClassesPage: React.FC = () => {
                     const status = getStatus(cls);
 
                     return (
-                        <div key={cls.id} className="bg-white rounded-lg shadow-sm border border-gray-100 hover:shadow-md transition flex flex-col h-full">
+                        <div key={cls.id} className="card-premium stagger-item flex flex-col h-full group">
                             <div className="p-6 flex-1 cursor-pointer" onClick={() => { setSelectedClass(cls); setView('details'); }}>
                                 <div className="flex justify-between items-start">
                                     <h3 className="text-lg font-bold text-gray-900">{cls.name}</h3>
