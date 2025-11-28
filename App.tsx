@@ -28,9 +28,9 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mb-4"></div>
-        <p className="text-gray-500 font-medium">Carregando sistema...</p>
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-primary-50 to-blue-50">
+        <div className="spinner mb-4"></div>
+        <p className="text-gray-600 font-medium animate-pulse">Carregando sistema...</p>
       </div>
     );
   }
@@ -45,21 +45,23 @@ const AppRoutes = () => {
 
   if (!configured) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 p-4">
-        <div className="bg-white p-8 rounded-lg shadow-md max-w-md text-center border-l-4 border-yellow-500">
-          <AlertTriangle size={48} className="mx-auto text-yellow-500 mb-4" />
-          <h1 className="text-xl font-bold text-gray-900 mb-2">Configuração Necessária</h1>
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-yellow-50 to-orange-50 p-4">
+        <div className="card-premium p-8 max-w-md text-center animate-scale-in">
+          <div className="inline-flex p-4 bg-yellow-100 rounded-full mb-4">
+            <AlertTriangle size={48} className="text-yellow-600" />
+          </div>
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">Configuração Necessária</h1>
           <p className="text-gray-600 mb-4">
             O sistema não detectou as chaves do banco de dados <strong>Supabase</strong>.
           </p>
-          <p className="text-sm text-gray-500 mb-6 text-left bg-gray-100 p-3 rounded">
-            Você precisa configurar as variáveis de ambiente:<br />
-            <code>SUPABASE_URL</code><br />
-            <code>SUPABASE_KEY</code>
-          </p>
+          <div className="text-sm text-gray-600 mb-6 text-left bg-gray-50 p-4 rounded-lg border border-gray-200">
+            <p className="font-semibold mb-2">Variáveis de ambiente necessárias:</p>
+            <code className="block bg-white px-2 py-1 rounded border mb-1">SUPABASE_URL</code>
+            <code className="block bg-white px-2 py-1 rounded border">SUPABASE_KEY</code>
+          </div>
           <button
             onClick={() => window.location.reload()}
-            className="bg-primary-600 text-white px-4 py-2 rounded hover:bg-primary-700 w-full"
+            className="btn-premium bg-gradient-to-r from-primary-600 to-primary-500 hover:from-primary-700 hover:to-primary-600 text-white px-6 py-3 rounded-lg w-full font-semibold transition-all duration-200"
           >
             Tentar Novamente
           </button>
@@ -70,9 +72,10 @@ const AppRoutes = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mb-4"></div>
-        <p className="text-gray-500 font-medium">Conectando ao banco de dados...</p>
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-primary-50 to-blue-50">
+        <div className="spinner mb-4"></div>
+        <p className="text-gray-600 font-medium animate-pulse">Conectando ao banco de dados...</p>
+        <p className="text-gray-400 text-sm mt-2">Aguarde um momento</p>
       </div>
     );
   }

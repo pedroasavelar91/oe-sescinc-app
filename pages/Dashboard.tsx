@@ -25,12 +25,16 @@ export const Dashboard: React.FC = () => {
         const myPendingTasks = tasks.filter(t => t.assigneeId === currentUser.id && t.status !== 'Concluída');
 
         return (
-            <div className="space-y-6">
-                <h1 className="text-2xl font-bold text-gray-900">Bem-vindo, {currentUser.name.split(' ')[0]}!</h1>
+            <div className="space-y-6 animate-fade-in">
+                <div className="gradient-primary-soft p-6 rounded-xl border border-primary-100">
+                    <h1 className="text-3xl font-bold text-gray-900">👋 Bem-vindo, {currentUser.name.split(' ')[0]}!</h1>
+                    <p className="text-gray-600 mt-1">Aqui está um resumo das suas atividades</p>
+                </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     {/* Next Classes Card */}
-                    <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-100">
+                    <div className="card-premium stagger-item hover:border-primary-200 transition-all duration-300">
+                        <div className="absolute top-0 right-0 w-20 h-20 bg-primary-50 rounded-bl-full opacity-50"></div>
                         <h2 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
                             <Calendar className="text-primary-600" /> Próximas Aulas
                         </h2>
@@ -39,7 +43,7 @@ export const Dashboard: React.FC = () => {
                         ) : (
                             <div className="space-y-3">
                                 {myNextClasses.map(item => (
-                                    <div key={item.id} className="flex justify-between items-center p-3 bg-gray-50 rounded border border-gray-100">
+                                    <div key={item.id} className="flex justify-between items-center p-3 bg-gradient-gray rounded-lg border border-gray-200 hover:shadow-md hover:border-primary-200 transition-all duration-200 cursor-pointer">
                                         <div>
                                             <p className="font-semibold text-gray-800">{new Date(item.date).toLocaleDateString()}</p>
                                             <p className="text-xs text-gray-500">{item.startTime} - {item.endTime}</p>
@@ -55,7 +59,8 @@ export const Dashboard: React.FC = () => {
                     </div>
 
                     {/* Tasks Card */}
-                    <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-100">
+                    <div className="card-premium stagger-item hover:border-green-200 transition-all duration-300">
+                        <div className="absolute top-0 right-0 w-20 h-20 bg-green-50 rounded-bl-full opacity-50"></div>
                         <h2 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
                             <CheckCircle className="text-green-600" /> Minhas Tarefas
                         </h2>
@@ -64,12 +69,12 @@ export const Dashboard: React.FC = () => {
                         ) : (
                             <div className="space-y-3">
                                 {myPendingTasks.map(task => (
-                                    <div key={task.id} className="flex justify-between items-center p-3 bg-gray-50 rounded border border-gray-100">
+                                    <div key={task.id} className="flex justify-between items-center p-3 bg-gradient-gray rounded-lg border border-gray-200 hover:shadow-md hover:border-green-200 transition-all duration-200 cursor-pointer group">
                                         <div>
                                             <p className="font-medium text-gray-800">{task.title}</p>
                                             <p className="text-xs text-gray-500">Prazo: {task.deadline ? new Date(task.deadline).toLocaleDateString() : 'Sem prazo'}</p>
                                         </div>
-                                        <span className={`text-xs px-2 py-1 rounded font-bold ${task.priority === 'Alta' ? 'bg-red-100 text-red-800' : 'bg-gray-200 text-gray-700'}`}>
+                                        <span className={`badge transition-transform group-hover:scale-110 ${task.priority === 'Alta' ? 'badge-error' : 'bg-gray-200 text-gray-700 border border-gray-300'}`}>
                                             {task.priority}
                                         </span>
                                     </div>
@@ -118,8 +123,8 @@ export const Dashboard: React.FC = () => {
     });
 
     return (
-        <div className="space-y-8 animate-fade-in">
-            <div className="flex justify-between items-end">
+        <div className="space-y-8">
+            <div className="flex justify-between items-end animate-slide-down">
                 <div>
                     <h1 className="text-3xl font-bold text-gray-900">Dashboard Executivo</h1>
                     <p className="text-gray-500 mt-1">Visão geral de performance e indicadores.</p>
@@ -131,7 +136,9 @@ export const Dashboard: React.FC = () => {
 
             {/* KPI Cards Row 1 - Financials & Hours */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-xl shadow-lg p-6 text-white">
+                {/* Cards will have stagger animation */}
+                <div className="stagger-item bg-gradient-to-br from-green-500 to-green-600 rounded-xl shadow-lg p-6 text-white hover:shadow-2xl hover:scale-105 transition-all duration-300 cursor-pointer relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-white opacity-5 rounded-full -mr-16 -mt-16"></div>
                     <div className="flex justify-between items-start">
                         <div>
                             <p className="text-green-100 font-medium mb-1">Total Pago (Instrutores)</p>
@@ -146,7 +153,8 @@ export const Dashboard: React.FC = () => {
                     </div>
                 </div>
 
-                <div className="bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl shadow-lg p-6 text-white">
+                <div className="stagger-item bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl shadow-lg p-6 text-white hover:shadow-2xl hover:scale-105 transition-all duration-300 cursor-pointer relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-white opacity-5 rounded-full -mr-16 -mt-16"></div>
                     <div className="flex justify-between items-start">
                         <div>
                             <p className="text-orange-100 font-medium mb-1">Previsão a Pagar</p>
@@ -161,7 +169,8 @@ export const Dashboard: React.FC = () => {
                     </div>
                 </div>
 
-                <div className="bg-gradient-to-br from-blue-600 to-blue-700 rounded-xl shadow-lg p-6 text-white">
+                <div className="stagger-item bg-gradient-to-br from-blue-600 to-blue-700 rounded-xl shadow-lg p-6 text-white hover:shadow-2xl hover:scale-105 transition-all duration-300 cursor-pointer relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-white opacity-5 rounded-full -mr-16 -mt-16"></div>
                     <div className="flex justify-between items-start">
                         <div>
                             <p className="text-blue-100 font-medium mb-1">Horas Aula Ministradas</p>
@@ -178,7 +187,7 @@ export const Dashboard: React.FC = () => {
             </div>
 
             {/* Chart Row */}
-            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+            <div className="card-premium animate-slide-up p-6">
                 <h3 className="text-lg font-bold text-gray-900 mb-6">Alunos Formados por Curso</h3>
                 <div className="h-80 w-full">
                     <ResponsiveContainer width="100%" height="100%">
@@ -194,14 +203,14 @@ export const Dashboard: React.FC = () => {
             </div>
 
             {/* Lower Section: Recent Activity (Mock) */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+            <div className="card-premium overflow-hidden animate-slide-up">
                 <div className="px-6 py-4 border-b border-gray-100 bg-gray-50">
                     <h3 className="font-bold text-gray-800">Atividades Recentes</h3>
                 </div>
                 <div className="p-6">
                     <div className="space-y-4">
                         {[1, 2, 3].map(i => (
-                            <div key={i} className="flex items-center space-x-4 pb-4 border-b border-gray-100 last:border-0 last:pb-0">
+                            <div key={i} className="flex items-center space-x-4 pb-4 border-b border-gray-100 last:border-0 last:pb-0 hover:bg-gray-50 -mx-6 px-6 py-3 transition-colors cursor-pointer rounded-lg">
                                 <div className="h-10 w-10 rounded-full bg-gray-100 flex items-center justify-center text-gray-500">
                                     <Clock size={18} />
                                 </div>
