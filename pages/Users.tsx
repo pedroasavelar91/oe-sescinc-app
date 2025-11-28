@@ -9,6 +9,13 @@ export const UsersPage: React.FC = () => {
   const [showModal, setShowModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
 
+  // Verificar se o usuário pode criar novos usuários
+  const canCreateUsers = currentUser && [
+    UserRole.GESTOR,
+    UserRole.COORDENADOR,
+    UserRole.EMBAIXADOR
+  ].includes(currentUser.role);
+
   // Form State
   const [newUser, setNewUser] = useState<Partial<User>>({
     role: UserRole.INSTRUTOR,
@@ -53,13 +60,15 @@ export const UsersPage: React.FC = () => {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <h1 className="text-2xl font-bold text-gray-900">Gerenciamento de Usuários</h1>
-        <button
-          onClick={() => setShowModal(true)}
-          className="flex items-center space-x-2 bg-primary-600 text-white px-4 py-2 rounded-md hover:bg-primary-700 transition"
-        >
-          <Plus size={20} />
-          <span>Novo Usuário</span>
-        </button>
+        {canCreateUsers && (
+          <button
+            onClick={() => setShowModal(true)}
+            className="flex items-center space-x-2 bg-primary-600 text-white px-4 py-2 rounded-md hover:bg-primary-700 transition"
+          >
+            <Plus size={20} />
+            <span>Novo Usuário</span>
+          </button>
+        )}
       </div>
 
       <div className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden">
