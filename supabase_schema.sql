@@ -80,7 +80,15 @@ create table public.classes (
   theory_start_date date,
   practice_start_date date,
   registration_number text,
-  cap_ba text
+  cap_ba text,
+  setup_instructor_1_id uuid references public.users(id),
+  setup_instructor_1_days integer,
+  setup_instructor_2_id uuid references public.users(id),
+  setup_instructor_2_days integer,
+  teardown_instructor_1_id uuid references public.users(id),
+  teardown_instructor_1_days integer,
+  teardown_instructor_2_id uuid references public.users(id),
+  teardown_instructor_2_days integer
 );
 
 -- Students Table

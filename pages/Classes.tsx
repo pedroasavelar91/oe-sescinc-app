@@ -292,7 +292,15 @@ export const ClassesPage: React.FC = () => {
             practiceStartDate: newClass.practiceStartDate,
             registrationNumber: newClass.registrationNumber,
             capBa: newClass.capBa,
-            schedule: previewSchedule
+            schedule: previewSchedule,
+            setupInstructor1Id: newClass.setupInstructor1Id,
+            setupInstructor1Days: newClass.setupInstructor1Days,
+            setupInstructor2Id: newClass.setupInstructor2Id,
+            setupInstructor2Days: newClass.setupInstructor2Days,
+            teardownInstructor1Id: newClass.teardownInstructor1Id,
+            teardownInstructor1Days: newClass.teardownInstructor1Days,
+            teardownInstructor2Id: newClass.teardownInstructor2Id,
+            teardownInstructor2Days: newClass.teardownInstructor2Days
         };
 
         addClass(cls);
@@ -308,7 +316,15 @@ export const ClassesPage: React.FC = () => {
             theoryStartDate: '',
             practiceStartDate: '',
             registrationNumber: '',
-            capBa: ''
+            capBa: '',
+            setupInstructor1Id: '',
+            setupInstructor1Days: 0,
+            setupInstructor2Id: '',
+            setupInstructor2Days: 0,
+            teardownInstructor1Id: '',
+            teardownInstructor1Days: 0,
+            teardownInstructor2Id: '',
+            teardownInstructor2Days: 0
         });
         setClassNumber('');
         setPreviewSchedule([]);
@@ -404,9 +420,9 @@ export const ClassesPage: React.FC = () => {
         const start = getLocalDate(cls.startDate);
         const end = getLocalDate(cls.endDate);
 
-        if (today < start) return { label: 'A Iniciar', color: 'bg-blue-100 text-blue-800' };
-        if (today > end) return { label: 'Finalizada', color: 'bg-red-100 text-red-800' };
-        return { label: 'Em Andamento', color: 'bg-green-100 text-green-800' };
+        if (today < start) return { label: 'A Iniciar', color: 'bg-blue-50 text-blue-700 border border-blue-200' };
+        if (today > end) return { label: 'Finalizada', color: 'bg-gray-100 text-gray-600 border border-gray-200' };
+        return { label: 'Em Andamento', color: 'bg-green-50 text-green-700 border border-green-200' };
     };
 
     const getRowSpan = (schedule: ClassScheduleItem[], index: number, key: keyof ClassScheduleItem) => {
@@ -424,7 +440,7 @@ export const ClassesPage: React.FC = () => {
         return span;
     };
 
-    const ScheduleTable = ({ schedule, readOnly = false, onUpdate }: { schedule: ClassScheduleItem[], readOnly?: boolean, onUpdate?: (id: string, field: string, val: any) => void }) => {
+    const ScheduleTable = ({ schedule, readOnly = false, onUpdate }: { schedule: ClassScheduleItem[], readOnly?: boolean, onUpdate?: (id: string, field: keyof ClassScheduleItem, val: any) => void }) => {
         const courseId = readOnly ? selectedClass?.courseId : newClass.courseId;
         const course = courses.find(c => c.id === courseId);
 
@@ -612,38 +628,158 @@ export const ClassesPage: React.FC = () => {
 
                     {/* Column 3: Configuration */}
                     <div className="space-y-4">
-                        <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider border-b pb-1">Configuração e Instrutores</h3>
-                        <div className="flex flex-col space-y-3 pt-2">
-                            <div className="flex items-center space-x-3">
-                                <input
-                                    id="sat"
-                                    type="checkbox"
-                                    className="h-5 w-5 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
-                                    checked={newClass.includeSaturday}
-                                    onChange={e => setNewClass({ ...newClass, includeSaturday: e.target.checked })}
-                                />
-                                <label htmlFor="sat" className="text-sm text-gray-700 font-medium">Incluir Sábados</label>
+                        <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 shadow-sm">
+                            <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3 flex items-center">
+                                <span className="w-2 h-2 bg-primary-500 rounded-full mr-2"></span>
+                                Configuração
+                            </h3>
+
+                            <div className="space-y-3">
+                                <label className="flex items-center space-x-3 p-2 hover:bg-white rounded transition cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        className="h-5 w-5 text-primary-600 focus:ring-primary-500 border-gray-300 rounded transition"
+                                        checked={newClass.includeSaturday}
+                                        onChange={e => setNewClass({ ...newClass, includeSaturday: e.target.checked })}
+                                    />
+                                    <span className="text-sm text-gray-700 font-medium">Incluir Sábados</span>
+                                </label>
+                                <label className="flex items-center space-x-3 p-2 hover:bg-white rounded transition cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        className="h-5 w-5 text-primary-600 focus:ring-primary-500 border-gray-300 rounded transition"
+                                        checked={newClass.includeSunday}
+                                        onChange={e => setNewClass({ ...newClass, includeSunday: e.target.checked })}
+                                    />
+                                    <span className="text-sm text-gray-700 font-medium">Incluir Domingos</span>
+                                </label>
                             </div>
-                            <div className="flex items-center space-x-3">
-                                <input
-                                    id="sun"
-                                    type="checkbox"
-                                    className="h-5 w-5 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
-                                    checked={newClass.includeSunday}
-                                    onChange={e => setNewClass({ ...newClass, includeSunday: e.target.checked })}
+
+                            <div className="mt-4 pt-4 border-t border-gray-200">
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Instrutor Padrão (Prática)</label>
+                                <MultiSelect
+                                    options={instructors}
+                                    selectedIds={defaultPracticeInstructors}
+                                    onChange={setDefaultPracticeInstructors}
                                 />
-                                <label htmlFor="sun" className="text-sm text-gray-700 font-medium">Incluir Domingos</label>
+                                <p className="text-xs text-gray-500 mt-1">Atribuído automaticamente às aulas práticas.</p>
                             </div>
                         </div>
 
-                        <div className="mt-4 pt-4 border-t border-gray-200">
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Instrutor Padrão (Aulas Práticas)</label>
-                            <MultiSelect
-                                options={instructors}
-                                selectedIds={defaultPracticeInstructors}
-                                onChange={setDefaultPracticeInstructors}
-                            />
-                            <p className="text-xs text-gray-500 mt-1">Será atribuído automaticamente a todas as aulas práticas.</p>
+                        {/* Setup/Teardown Section */}
+                        <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
+                            <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3 flex items-center">
+                                <span className="w-2 h-2 bg-blue-500 rounded-full mr-2"></span>
+                                Logística (Montagem/Desmontagem)
+                            </h3>
+
+                            <div className="space-y-4">
+                                {/* Montagem */}
+                                <div className="bg-blue-50 p-3 rounded-md border border-blue-100">
+                                    <h4 className="text-xs font-bold text-blue-800 mb-2 uppercase">Montagem da Área</h4>
+                                    <div className="space-y-2">
+                                        <div className="grid grid-cols-12 gap-2 items-center">
+                                            <div className="col-span-8">
+                                                <label className="block text-[10px] uppercase text-blue-600 font-bold mb-0.5">Instrutor 1</label>
+                                                <select
+                                                    className="w-full text-sm border-gray-300 rounded focus:ring-blue-500 focus:border-blue-500"
+                                                    value={newClass.setupInstructor1Id || ''}
+                                                    onChange={e => setNewClass({ ...newClass, setupInstructor1Id: e.target.value })}
+                                                >
+                                                    <option value="">Selecionar...</option>
+                                                    {instructors.map(i => <option key={i.id} value={i.id}>{i.name}</option>)}
+                                                </select>
+                                            </div>
+                                            <div className="col-span-4">
+                                                <label className="block text-[10px] uppercase text-blue-600 font-bold mb-0.5">Dias</label>
+                                                <input
+                                                    type="number"
+                                                    min="0"
+                                                    className="w-full text-sm border-gray-300 rounded focus:ring-blue-500 focus:border-blue-500"
+                                                    value={newClass.setupInstructor1Days || ''}
+                                                    onChange={e => setNewClass({ ...newClass, setupInstructor1Days: parseInt(e.target.value) || 0 })}
+                                                />
+                                            </div>
+                                        </div>
+                                        <div className="grid grid-cols-12 gap-2 items-center">
+                                            <div className="col-span-8">
+                                                <label className="block text-[10px] uppercase text-blue-600 font-bold mb-0.5">Instrutor 2</label>
+                                                <select
+                                                    className="w-full text-sm border-gray-300 rounded focus:ring-blue-500 focus:border-blue-500"
+                                                    value={newClass.setupInstructor2Id || ''}
+                                                    onChange={e => setNewClass({ ...newClass, setupInstructor2Id: e.target.value })}
+                                                >
+                                                    <option value="">Selecionar...</option>
+                                                    {instructors.map(i => <option key={i.id} value={i.id}>{i.name}</option>)}
+                                                </select>
+                                            </div>
+                                            <div className="col-span-4">
+                                                <label className="block text-[10px] uppercase text-blue-600 font-bold mb-0.5">Dias</label>
+                                                <input
+                                                    type="number"
+                                                    min="0"
+                                                    className="w-full text-sm border-gray-300 rounded focus:ring-blue-500 focus:border-blue-500"
+                                                    value={newClass.setupInstructor2Days || ''}
+                                                    onChange={e => setNewClass({ ...newClass, setupInstructor2Days: parseInt(e.target.value) || 0 })}
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Desmontagem */}
+                                <div className="bg-orange-50 p-3 rounded-md border border-orange-100">
+                                    <h4 className="text-xs font-bold text-orange-800 mb-2 uppercase">Desmontagem da Área</h4>
+                                    <div className="space-y-2">
+                                        <div className="grid grid-cols-12 gap-2 items-center">
+                                            <div className="col-span-8">
+                                                <label className="block text-[10px] uppercase text-orange-600 font-bold mb-0.5">Instrutor 1</label>
+                                                <select
+                                                    className="w-full text-sm border-gray-300 rounded focus:ring-orange-500 focus:border-orange-500"
+                                                    value={newClass.teardownInstructor1Id || ''}
+                                                    onChange={e => setNewClass({ ...newClass, teardownInstructor1Id: e.target.value })}
+                                                >
+                                                    <option value="">Selecionar...</option>
+                                                    {instructors.map(i => <option key={i.id} value={i.id}>{i.name}</option>)}
+                                                </select>
+                                            </div>
+                                            <div className="col-span-4">
+                                                <label className="block text-[10px] uppercase text-orange-600 font-bold mb-0.5">Dias</label>
+                                                <input
+                                                    type="number"
+                                                    min="0"
+                                                    className="w-full text-sm border-gray-300 rounded focus:ring-orange-500 focus:border-orange-500"
+                                                    value={newClass.teardownInstructor1Days || ''}
+                                                    onChange={e => setNewClass({ ...newClass, teardownInstructor1Days: parseInt(e.target.value) || 0 })}
+                                                />
+                                            </div>
+                                        </div>
+                                        <div className="grid grid-cols-12 gap-2 items-center">
+                                            <div className="col-span-8">
+                                                <label className="block text-[10px] uppercase text-orange-600 font-bold mb-0.5">Instrutor 2</label>
+                                                <select
+                                                    className="w-full text-sm border-gray-300 rounded focus:ring-orange-500 focus:border-orange-500"
+                                                    value={newClass.teardownInstructor2Id || ''}
+                                                    onChange={e => setNewClass({ ...newClass, teardownInstructor2Id: e.target.value })}
+                                                >
+                                                    <option value="">Selecionar...</option>
+                                                    {instructors.map(i => <option key={i.id} value={i.id}>{i.name}</option>)}
+                                                </select>
+                                            </div>
+                                            <div className="col-span-4">
+                                                <label className="block text-[10px] uppercase text-orange-600 font-bold mb-0.5">Dias</label>
+                                                <input
+                                                    type="number"
+                                                    min="0"
+                                                    className="w-full text-sm border-gray-300 rounded focus:ring-orange-500 focus:border-orange-500"
+                                                    value={newClass.teardownInstructor2Days || ''}
+                                                    onChange={e => setNewClass({ ...newClass, teardownInstructor2Days: parseInt(e.target.value) || 0 })}
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>

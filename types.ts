@@ -79,13 +79,23 @@ export interface ClassGroup {
   includeSaturday: boolean;
   includeSunday: boolean;
   hoursPerDay: number;
-  
+
   // New Fields
   theoryStartDate?: string;
   practiceStartDate?: string;
   registrationNumber?: string;
   capBa?: string;
   schedule: ClassScheduleItem[];
+
+  // Setup/Teardown Instructors
+  setupInstructor1Id?: string;
+  setupInstructor1Days?: number;
+  setupInstructor2Id?: string;
+  setupInstructor2Days?: number;
+  teardownInstructor1Id?: string;
+  teardownInstructor1Days?: number;
+  teardownInstructor2Id?: string;
+  teardownInstructor2Days?: number;
 }
 
 export type EnrollmentStatus = 'Matriculado' | 'Cancelado' | 'Desligado' | 'Pendente' | 'Aprovado' | 'Reprovado';
@@ -96,7 +106,7 @@ export interface Student {
   cpf: string;
   classId?: string; // Linked Class
   enrollmentStatus: EnrollmentStatus;
-  
+
   rg: string;
   rgIssuer: string;
   birthDate: string;
@@ -107,7 +117,7 @@ export interface Student {
   nationality: string;
   motherName: string;
   fatherName: string;
-  
+
   // Computed fields for display
   matricula?: string;
   registro?: string;
@@ -116,7 +126,7 @@ export interface Student {
 
   // Grades - P1, P2 are numbers, T1, T2 are strings (time)
   grades: {
-    [key: string]: number | string; 
+    [key: string]: number | string;
   };
   finalTheory: number;
   finalPractical: number;
@@ -265,7 +275,7 @@ export interface Firefighter {
   lastUpdateDate: string; // Ultima Atualização (AT)
   isNotUpdated: boolean; // "Ainda não atualizado"
   lastFireExerciseDate?: string; // Ultimo exercicio com fogo (Only Class IV)
-  
+
   // Leave/Away Status
   isAway: boolean;
   awayStartDate?: string;

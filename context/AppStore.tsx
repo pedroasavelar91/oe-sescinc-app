@@ -64,6 +64,63 @@ interface StoreContextType {
 
 const StoreContext = createContext<StoreContextType | undefined>(undefined);
 
+// --- Helpers for Data Mapping ---
+
+const mapClassFromDB = (dbClass: any): ClassGroup => ({
+    id: dbClass.id,
+    name: dbClass.name,
+    startDate: dbClass.start_date,
+    endDate: dbClass.end_date,
+    courseId: dbClass.course_id,
+    studentIds: dbClass.student_ids || [], // Assuming this might be a join or separate fetch, but keeping simple for now
+    daysOfWeek: dbClass.days_of_week || [],
+    includeWeekends: false, // Deprecated in DB?
+    includeSaturday: dbClass.include_saturday,
+    includeSunday: dbClass.include_sunday,
+    hoursPerDay: dbClass.hours_per_day,
+    theoryStartDate: dbClass.theory_start_date,
+    practiceStartDate: dbClass.practice_start_date,
+    registrationNumber: dbClass.registration_number,
+    capBa: dbClass.cap_ba,
+    schedule: dbClass.subjects || [], // The JSONB column is named 'subjects' in DB but maps to 'schedule' in types? Wait, let's check types.ts. 
+    // In types.ts: schedule: ClassScheduleItem[]. 
+    // In DB: subjects jsonb. 
+    // So yes, map dbClass.subjects to schedule.
+    setupInstructor1Id: dbClass.setup_instructor_1_id,
+    setupInstructor1Days: dbClass.setup_instructor_1_days,
+    setupInstructor2Id: dbClass.setup_instructor_2_id,
+    setupInstructor2Days: dbClass.setup_instructor_2_days,
+    teardownInstructor1Id: dbClass.teardown_instructor_1_id,
+    teardownInstructor1Days: dbClass.teardown_instructor_1_days,
+    teardownInstructor2Id: dbClass.teardown_instructor_2_id,
+    teardownInstructor2Days: dbClass.teardown_instructor_2_days
+});
+
+const mapClassToDB = (cls: ClassGroup) => ({
+    id: cls.id,
+    name: cls.name,
+    start_date: cls.startDate,
+    end_date: cls.endDate,
+    course_id: cls.courseId,
+    days_of_week: cls.daysOfWeek,
+    include_saturday: cls.includeSaturday,
+    include_sunday: cls.includeSunday,
+    hours_per_day: cls.hoursPerDay,
+    theory_start_date: cls.theoryStartDate,
+    practice_start_date: cls.practiceStartDate,
+    registration_number: cls.registrationNumber,
+    cap_ba: cls.capBa,
+    subjects: cls.schedule, // Mapping schedule back to subjects JSONB column
+    setup_instructor_1_id: cls.setupInstructor1Id || null,
+    setup_instructor_1_days: cls.setupInstructor1Days || 0,
+    setup_instructor_2_id: cls.setupInstructor2Id || null,
+    setup_instructor_2_days: cls.setupInstructor2Days || 0,
+    teardown_instructor_1_id: cls.teardownInstructor1Id || null,
+    teardown_instructor_1_days: cls.teardownInstructor1Days || 0,
+    teardown_instructor_2_id: cls.teardownInstructor2Id || null,
+    teardown_instructor_2_days: cls.teardownInstructor2Days || 0
+});
+
 export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const [currentUser, setCurrentUser] = useState<User | null>(null);
     const [loading, setLoading] = useState(true);
@@ -142,7 +199,16 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                 await Promise.all([
                     safeFetch('users', setUsers, initialUsers),
                     safeFetch('courses', setCourses, initialCourses),
-                    safeFetch('classes', setClasses, initialClasses),
+                    // Custom fetch for classes to handle mapping
+                    (async () => {
+                        const { data, error } = await supabase.from('classes').select('*');
+                        if (!error && data) {
+                            setClasses(data.map(mapClassFromDB));
+                        } else {
+                            console.warn("Supabase: Error fetching classes. Using fallback.");
+                            setClasses(initialClasses);
+                        }
+                    })(),
                     safeFetch('students', setStudents, initialStudents),
                     safeFetch('tasks', setTasks, initialTasks),
                     safeFetch('attendance_logs', setAttendanceLogs, initialAttendance),
@@ -313,12 +379,14 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     const addClass = async (cls: ClassGroup) => {
         setClasses([...classes, cls]);
-        await syncWithSupabase('classes', 'INSERT', cls);
+        const dbData = mapClassToDB(cls);
+        await syncWithSupabase('classes', 'INSERT', dbData);
     };
 
     const updateClass = async (cls: ClassGroup) => {
         setClasses(classes.map(c => c.id === cls.id ? cls : c));
-        await syncWithSupabase('classes', 'UPDATE', cls);
+        const dbData = mapClassToDB(cls);
+        await syncWithSupabase('classes', 'UPDATE', dbData);
     };
 
     const addStudent = async (student: Student) => {
