@@ -106,7 +106,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
           {(isManagerOrCoord || isAmbassador) && (
             <SidebarItem icon={Flame} label="Bombeiros" path="/firefighters" active={isActive('/firefighters')} onClick={() => setMobileMenuOpen(false)} />
           )}
-          {isManagerOrCoord && (
+          {(isManagerOrCoord || isAmbassador) && (
             <SidebarItem icon={Users} label="Usuários" path="/users" active={isActive('/users')} onClick={() => setMobileMenuOpen(false)} />
           )}
 
