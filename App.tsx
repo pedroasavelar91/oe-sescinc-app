@@ -1,6 +1,7 @@
 import React from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { StoreProvider, useStore } from './context/AppStore';
+import { ToastProvider } from './components/ToastProvider';
 import { Layout } from './components/Layout';
 import { Login } from './pages/Login';
 import { Dashboard } from './pages/Dashboard';
@@ -104,9 +105,11 @@ const AppRoutes = () => {
 const App: React.FC = () => {
   return (
     <StoreProvider>
-      <HashRouter>
-        <AppRoutes />
-      </HashRouter>
+      <ToastProvider>
+        <HashRouter>
+          <AppRoutes />
+        </HashRouter>
+      </ToastProvider>
     </StoreProvider>
   );
 };
