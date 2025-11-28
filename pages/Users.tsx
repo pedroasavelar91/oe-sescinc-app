@@ -144,115 +144,117 @@ export const UsersPage: React.FC = () => {
 
       {/* Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl my-8">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
             <div className="p-6 border-b border-gray-100 flex justify-between items-center">
               <h3 className="text-lg font-bold text-gray-900">Novo Cadastro de Usuário</h3>
               <button onClick={() => setShowModal(false)}><X size={24} className="text-gray-400 hover:text-gray-600" /></button>
             </div>
 
-            <form onSubmit={handleSave} className="p-6 space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Nome Completo</label>
-                  <input required type="text" className={inputClass}
-                    value={newUser.name || ''} onChange={e => setNewUser({ ...newUser, name: e.target.value })} />
+            <div className="flex-1 overflow-y-auto">
+              <form onSubmit={handleSave} className="p-6 space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Nome Completo</label>
+                    <input required type="text" className={inputClass}
+                      value={newUser.name || ''} onChange={e => setNewUser({ ...newUser, name: e.target.value })} />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">CPF</label>
+                    <input required type="text" className={inputClass}
+                      value={newUser.cpf || ''} onChange={e => setNewUser({ ...newUser, cpf: e.target.value })} />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Função</label>
+                    <select className={inputClass}
+                      value={newUser.role} onChange={e => setNewUser({ ...newUser, role: e.target.value as UserRole })}>
+                      {Object.values(UserRole).map(r => <option key={r} value={r}>{r}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Base (Opcional)</label>
+                    <input type="text" className={inputClass} placeholder="Ex: SBGR"
+                      value={newUser.base || ''} onChange={e => setNewUser({ ...newUser, base: e.target.value })} />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">E-Mail</label>
+                    <input required type="email" className={inputClass}
+                      value={newUser.email || ''} onChange={e => setNewUser({ ...newUser, email: e.target.value })} />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Número de Telefone</label>
+                    <input required type="text" className={inputClass}
+                      value={newUser.phone || ''} onChange={e => setNewUser({ ...newUser, phone: e.target.value })} />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Data de Nascimento</label>
+                    <input required type="date" className={inputClass}
+                      value={newUser.birthDate || ''} onChange={e => setNewUser({ ...newUser, birthDate: e.target.value })} />
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">CPF</label>
-                  <input required type="text" className={inputClass}
-                    value={newUser.cpf || ''} onChange={e => setNewUser({ ...newUser, cpf: e.target.value })} />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Função</label>
-                  <select className={inputClass}
-                    value={newUser.role} onChange={e => setNewUser({ ...newUser, role: e.target.value as UserRole })}>
-                    {Object.values(UserRole).map(r => <option key={r} value={r}>{r}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Base (Opcional)</label>
-                  <input type="text" className={inputClass} placeholder="Ex: SBGR"
-                    value={newUser.base || ''} onChange={e => setNewUser({ ...newUser, base: e.target.value })} />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">E-Mail</label>
-                  <input required type="email" className={inputClass}
-                    value={newUser.email || ''} onChange={e => setNewUser({ ...newUser, email: e.target.value })} />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Número de Telefone</label>
-                  <input required type="text" className={inputClass}
-                    value={newUser.phone || ''} onChange={e => setNewUser({ ...newUser, phone: e.target.value })} />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Data de Nascimento</label>
-                  <input required type="date" className={inputClass}
-                    value={newUser.birthDate || ''} onChange={e => setNewUser({ ...newUser, birthDate: e.target.value })} />
-                </div>
-              </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
-                <div className="bg-gray-50 p-4 rounded-md border border-gray-200">
-                  <h4 className="text-sm font-bold text-gray-900 mb-3 flex items-center gap-2">Tamanho de Uniforme</h4>
-                  <div className="grid grid-cols-1 gap-3">
-                    <div>
-                      <label className="text-xs text-gray-500 font-medium">Macacão</label>
-                      <select className={inputClass} value={newUser.uniformSize?.jumpsuit} onChange={e => setNewUser({ ...newUser, uniformSize: { ...newUser.uniformSize!, jumpsuit: e.target.value } })}>
-                        {UNIFORM_SIZES.map(s => <option key={s}>{s}</option>)}
-                      </select>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
+                  <div className="bg-gray-50 p-4 rounded-md border border-gray-200">
+                    <h4 className="text-sm font-bold text-gray-900 mb-3 flex items-center gap-2">Tamanho de Uniforme</h4>
+                    <div className="grid grid-cols-1 gap-3">
+                      <div>
+                        <label className="text-xs text-gray-500 font-medium">Macacão</label>
+                        <select className={inputClass} value={newUser.uniformSize?.jumpsuit} onChange={e => setNewUser({ ...newUser, uniformSize: { ...newUser.uniformSize!, jumpsuit: e.target.value } })}>
+                          {UNIFORM_SIZES.map(s => <option key={s}>{s}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-xs text-gray-500 font-medium">Camisa</label>
+                        <select className={inputClass} value={newUser.uniformSize?.shirt} onChange={e => setNewUser({ ...newUser, uniformSize: { ...newUser.uniformSize!, shirt: e.target.value } })}>
+                          {UNIFORM_SIZES.map(s => <option key={s}>{s}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-xs text-gray-500 font-medium">Calçado</label>
+                        <select className={inputClass} value={newUser.uniformSize?.shoes} onChange={e => setNewUser({ ...newUser, uniformSize: { ...newUser.uniformSize!, shoes: e.target.value } })}>
+                          {SHOE_SIZES.map(s => <option key={s}>{s}</option>)}
+                        </select>
+                      </div>
                     </div>
-                    <div>
-                      <label className="text-xs text-gray-500 font-medium">Camisa</label>
-                      <select className={inputClass} value={newUser.uniformSize?.shirt} onChange={e => setNewUser({ ...newUser, uniformSize: { ...newUser.uniformSize!, shirt: e.target.value } })}>
-                        {UNIFORM_SIZES.map(s => <option key={s}>{s}</option>)}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="text-xs text-gray-500 font-medium">Calçado</label>
-                      <select className={inputClass} value={newUser.uniformSize?.shoes} onChange={e => setNewUser({ ...newUser, uniformSize: { ...newUser.uniformSize!, shoes: e.target.value } })}>
-                        {SHOE_SIZES.map(s => <option key={s}>{s}</option>)}
-                      </select>
+                  </div>
+
+                  <div className="bg-gray-50 p-4 rounded-md border border-gray-200">
+                    <h4 className="text-sm font-bold text-gray-900 mb-3 flex items-center gap-2">Tamanho de EPI</h4>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-xs text-gray-500 font-medium">Calça</label>
+                        <select className={inputClass} value={newUser.ppeSize?.pants} onChange={e => setNewUser({ ...newUser, ppeSize: { ...newUser.ppeSize!, pants: e.target.value } })}>
+                          {UNIFORM_SIZES.map(s => <option key={s}>{s}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-xs text-gray-500 font-medium">Blusão</label>
+                        <select className={inputClass} value={newUser.ppeSize?.jacket} onChange={e => setNewUser({ ...newUser, ppeSize: { ...newUser.ppeSize!, jacket: e.target.value } })}>
+                          {UNIFORM_SIZES.map(s => <option key={s}>{s}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-xs text-gray-500 font-medium">Luva</label>
+                        <select className={inputClass} value={newUser.ppeSize?.gloves} onChange={e => setNewUser({ ...newUser, ppeSize: { ...newUser.ppeSize!, gloves: e.target.value } })}>
+                          {UNIFORM_SIZES.map(s => <option key={s}>{s}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-xs text-gray-500 font-medium">Bota de Combate</label>
+                        <select className={inputClass} value={newUser.ppeSize?.boots} onChange={e => setNewUser({ ...newUser, ppeSize: { ...newUser.ppeSize!, boots: e.target.value } })}>
+                          {SHOE_SIZES.map(s => <option key={s}>{s}</option>)}
+                        </select>
+                      </div>
                     </div>
                   </div>
                 </div>
 
-                <div className="bg-gray-50 p-4 rounded-md border border-gray-200">
-                  <h4 className="text-sm font-bold text-gray-900 mb-3 flex items-center gap-2">Tamanho de EPI</h4>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="text-xs text-gray-500 font-medium">Calça</label>
-                      <select className={inputClass} value={newUser.ppeSize?.pants} onChange={e => setNewUser({ ...newUser, ppeSize: { ...newUser.ppeSize!, pants: e.target.value } })}>
-                        {UNIFORM_SIZES.map(s => <option key={s}>{s}</option>)}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="text-xs text-gray-500 font-medium">Blusão</label>
-                      <select className={inputClass} value={newUser.ppeSize?.jacket} onChange={e => setNewUser({ ...newUser, ppeSize: { ...newUser.ppeSize!, jacket: e.target.value } })}>
-                        {UNIFORM_SIZES.map(s => <option key={s}>{s}</option>)}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="text-xs text-gray-500 font-medium">Luva</label>
-                      <select className={inputClass} value={newUser.ppeSize?.gloves} onChange={e => setNewUser({ ...newUser, ppeSize: { ...newUser.ppeSize!, gloves: e.target.value } })}>
-                        {UNIFORM_SIZES.map(s => <option key={s}>{s}</option>)}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="text-xs text-gray-500 font-medium">Bota de Combate</label>
-                      <select className={inputClass} value={newUser.ppeSize?.boots} onChange={e => setNewUser({ ...newUser, ppeSize: { ...newUser.ppeSize!, boots: e.target.value } })}>
-                        {SHOE_SIZES.map(s => <option key={s}>{s}</option>)}
-                      </select>
-                    </div>
-                  </div>
+                <div className="flex justify-end pt-4 border-t border-gray-100">
+                  <button type="button" onClick={() => setShowModal(false)} className="mr-3 px-4 py-2 text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200">Cancelar</button>
+                  <button type="submit" className="px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700">Salvar Usuário</button>
                 </div>
-              </div>
-
-              <div className="flex justify-end pt-4 border-t border-gray-100">
-                <button type="button" onClick={() => setShowModal(false)} className="mr-3 px-4 py-2 text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200">Cancelar</button>
-                <button type="submit" className="px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700">Salvar Usuário</button>
-              </div>
-            </form>
+              </form>
+            </div>
           </div>
         </div>
       )}
