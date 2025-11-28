@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import { useStore } from '../context/AppStore';
 import { Course, Subject, CourseType } from '../types';
-import { Plus, Trash2, Pencil, X, Save } from 'lucide-react';
+import { Plus, Trash2, Pencil, X, Save, ChevronDown, ChevronUp } from 'lucide-react';
 
 export const CoursesPage: React.FC = () => {
     const { courses, addCourse, updateCourse, deleteCourse } = useStore();
     const [isCreating, setIsCreating] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
+    const [isSubjectsExpanded, setIsSubjectsExpanded] = useState(true);
 
     const [courseForm, setCourseForm] = useState<Partial<Course>>({
         name: '',
@@ -219,28 +220,41 @@ export const CoursesPage: React.FC = () => {
                             </div>
                         </div>
 
+
                         {/* List of Subjects */}
-                        <div className="mt-4 space-y-2">
-                            {courseForm.subjects?.length === 0 && (
-                                <p className="text-sm text-gray-500 italic text-center py-2">Nenhuma matéria adicionada ainda.</p>
-                            )}
-                            {courseForm.subjects?.map((sub, index) => (
-                                <div key={sub.id || index} className="flex justify-between items-center text-sm bg-white p-3 border rounded shadow-sm hover:shadow-md transition-shadow">
-                                    <div className="flex-1 flex flex-col">
-                                        <span className="text-xs text-gray-500 font-bold">{sub.module}</span>
-                                        <span className="font-semibold text-gray-900">{sub.name}</span>
-                                    </div>
-                                    <div className="flex items-center space-x-4">
-                                        <span className={`px-2 py-0.5 rounded text-xs ${sub.modality === 'Teórica' ? 'bg-blue-100 text-blue-800' : 'bg-orange-100 text-orange-800'}`}>
-                                            {sub.modality}
-                                        </span>
-                                        <span className="font-bold text-gray-600 w-16 text-right">{sub.hours}h</span>
-                                        <button onClick={() => handleRemoveSubject(sub.id)} className="text-red-500 hover:text-red-700">
-                                            <Trash2 size={16} />
-                                        </button>
-                                    </div>
+                        <div className="mt-4">
+                            <button
+                                onClick={() => setIsSubjectsExpanded(!isSubjectsExpanded)}
+                                className="w-full flex justify-between items-center text-sm font-semibold text-gray-700 hover:text-gray-900 mb-2 pb-2 border-b border-gray-200"
+                            >
+                                <span>Matérias Cadastradas ({courseForm.subjects?.length || 0})</span>
+                                {isSubjectsExpanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+                            </button>
+
+                            {isSubjectsExpanded && (
+                                <div className="space-y-2">
+                                    {courseForm.subjects?.length === 0 && (
+                                        <p className="text-sm text-gray-500 italic text-center py-2">Nenhuma matéria adicionada ainda.</p>
+                                    )}
+                                    {courseForm.subjects?.map((sub, index) => (
+                                        <div key={sub.id || index} className="flex justify-between items-center text-sm bg-white p-3 border rounded shadow-sm hover:shadow-md transition-shadow">
+                                            <div className="flex-1 flex flex-col">
+                                                <span className="text-xs text-gray-500 font-bold">{sub.module}</span>
+                                                <span className="font-semibold text-gray-900">{sub.name}</span>
+                                            </div>
+                                            <div className="flex items-center space-x-4">
+                                                <span className={`px-2 py-0.5 rounded text-xs ${sub.modality === 'Teórica' ? 'bg-blue-100 text-blue-800' : 'bg-orange-100 text-orange-800'}`}>
+                                                    {sub.modality}
+                                                </span>
+                                                <span className="font-bold text-gray-600 w-16 text-right">{sub.hours}h</span>
+                                                <button onClick={() => handleRemoveSubject(sub.id)} className="text-red-500 hover:text-red-700">
+                                                    <Trash2 size={16} />
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ))}
                                 </div>
-                            ))}
+                            )}
                         </div>
                     </div>
 
