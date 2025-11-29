@@ -524,7 +524,7 @@ export const ClassesPage: React.FC = () => {
         return (
             <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
                 <div className="bg-white rounded-xl shadow-2xl w-full max-w-6xl max-h-[90vh] overflow-y-auto animate-scale-in">
-                    <div className="p-6 border-b border-gray-100 flex justify-between items-center sticky top-0 bg-white z-10">
+                    <div className="p-6 border-b border-gray-100 flex justify-between items-center sticky top-0 bg-white z-10 rounded-t-xl">
                         <h2 className="text-xl font-bold text-gray-900">Nova Turma</h2>
                         <button onClick={() => { setView('list'); resetForm(); }} className="text-gray-400 hover:text-gray-600 transition-colors">
                             <X size={24} />
@@ -678,133 +678,133 @@ export const ClassesPage: React.FC = () => {
         );
     }
 
-if (view === 'details' && selectedClass) {
-    const course = courses.find(c => c.id === selectedClass.courseId);
-    return (
-        <div className="space-y-6 relative">
-            <div className="flex items-center justify-between">
-                <div>
-                    <button onClick={() => setView('list')} className="text-sm text-gray-500 hover:text-gray-900 mb-2 flex items-center"><ChevronRight className="rotate-180 mr-1" size={14} /> Voltar</button>
-                    <h1 className="text-2xl font-bold text-gray-900">{selectedClass.name}</h1>
-                    <div className="flex items-center space-x-4 mt-1 text-sm text-gray-600">
-                        <span>{course?.name}</span>
-                        <span className="text-gray-300">|</span>
-                        <span>Reg: {selectedClass.registrationNumber || 'N/A'}</span>
-                        {selectedClass.capBa && (
-                            <>
-                                <span className="text-gray-300">|</span>
-                                <span>CAP-BA: {selectedClass.capBa}</span>
-                            </>
-                        )}
+    if (view === 'details' && selectedClass) {
+        const course = courses.find(c => c.id === selectedClass.courseId);
+        return (
+            <div className="space-y-6 relative">
+                <div className="flex items-center justify-between">
+                    <div>
+                        <button onClick={() => setView('list')} className="text-sm text-gray-500 hover:text-gray-900 mb-2 flex items-center"><ChevronRight className="rotate-180 mr-1" size={14} /> Voltar</button>
+                        <h1 className="text-2xl font-bold text-gray-900">{selectedClass.name}</h1>
+                        <div className="flex items-center space-x-4 mt-1 text-sm text-gray-600">
+                            <span>{course?.name}</span>
+                            <span className="text-gray-300">|</span>
+                            <span>Reg: {selectedClass.registrationNumber || 'N/A'}</span>
+                            {selectedClass.capBa && (
+                                <>
+                                    <span className="text-gray-300">|</span>
+                                    <span>CAP-BA: {selectedClass.capBa}</span>
+                                </>
+                            )}
+                        </div>
                     </div>
+                    <button onClick={() => exportToPDF(selectedClass)} className="flex items-center space-x-2 bg-red-600 text-white px-4 py-2 rounded shadow hover:bg-red-700 transition">
+                        <Download size={20} />
+                        <span>Exportar PDF</span>
+                    </button>
                 </div>
-                <button onClick={() => exportToPDF(selectedClass)} className="flex items-center space-x-2 bg-red-600 text-white px-4 py-2 rounded shadow hover:bg-red-700 transition">
-                    <Download size={20} />
-                    <span>Exportar PDF</span>
+
+                <ScheduleTable schedule={selectedClass.schedule} readOnly={true} />
+
+                {/* Swap Modal */}
+                {swapModalOpen && (
+                    <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
+                        <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-2xl animate-scale-in">
+                            <h3 className="text-lg font-bold mb-4">Solicitar Permuta de Aula</h3>
+                            <p className="text-sm text-gray-600 mb-4">
+                                Data: {new Date(swapItem?.date || '').toLocaleDateString()} <br />
+                                Horário: {swapItem?.startTime} - {swapItem?.endTime}
+                            </p>
+
+                            <div className="mb-4">
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Selecione o Instrutor Substituto</label>
+                                <select
+                                    className={inputClass}
+                                    value={swapTargetId}
+                                    onChange={e => setSwapTargetId(e.target.value)}
+                                >
+                                    <option value="">Selecione...</option>
+                                    {instructors.filter(u => u.id !== currentUser?.id).map(u => (
+                                        <option key={u.id} value={u.id}>{u.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div className="flex justify-end space-x-2">
+                                <button onClick={() => setSwapModalOpen(false)} className="px-4 py-2 text-gray-600 bg-gray-100 rounded hover:bg-gray-200">Cancelar</button>
+                                <button onClick={confirmSwap} className="px-4 py-2 bg-primary-600 text-white rounded hover:bg-primary-700">Solicitar</button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+            </div>
+        );
+    }
+
+    // List View
+    return (
+        <div className="space-y-6 animate-fade-in">
+            <div className="flex justify-between items-center animate-slide-down">
+                <div>
+                    <h1 className="text-3xl font-bold text-gray-900">Gerenciamento de Turmas</h1>
+                    <p className="text-gray-500 mt-1">Gerencie turmas e cronogramas</p>
+                </div>
+                <button
+                    onClick={() => setView('create')}
+                    className="btn-premium flex items-center space-x-2 bg-gradient-to-r from-primary-600 to-primary-500 hover:from-primary-700 hover:to-primary-600 text-white px-6 py-3 rounded-lg shadow-md transition-all duration-200"
+                >
+                    <Plus size={20} />
+                    <span className="font-semibold">Nova Turma</span>
                 </button>
             </div>
 
-            <ScheduleTable schedule={selectedClass.schedule} readOnly={true} />
-
-            {/* Swap Modal */}
-            {swapModalOpen && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
-                    <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-2xl animate-scale-in">
-                        <h3 className="text-lg font-bold mb-4">Solicitar Permuta de Aula</h3>
-                        <p className="text-sm text-gray-600 mb-4">
-                            Data: {new Date(swapItem?.date || '').toLocaleDateString()} <br />
-                            Horário: {swapItem?.startTime} - {swapItem?.endTime}
-                        </p>
-
-                        <div className="mb-4">
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Selecione o Instrutor Substituto</label>
-                            <select
-                                className={inputClass}
-                                value={swapTargetId}
-                                onChange={e => setSwapTargetId(e.target.value)}
-                            >
-                                <option value="">Selecione...</option>
-                                {instructors.filter(u => u.id !== currentUser?.id).map(u => (
-                                    <option key={u.id} value={u.id}>{u.name}</option>
-                                ))}
-                            </select>
-                        </div>
-
-                        <div className="flex justify-end space-x-2">
-                            <button onClick={() => setSwapModalOpen(false)} className="px-4 py-2 text-gray-600 bg-gray-100 rounded hover:bg-gray-200">Cancelar</button>
-                            <button onClick={confirmSwap} className="px-4 py-2 bg-primary-600 text-white rounded hover:bg-primary-700">Solicitar</button>
-                        </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {classes.length === 0 && (
+                    <div className="col-span-full text-center py-12 bg-white rounded-lg border border-dashed border-gray-300">
+                        <p className="text-gray-500">Nenhuma turma cadastrada.</p>
+                        <button onClick={() => setView('create')} className="mt-2 text-primary-600 font-medium hover:underline">Criar primeira turma</button>
                     </div>
-                </div>
-            )}
+                )}
+                {classes.map(cls => {
+                    const course = courses.find(c => c.id === cls.courseId);
+                    const status = getStatus(cls);
+
+                    return (
+                        <div key={cls.id} className="card-premium stagger-item flex flex-col h-full group">
+                            <div className="p-6 flex-1 cursor-pointer" onClick={() => { setSelectedClass(cls); setView('details'); }}>
+                                <div className="flex justify-between items-start">
+                                    <h3 className="text-lg font-bold text-gray-900">{cls.name}</h3>
+                                    <span className="bg-gray-100 text-gray-600 text-xs px-2 py-1 rounded">{course?.type}</span>
+                                </div>
+                                <p className="text-sm text-primary-600 font-medium mt-1">{course?.name}</p>
+
+                                <div className="mt-4 space-y-2">
+                                    <div className="flex items-center text-sm text-gray-500">
+                                        <CalendarIcon size={16} className="mr-2" />
+                                        {getLocalDate(cls.startDate).toLocaleDateString()} - {getLocalDate(cls.endDate).toLocaleDateString()}
+                                    </div>
+                                    <div className="flex items-center text-sm text-gray-500">
+                                        <Clock size={16} className="mr-2" />
+                                        {cls.schedule.length} Blocos de Aula
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="bg-gray-50 px-6 py-3 border-t border-gray-100 flex justify-between items-center">
+                                <span className={`text-xs font-medium px-2 py-1 rounded-full ${status.color}`}>
+                                    {status.label}
+                                </span>
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); exportToPDF(cls); }}
+                                    className="text-red-500 hover:text-red-700 p-1 rounded-full hover:bg-red-50 transition"
+                                    title="Baixar PDF"
+                                >
+                                    <Download size={18} />
+                                </button>
+                            </div>
+                        </div>
+                    )
+                })}
+            </div>
         </div>
     );
-}
-
-// List View
-return (
-    <div className="space-y-6 animate-fade-in">
-        <div className="flex justify-between items-center animate-slide-down">
-            <div>
-                <h1 className="text-3xl font-bold text-gray-900">Gerenciamento de Turmas</h1>
-                <p className="text-gray-500 mt-1">Gerencie turmas e cronogramas</p>
-            </div>
-            <button
-                onClick={() => setView('create')}
-                className="btn-premium flex items-center space-x-2 bg-gradient-to-r from-primary-600 to-primary-500 hover:from-primary-700 hover:to-primary-600 text-white px-6 py-3 rounded-lg shadow-md transition-all duration-200"
-            >
-                <Plus size={20} />
-                <span className="font-semibold">Nova Turma</span>
-            </button>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {classes.length === 0 && (
-                <div className="col-span-full text-center py-12 bg-white rounded-lg border border-dashed border-gray-300">
-                    <p className="text-gray-500">Nenhuma turma cadastrada.</p>
-                    <button onClick={() => setView('create')} className="mt-2 text-primary-600 font-medium hover:underline">Criar primeira turma</button>
-                </div>
-            )}
-            {classes.map(cls => {
-                const course = courses.find(c => c.id === cls.courseId);
-                const status = getStatus(cls);
-
-                return (
-                    <div key={cls.id} className="card-premium stagger-item flex flex-col h-full group">
-                        <div className="p-6 flex-1 cursor-pointer" onClick={() => { setSelectedClass(cls); setView('details'); }}>
-                            <div className="flex justify-between items-start">
-                                <h3 className="text-lg font-bold text-gray-900">{cls.name}</h3>
-                                <span className="bg-gray-100 text-gray-600 text-xs px-2 py-1 rounded">{course?.type}</span>
-                            </div>
-                            <p className="text-sm text-primary-600 font-medium mt-1">{course?.name}</p>
-
-                            <div className="mt-4 space-y-2">
-                                <div className="flex items-center text-sm text-gray-500">
-                                    <CalendarIcon size={16} className="mr-2" />
-                                    {getLocalDate(cls.startDate).toLocaleDateString()} - {getLocalDate(cls.endDate).toLocaleDateString()}
-                                </div>
-                                <div className="flex items-center text-sm text-gray-500">
-                                    <Clock size={16} className="mr-2" />
-                                    {cls.schedule.length} Blocos de Aula
-                                </div>
-                            </div>
-                        </div>
-                        <div className="bg-gray-50 px-6 py-3 border-t border-gray-100 flex justify-between items-center">
-                            <span className={`text-xs font-medium px-2 py-1 rounded-full ${status.color}`}>
-                                {status.label}
-                            </span>
-                            <button
-                                onClick={(e) => { e.stopPropagation(); exportToPDF(cls); }}
-                                className="text-red-500 hover:text-red-700 p-1 rounded-full hover:bg-red-50 transition"
-                                title="Baixar PDF"
-                            >
-                                <Download size={18} />
-                            </button>
-                        </div>
-                    </div>
-                )
-            })}
-        </div>
-    </div>
-);
 };

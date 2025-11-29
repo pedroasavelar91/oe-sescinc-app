@@ -93,7 +93,7 @@ export const SetupTeardownPage: React.FC = () => {
     };
 
     return (
-        <div className="p-6 space-y-6">
+        <div className="p-6 space-y-6 animate-fade-in">
             {/* Header */}
             <div className="flex items-center justify-between">
                 <div>
@@ -233,9 +233,9 @@ export const SetupTeardownPage: React.FC = () => {
 
             {/* Modal */}
             {modalOpen && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 animate-fade-in">
                     <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-                        <div className="p-6 border-b border-gray-200">
+                        <div className="p-6 border-b border-gray-200 rounded-t-xl">
                             <h2 className="text-2xl font-bold text-gray-900">
                                 {editingId ? 'Editar' : 'Nova'} Atribuição
                             </h2>

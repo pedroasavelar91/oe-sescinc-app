@@ -8,7 +8,6 @@ import {
   ClipboardCheck, CheckSquare, DollarSign, LogOut, Menu, Shield, UserCog,
   CalendarCheck, ClipboardList, Bell, Check, X, FileBadge, Flame, Wrench
 } from 'lucide-react';
-import { ThemeToggle } from './ThemeToggle';
 
 const SidebarItem = ({ icon: Icon, label, path, active, onClick }: any) => (
   <Link
@@ -152,12 +151,8 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
           </button>
 
           <div className="flex items-center justify-end w-full space-x-4">
-            {/* Notification Bell */}
+            {/* Notifications */}
             <div className="flex items-center space-x-3">
-              {/* Theme Toggle */}
-              <ThemeToggle />
-
-              {/* Notifications */}
               {/* Notifications Wrapper */}
               <div className="relative" ref={notifRef}>
                 <button

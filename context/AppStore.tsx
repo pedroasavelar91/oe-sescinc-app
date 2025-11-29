@@ -321,6 +321,19 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                     safeFetch('bases', setBases),
                     safeFetch('folders', setFolders, mapFolderFromDB),
                     safeFetch('documents', setDocuments, mapDocumentFromDB),
+                    safeFetch('setup_teardown_assignments', setSetupTeardownAssignments, (db: any) => ({
+                        id: db.id,
+                        classId: db.class_id,
+                        className: db.class_name,
+                        type: db.type,
+                        instructorId: db.instructor_id,
+                        instructorName: db.instructor_name,
+                        days: db.days,
+                        rate: db.rate,
+                        totalValue: db.total_value,
+                        date: db.date,
+                        notes: db.notes
+                    })),
                 ]);
             } catch (e) {
                 console.error("Critical Supabase connection error:", e);

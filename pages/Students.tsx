@@ -234,11 +234,11 @@ export const StudentsPage: React.FC = () => {
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">CAP-BA</th>
 
                                 {/* Grade Columns */}
-                                <th className="px-4 py-3 text-center text-xs font-bold text-blue-700 uppercase bg-blue-50 border-l border-blue-100">Final Teórica</th>
-                                <th className="px-4 py-3 text-center text-xs font-bold text-orange-700 uppercase bg-orange-50 border-l border-orange-100">Final Prática</th>
-                                <th className="px-4 py-3 text-center text-xs font-bold text-gray-900 uppercase bg-gray-100 border-l border-gray-200">Nota Final</th>
+                                <th className="px-4 py-3 text-center text-xs font-bold text-blue-700 uppercase bg-blue-50">Final Teórica</th>
+                                <th className="px-4 py-3 text-center text-xs font-bold text-orange-700 uppercase bg-orange-50">Final Prática</th>
+                                <th className="px-4 py-3 text-center text-xs font-bold text-gray-900 uppercase bg-gray-100">Nota Final</th>
 
-                                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase whitespace-nowrap border-l border-gray-100">Ações</th>
+                                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Ações</th>
                             </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
@@ -265,17 +265,17 @@ export const StudentsPage: React.FC = () => {
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 font-mono">{s.capCode}</td>
 
                                         {/* Read-only Grade Data */}
-                                        <td className="px-4 py-4 whitespace-nowrap text-sm text-center font-bold text-blue-800 bg-blue-50 border-l border-blue-100">
+                                        <td className="px-4 py-4 whitespace-nowrap text-sm text-center font-bold text-blue-800 bg-blue-50">
                                             {s.finalTheory ? s.finalTheory.toFixed(1) : '-'}
                                         </td>
-                                        <td className="px-4 py-4 whitespace-nowrap text-sm text-center font-bold text-orange-800 bg-orange-50 border-l border-orange-100">
+                                        <td className="px-4 py-4 whitespace-nowrap text-sm text-center font-bold text-orange-800 bg-orange-50">
                                             {s.finalPractical ? s.finalPractical.toFixed(1) : '-'}
                                         </td>
-                                        <td className="px-4 py-4 whitespace-nowrap text-sm text-center font-bold text-gray-900 bg-gray-100 border-l border-gray-200">
+                                        <td className="px-4 py-4 whitespace-nowrap text-sm text-center font-bold text-gray-900 bg-gray-100">
                                             {s.finalGrade ? s.finalGrade.toFixed(1) : '-'}
                                         </td>
 
-                                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium border-l border-gray-100">
+                                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                             <button onClick={() => handleEdit(s)} className="text-primary-600 hover:text-primary-900 hover:scale-110 transition-all duration-200">
                                                 <Pencil size={18} />
                                             </button>
