@@ -3,10 +3,11 @@ import React, { useState, useMemo } from 'react';
 import { useStore } from '../context/AppStore';
 import { PaymentRecord, UserRole } from '../types';
 import { HOURLY_RATES } from '../constants';
-import { Check, DollarSign, Clock, Filter, AlertCircle, Calendar, BarChart2, Download, Search } from 'lucide-react';
+import { Check, DollarSign, Clock, Filter, AlertCircle, Calendar, BarChart2, Download, Search, Wrench } from 'lucide-react';
 
 interface FinancialLogItem {
     id: string; // Composite ID for key
+    type: 'Aula' | 'Montagem' | 'Desmontagem';
     scheduleId: string;
     instructorId: string;
     instructorName: string;
@@ -15,8 +16,9 @@ interface FinancialLogItem {
     className: string;
     date: string; // YYYY-MM-DD
     subject: string;
-    modality: 'Teórica' | 'Prática';
-    hours: number;
+    modality: 'Teórica' | 'Prática' | 'Operacional';
+    hours?: number;
+    days?: number;
     rate: number;
     value: number;
     status: 'Pago' | 'Pendente';
@@ -24,7 +26,7 @@ interface FinancialLogItem {
 }
 
 export const FinancePage: React.FC = () => {
-    const { currentUser, classes, courses, users, payments, addPayment } = useStore();
+    const { currentUser, classes, courses, users, payments, addPayment, setupTeardownAssignments } = useStore();
     const [selectedLogs, setSelectedLogs] = useState<string[]>([]); // Array of composite IDs
 
     // Filters
@@ -43,6 +45,7 @@ export const FinancePage: React.FC = () => {
     const rawFinancialItems = useMemo(() => {
         let items: FinancialLogItem[] = [];
 
+        // Add class schedule items
         classes.forEach(cls => {
             const course = courses.find(c => c.id === cls.courseId);
             cls.schedule.forEach(item => {
@@ -64,6 +67,7 @@ export const FinancePage: React.FC = () => {
 
                     items.push({
                         id: `${item.id}-${instId}`,
+                        type: 'Aula',
                         scheduleId: item.id,
                         instructorId: instId,
                         instructorName: instructorUser?.name || 'Desconhecido',
@@ -83,9 +87,36 @@ export const FinancePage: React.FC = () => {
             });
         });
 
+        // Add setup/teardown items
+        setupTeardownAssignments.forEach(assignment => {
+            // Security: If current user is instructor, strictly filter
+            if (isInstructor && assignment.instructorId !== currentUser.id) return;
+
+            const instructorUser = users.find(u => u.id === assignment.instructorId);
+
+            items.push({
+                id: `setup-${assignment.id}`,
+                type: assignment.type as 'Montagem' | 'Desmontagem',
+                scheduleId: assignment.id,
+                instructorId: assignment.instructorId,
+                instructorName: assignment.instructorName,
+                instructorRole: instructorUser?.role || 'Instrutor',
+                classId: assignment.classId,
+                className: assignment.className,
+                date: assignment.date,
+                subject: assignment.type,
+                modality: 'Operacional',
+                days: assignment.days,
+                rate: assignment.rate,
+                value: assignment.totalValue,
+                status: 'Pago', // Assumir pago por padrão
+                paymentDate: assignment.date
+            });
+        });
+
         // Sort by date desc
         return items.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-    }, [classes, courses, users, payments, currentUser, isInstructor]);
+    }, [classes, courses, users, payments, currentUser, isInstructor, setupTeardownAssignments]);
 
     // --- 2. Filtered Data for Table ---
     const filteredItems = useMemo(() => {
@@ -107,13 +138,13 @@ export const FinancePage: React.FC = () => {
     // --- 3. Summary Stats (Based on Filtered Data) ---
     const summary = useMemo(() => {
         return filteredItems.reduce((acc, item) => {
-            acc.totalHours += item.hours;
+            acc.totalHours += item.hours ?? 0;
             acc.totalValue += item.value;
             if (item.status === 'Pago') {
-                acc.paidHours += item.hours;
+                acc.paidHours += item.hours ?? 0;
                 acc.paidValue += item.value;
             } else {
-                acc.pendingHours += item.hours;
+                acc.pendingHours += item.hours ?? 0;
                 acc.pendingValue += item.value;
             }
             return acc;
@@ -147,7 +178,7 @@ export const FinancePage: React.FC = () => {
                     totalEvents: 0
                 };
             }
-            statsMap[item.instructorId].totalHours += item.hours;
+            statsMap[item.instructorId].totalHours += item.hours ?? 0;
             statsMap[item.instructorId].totalValue += item.value;
             statsMap[item.instructorId].classesParticipated.add(item.classId);
             statsMap[item.instructorId].totalEvents += 1;
@@ -197,14 +228,15 @@ export const FinancePage: React.FC = () => {
     };
 
     const handleExportCSV = () => {
-        const headers = ["Data", "Instrutor", "Turma", "Materia", "Modalidade", "Horas", "Valor/Hora", "Total", "Status"];
+        const headers = ["Data", "Tipo", "Instrutor", "Turma", "Materia", "Modalidade", "Horas/Dias", "Valor/Hora", "Total", "Status"];
         const rows = filteredItems.map(item => [
             new Date(item.date).toLocaleDateString(),
+            item.type,
             item.instructorName,
             item.className,
             item.subject,
             item.modality,
-            item.hours.toString().replace('.', ','),
+            item.hours ? `${item.hours}h` : `${item.days} dias`,
             item.rate.toString().replace('.', ','),
             item.value.toString().replace('.', ','),
             item.status
@@ -414,10 +446,11 @@ export const FinancePage: React.FC = () => {
                                     </th>
                                 )}
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Data</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tipo</th>
                                 {!isInstructor && <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Instrutor</th>}
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Turma / Matéria</th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Modalidade</th>
-                                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Carga Horária</th>
+                                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Horas/Dias</th>
                                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Valor Hora</th>
                                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Total</th>
                                 <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Status</th>
@@ -448,6 +481,17 @@ export const FinancePage: React.FC = () => {
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                             {new Date(log.date).toLocaleDateString()}
                                         </td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm">
+                                            <span className={`inline-flex items-center px-2 py-1 rounded-md text-xs font-medium ${log.type === 'Aula' ? 'bg-blue-100 text-blue-800' :
+                                                    log.type === 'Montagem' ? 'bg-green-100 text-green-800' :
+                                                        'bg-orange-100 text-orange-800'
+                                                }`}>
+                                                {log.type === 'Aula' && '📚 '}
+                                                {log.type === 'Montagem' && '🔧 '}
+                                                {log.type === 'Desmontagem' && '📦 '}
+                                                {log.type}
+                                            </span>
+                                        </td>
                                         {!isInstructor && (
                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 font-medium">
                                                 {log.instructorName}
@@ -458,12 +502,15 @@ export const FinancePage: React.FC = () => {
                                             <div className="text-xs">{log.subject}</div>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm">
-                                            <span className={`px-2 py-1 rounded text-xs ${log.modality === 'Prática' ? 'bg-orange-100 text-orange-800' : 'bg-blue-100 text-blue-800'}`}>
+                                            <span className={`px-2 py-1 rounded text-xs ${log.modality === 'Prática' ? 'bg-orange-100 text-orange-800' :
+                                                    log.modality === 'Operacional' ? 'bg-purple-100 text-purple-800' :
+                                                        'bg-blue-100 text-blue-800'
+                                                }`}>
                                                 {log.modality}
                                             </span>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-center font-medium text-gray-700">
-                                            {log.hours} h
+                                            {log.hours ? `${log.hours} h` : `${log.days} dias`}
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-500">
                                             R$ {log.rate.toFixed(2)}

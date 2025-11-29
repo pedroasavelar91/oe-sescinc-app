@@ -418,79 +418,155 @@ export const FirefightersPage: React.FC = () => {
 
             {activeTab === 'dashboard' && (
                 <div className="space-y-6">
-                    <div className="flex flex-col sm:flex-row justify-between items-center bg-white p-4 rounded-lg shadow-sm border border-gray-100">
+                    {/* Controls */}
+                    <div className="flex flex-col sm:flex-row justify-between items-center bg-white p-4 rounded-xl shadow-sm border border-gray-100">
                         <div className="flex gap-2 mb-2 sm:mb-0">
                             <button
                                 onClick={() => setValidityType('AT')}
-                                className={`px-4 py-2 rounded text-sm font-bold transition ${validityType === 'AT' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600'}`}
+                                className={`px-6 py-2.5 rounded-lg text-sm font-bold transition-all duration-200 ${validityType === 'AT' ? 'bg-gradient-to-r from-blue-600 to-blue-500 text-white shadow-md' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
                             >
                                 Atualização Técnica (AT)
                             </button>
                             <button
                                 onClick={() => setValidityType('FOGO')}
-                                className={`px-4 py-2 rounded text-sm font-bold transition ${validityType === 'FOGO' ? 'bg-orange-600 text-white' : 'bg-gray-100 text-gray-600'}`}
+                                className={`px-6 py-2.5 rounded-lg text-sm font-bold transition-all duration-200 ${validityType === 'FOGO' ? 'bg-gradient-to-r from-orange-600 to-orange-500 text-white shadow-md' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
                             >
                                 Exercício com Fogo
                             </button>
                         </div>
                         <button
                             onClick={exportMatrixToCSV}
-                            className="flex items-center space-x-2 bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-50 text-sm"
+                            className="flex items-center space-x-2 bg-white border-2 border-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-50 hover:border-gray-400 text-sm font-medium transition-all duration-200 shadow-sm"
                         >
                             <Download size={16} /> <span>Exportar CSV</span>
                         </button>
                     </div>
 
-                    <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-100 overflow-x-auto">
-                        <h3 className="text-lg font-bold text-gray-900 mb-2 text-center uppercase">CONTROLE DE VENCIMENTOS OE-SESCINC - {yearFilter}</h3>
-                        <div className="bg-green-600 text-white p-2 text-center text-xs font-bold mb-0 rounded-t border-b border-green-700">
-                            TOTAL DE VENCIMENTOS
+                    {/* Main Dashboard Card */}
+                    <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
+                        {/* Header */}
+                        <div className="bg-gradient-to-r from-gray-800 to-gray-700 text-white p-6 text-center">
+                            <h3 className="text-2xl font-bold uppercase tracking-wide">
+                                Controle de Vencimentos OE-SESCINC - {yearFilter}
+                            </h3>
                         </div>
 
-                        <table className="min-w-full divide-y divide-gray-300 border-x border-b border-gray-300">
-                            <thead className="bg-green-600 text-white">
-                                <tr>
-                                    <th className="px-2 py-2 text-left text-xs font-bold uppercase w-32 border-r border-green-500 sticky left-0 bg-green-600 z-10">BASE</th>
-                                    {monthNames.map(m => (
-                                        <th key={m} className="px-1 py-2 text-center text-[10px] font-bold uppercase border-r border-green-500 min-w-[60px]">
-                                            {m}/{yearFilter.slice(2)}
-                                        </th>
-                                    ))}
-                                    <th className="px-2 py-2 text-center text-xs font-bold uppercase sticky right-0 bg-green-600 z-10">TOTAL</th>
-                                </tr>
-                            </thead>
-                            <tbody className="bg-white divide-y divide-gray-200">
-                                {matrixData.uniqueBases.map(base => {
-                                    const rowTotal = (Object.values(matrixData.data[base]) as number[]).reduce((a, b) => a + b, 0);
+                        {/* Summary Header */}
+                        <div className="bg-gradient-to-r from-green-600 to-green-500 text-white p-4">
+                            <h4 className="text-center text-sm font-bold uppercase tracking-wider mb-3">
+                                Total de Vencimentos
+                            </h4>
+
+                            {/* Month Summary Grid */}
+                            <div className="grid grid-cols-13 gap-1">
+                                <div className="bg-green-700 rounded-lg p-2 text-center">
+                                    <div className="text-[10px] font-semibold uppercase">Base</div>
+                                    <div className="text-xs font-bold mt-1">Total</div>
+                                </div>
+                                {monthNames.map((month, index) => {
+                                    const shortMonth = month.substring(0, 3);
+                                    const count = matrixData.monthTotals[index];
                                     return (
-                                        <tr key={base} className="hover:bg-gray-50">
-                                            <td className="px-2 py-2 text-xs font-bold text-gray-900 border-r border-gray-200 bg-gray-50 sticky left-0 shadow-sm">{base}</td>
-                                            {monthNames.map((_, index) => {
-                                                const count = matrixData.data[base][index];
-                                                return (
-                                                    <td key={index} className="px-1 py-2 text-center text-xs border-r border-gray-200">
-                                                        {count > 0 ? <span className="font-bold text-red-600">{count}</span> : <span className="text-gray-300">0</span>}
-                                                    </td>
-                                                );
-                                            })}
-                                            <td className="px-2 py-2 text-center text-xs font-bold bg-gray-100 border-l border-gray-300 sticky right-0">{rowTotal}</td>
-                                        </tr>
+                                        <div key={month} className="bg-green-700 rounded-lg p-2 text-center">
+                                            <div className="text-[10px] font-semibold">{shortMonth}/{yearFilter.slice(2)}</div>
+                                            <div className="text-lg font-bold mt-1">{count}</div>
+                                        </div>
                                     );
                                 })}
-                                {/* Totals Row */}
-                                <tr className="bg-green-600 text-white font-bold">
-                                    <td className="px-2 py-2 text-xs text-left border-r border-green-500 sticky left-0 bg-green-600">TOTAL</td>
-                                    {monthNames.map((_, index) => (
-                                        <td key={index} className="px-1 py-2 text-center text-xs border-r border-green-500">
-                                            {matrixData.monthTotals[index]}
+                                <div className="bg-green-800 rounded-lg p-2 text-center">
+                                    <div className="text-[10px] font-semibold uppercase">Total</div>
+                                    <div className="text-lg font-bold mt-1">{matrixData.monthTotals.reduce((a, b) => a + b, 0)}</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Table */}
+                        <div className="overflow-x-auto">
+                            <table className="min-w-full">
+                                <thead>
+                                    <tr className="bg-gradient-to-r from-green-600 to-green-500 text-white">
+                                        <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider w-32 sticky left-0 bg-green-600 z-10 border-r border-green-400">
+                                            Base
+                                        </th>
+                                        {monthNames.map(m => (
+                                            <th key={m} className="px-2 py-3 text-center text-[10px] font-bold uppercase tracking-wide border-r border-green-400 min-w-[70px]">
+                                                {m.substring(0, 3)}/{yearFilter.slice(2)}
+                                            </th>
+                                        ))}
+                                        <th className="px-4 py-3 text-center text-xs font-bold uppercase tracking-wider sticky right-0 bg-green-600 z-10 border-l border-green-400">
+                                            Total
+                                        </th>
+                                    </tr>
+                                </thead>
+                                <tbody className="bg-white divide-y divide-gray-200">
+                                    {matrixData.uniqueBases.map((base, baseIndex) => {
+                                        const rowTotal = (Object.values(matrixData.data[base]) as number[]).reduce((a, b) => a + b, 0);
+                                        const isEvenRow = baseIndex % 2 === 0;
+
+                                        return (
+                                            <tr key={base} className={`${isEvenRow ? 'bg-gray-50' : 'bg-white'} hover:bg-blue-50 transition-colors duration-150`}>
+                                                <td className={`px-4 py-3 text-sm font-bold text-gray-900 sticky left-0 ${isEvenRow ? 'bg-gray-50' : 'bg-white'} border-r border-gray-200 shadow-sm z-10`}>
+                                                    {base}
+                                                </td>
+                                                {monthNames.map((_, index) => {
+                                                    const count = matrixData.data[base][index];
+                                                    return (
+                                                        <td key={index} className="px-2 py-3 text-center border-r border-gray-100">
+                                                            {count > 0 ? (
+                                                                <span className="inline-flex items-center justify-center min-w-[28px] h-7 px-2 bg-gradient-to-r from-red-500 to-red-600 text-white text-sm font-bold rounded-md shadow-sm">
+                                                                    {count}
+                                                                </span>
+                                                            ) : (
+                                                                <span className="text-gray-300 font-medium">0</span>
+                                                            )}
+                                                        </td>
+                                                    );
+                                                })}
+                                                <td className={`px-4 py-3 text-center text-sm font-bold sticky right-0 ${isEvenRow ? 'bg-gray-100' : 'bg-gray-50'} border-l-2 border-gray-300 z-10`}>
+                                                    <span className={`${rowTotal > 0 ? 'text-red-600' : 'text-gray-400'}`}>
+                                                        {rowTotal}
+                                                    </span>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+
+                                    {/* Totals Row */}
+                                    <tr className="bg-gradient-to-r from-green-600 to-green-500 text-white font-bold border-t-2 border-green-700">
+                                        <td className="px-4 py-3 text-sm text-left uppercase tracking-wide sticky left-0 bg-green-600 border-r border-green-400 z-10">
+                                            Total
                                         </td>
-                                    ))}
-                                    <td className="px-2 py-2 text-center text-xs bg-green-700 sticky right-0">
-                                        {matrixData.monthTotals.reduce((a, b) => a + b, 0)}
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
+                                        {monthNames.map((_, index) => (
+                                            <td key={index} className="px-2 py-3 text-center text-sm border-r border-green-400">
+                                                {matrixData.monthTotals[index]}
+                                            </td>
+                                        ))}
+                                        <td className="px-4 py-3 text-center text-sm bg-green-700 sticky right-0 border-l border-green-400 z-10">
+                                            {matrixData.monthTotals.reduce((a, b) => a + b, 0)}
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        {/* Footer Info */}
+                        <div className="bg-gray-50 px-6 py-4 border-t border-gray-200">
+                            <div className="flex items-center justify-between text-sm text-gray-600">
+                                <div className="flex items-center space-x-4">
+                                    <div className="flex items-center">
+                                        <div className="w-4 h-4 bg-gradient-to-r from-red-500 to-red-600 rounded mr-2"></div>
+                                        <span>Vencimentos no mês</span>
+                                    </div>
+                                    <div className="flex items-center">
+                                        <div className="w-4 h-4 bg-gray-300 rounded mr-2"></div>
+                                        <span>Sem vencimentos</span>
+                                    </div>
+                                </div>
+                                <div className="text-xs text-gray-500">
+                                    Última atualização: {new Date().toLocaleDateString('pt-BR')}
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             )}

@@ -113,10 +113,12 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
             <SidebarItem icon={FileBadge} label="Certificados" path="/certificates" active={isActive('/certificates')} onClick={() => setMobileMenuOpen(false)} />
           )}
 
-          <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 px-2 mt-6">Administrativo</div>
-          <SidebarItem icon={FileBadge} label="Documentos" path="/documents" active={isActive('/documents')} onClick={() => setMobileMenuOpen(false)} />
+          <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 px-2 mt-6">Operacional</div>
           <SidebarItem icon={Wrench} label="Montagem/Desmontagem" path="/setup-teardown" active={isActive('/setup-teardown')} onClick={() => setMobileMenuOpen(false)} />
           <SidebarItem icon={ClipboardList} label="Checklists" path="/checklists" active={isActive('/checklists')} onClick={() => setMobileMenuOpen(false)} />
+
+          <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 px-2 mt-6">Administrativo</div>
+          <SidebarItem icon={FileBadge} label="Documentos" path="/documents" active={isActive('/documents')} onClick={() => setMobileMenuOpen(false)} />
           <SidebarItem icon={CheckSquare} label="Tarefas" path="/tasks" active={isActive('/tasks')} onClick={() => setMobileMenuOpen(false)} />
           <SidebarItem icon={DollarSign} label="Financeiro" path="/finance" active={isActive('/finance')} onClick={() => setMobileMenuOpen(false)} />
           {(isManagerOrCoord || isAmbassador) && (

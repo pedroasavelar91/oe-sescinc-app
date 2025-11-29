@@ -10,11 +10,22 @@ export const DocumentsPage: React.FC = () => {
     const [showFolderModal, setShowFolderModal] = useState(false);
     const [showDocModal, setShowDocModal] = useState(false);
     const [newFolderName, setNewFolderName] = useState('');
+    const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
     const [newDocData, setNewDocData] = useState({ name: '', url: '', type: 'PDF' });
 
     if (!currentUser) return null;
 
-    const canManage = currentUser.role === UserRole.GESTOR || currentUser.role === UserRole.ADMINISTRADOR;
+    const canManage = currentUser.role === UserRole.GESTOR;
+
+    // Available roles for selection
+    const availableRoles = [
+        'Motorista',
+        'Instrutor',
+        'Coordenador',
+        'Gestor',
+        'Administrador',
+        'Embaixador'
+    ];
 
     // Navigation Breadcrumbs
     const breadcrumbs = useMemo(() => {
@@ -27,8 +38,14 @@ export const DocumentsPage: React.FC = () => {
         return path;
     }, [currentFolderId, folders]);
 
-    // Filtered Content
-    const currentFolders = folders.filter(f => f.parentId === currentFolderId);
+    // Filtered Content - only show folders user has access to
+    const currentFolders = folders.filter(f => {
+        if (f.parentId !== currentFolderId) return false;
+        // If no roles specified, folder is public
+        if (!f.allowedRoles || f.allowedRoles.length === 0) return true;
+        // Check if user's role is in allowed roles
+        return f.allowedRoles.includes(currentUser.role);
+    });
     const currentDocs = documents.filter(d => d.folderId === currentFolderId);
 
     const handleCreateFolder = () => {
@@ -37,13 +54,22 @@ export const DocumentsPage: React.FC = () => {
             id: Math.random().toString(36).substr(2, 9),
             name: newFolderName,
             parentId: currentFolderId,
-            allowedRoles: [], // Default public for now
+            allowedRoles: selectedRoles.length > 0 ? selectedRoles : [], // Empty array = public
             createdBy: currentUser.id,
             createdAt: new Date().toISOString()
         };
         addFolder(folder);
         setNewFolderName('');
+        setSelectedRoles([]);
         setShowFolderModal(false);
+    };
+
+    const toggleRole = (role: string) => {
+        setSelectedRoles(prev =>
+            prev.includes(role)
+                ? prev.filter(r => r !== role)
+                : [...prev, role]
+        );
     };
 
     const handleAddDocument = () => {
@@ -177,19 +203,72 @@ export const DocumentsPage: React.FC = () => {
 
             {/* Create Folder Modal */}
             {showFolderModal && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                    <div className="bg-white p-6 rounded-lg shadow-xl w-96 animate-scale-in">
-                        <h3 className="text-lg font-bold mb-4">Nova Pasta</h3>
-                        <input
-                            className={inputClass}
-                            placeholder="Nome da pasta"
-                            value={newFolderName}
-                            onChange={e => setNewFolderName(e.target.value)}
-                            autoFocus
-                        />
-                        <div className="flex justify-end gap-2 mt-4">
-                            <button onClick={() => setShowFolderModal(false)} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded">Cancelar</button>
-                            <button onClick={handleCreateFolder} className="px-4 py-2 bg-primary-600 text-white rounded hover:bg-primary-700">Criar</button>
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 animate-fade-in">
+                    <div className="bg-white p-6 rounded-xl shadow-2xl w-full max-w-md animate-scale-in">
+                        <h3 className="text-lg font-bold mb-4 text-gray-900">Nova Pasta</h3>
+
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Nome da Pasta</label>
+                                <input
+                                    className={inputClass}
+                                    placeholder="Digite o nome da pasta"
+                                    value={newFolderName}
+                                    onChange={e => setNewFolderName(e.target.value)}
+                                    autoFocus
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Controle de Acesso</label>
+                                <p className="text-xs text-gray-500 mb-3">Selecione quem pode visualizar esta pasta. Se nenhum for selecionado, a pasta será pública.</p>
+
+                                <div className="grid grid-cols-2 gap-2">
+                                    {availableRoles.map(role => (
+                                        <label
+                                            key={role}
+                                            className={`flex items-center space-x-2 p-2 rounded-lg border-2 cursor-pointer transition-all ${selectedRoles.includes(role)
+                                                    ? 'border-primary-500 bg-primary-50'
+                                                    : 'border-gray-200 hover:border-gray-300 bg-white'
+                                                }`}
+                                        >
+                                            <input
+                                                type="checkbox"
+                                                checked={selectedRoles.includes(role)}
+                                                onChange={() => toggleRole(role)}
+                                                className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                                            />
+                                            <span className="text-sm font-medium text-gray-700">{role}</span>
+                                        </label>
+                                    ))}
+                                </div>
+
+                                {selectedRoles.length === 0 && (
+                                    <p className="text-xs text-green-600 mt-2 flex items-center">
+                                        <span className="mr-1">✓</span> Pasta pública (todos podem ver)
+                                    </p>
+                                )}
+                                {selectedRoles.length > 0 && (
+                                    <p className="text-xs text-primary-600 mt-2">
+                                        Acesso restrito a: {selectedRoles.join(', ')}
+                                    </p>
+                                )}
+                            </div>
+                        </div>
+
+                        <div className="flex justify-end gap-2 mt-6">
+                            <button
+                                onClick={() => { setShowFolderModal(false); setSelectedRoles([]); }}
+                                className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 font-medium transition"
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                onClick={handleCreateFolder}
+                                className="px-6 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 font-medium shadow-md transition"
+                            >
+                                Criar Pasta
+                            </button>
                         </div>
                     </div>
                 </div>
