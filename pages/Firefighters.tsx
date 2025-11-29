@@ -350,26 +350,52 @@ export const FirefightersPage: React.FC = () => {
                                                 <td className="px-6 py-4 text-sm text-gray-500">{ff.base} <span className="text-xs text-gray-400">({ff.region})</span></td>
                                                 <td className="px-6 py-4 text-center text-sm font-bold">{ff.airportClass}</td>
                                                 <td className="px-6 py-4 text-sm">
-                                                    <div className="font-medium text-gray-900">
-                                                        {new Date(ff.isNotUpdated ? ff.graduationDate : ff.lastUpdateDate).toLocaleDateString()}
-                                                    </div>
-                                                    <div className={`text-xs ${isAtExpired ? 'text-red-600 font-bold' : 'text-green-600'}`}>
-                                                        Vence: {atExpiry.toLocaleDateString()}
+                                                    <div className="space-y-1">
+                                                        <div className="flex items-center space-x-2">
+                                                            <span className="text-xs text-gray-500">Última:</span>
+                                                            <span className="font-medium text-gray-900">
+                                                                {new Date(ff.isNotUpdated ? ff.graduationDate : ff.lastUpdateDate).toLocaleDateString()}
+                                                            </span>
+                                                        </div>
+                                                        <div className="flex items-center space-x-2">
+                                                            <span className="text-xs text-gray-500">Vence:</span>
+                                                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${isAtExpired
+                                                                    ? 'bg-red-100 text-red-800'
+                                                                    : 'bg-green-100 text-green-800'
+                                                                }`}>
+                                                                {isAtExpired && '⚠️ '}
+                                                                {atExpiry.toLocaleDateString()}
+                                                            </span>
+                                                        </div>
                                                     </div>
                                                 </td>
                                                 <td className="px-6 py-4 text-sm">
                                                     {ff.airportClass === 'IV' ? (
-                                                        <>
-                                                            <div className="font-medium text-gray-900">
-                                                                {new Date(ff.isNotUpdated ? ff.graduationDate : (ff.lastFireExerciseDate || ff.graduationDate)).toLocaleDateString()}
+                                                        <div className="space-y-1">
+                                                            <div className="flex items-center space-x-2">
+                                                                <span className="text-xs text-gray-500">Último:</span>
+                                                                <span className="font-medium text-gray-900">
+                                                                    {new Date(ff.isNotUpdated ? ff.graduationDate : (ff.lastFireExerciseDate || ff.graduationDate)).toLocaleDateString()}
+                                                                </span>
                                                             </div>
                                                             {fireExpiry && (
-                                                                <div className={`text-xs ${isFireExpired ? 'text-red-600 font-bold' : 'text-green-600'}`}>
-                                                                    Vence: {fireExpiry.toLocaleDateString()}
+                                                                <div className="flex items-center space-x-2">
+                                                                    <span className="text-xs text-gray-500">Vence:</span>
+                                                                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${isFireExpired
+                                                                            ? 'bg-orange-100 text-orange-800'
+                                                                            : 'bg-blue-100 text-blue-800'
+                                                                        }`}>
+                                                                        {isFireExpired && '🔥 '}
+                                                                        {fireExpiry.toLocaleDateString()}
+                                                                    </span>
                                                                 </div>
                                                             )}
-                                                        </>
-                                                    ) : <span className="text-gray-400">-</span>}
+                                                        </div>
+                                                    ) : (
+                                                        <span className="inline-flex items-center px-3 py-1 rounded-md text-xs font-medium bg-gray-100 text-gray-500">
+                                                            N/A
+                                                        </span>
+                                                    )}
                                                 </td>
                                                 <td className="px-6 py-4 text-center">
                                                     {ff.isAway ? (

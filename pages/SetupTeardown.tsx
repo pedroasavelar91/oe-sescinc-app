@@ -203,14 +203,22 @@ export const SetupTeardownPage: React.FC = () => {
                                     <tr key={assignment.id} className="hover:bg-gray-50">
                                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{assignment.className}</td>
                                         <td className="px-6 py-4 whitespace-nowrap">
-                                            <span className={`px-2 py-1 text-xs font-semibold rounded-full ${assignment.type === 'Montagem' ? 'bg-blue-100 text-blue-800' : 'bg-purple-100 text-purple-800'
+                                            <span className={`inline-flex items-center px-2.5 py-1 text-xs font-semibold rounded-md ${assignment.type === 'Montagem'
+                                                    ? 'bg-green-100 text-green-800'
+                                                    : 'bg-orange-100 text-orange-800'
                                                 }`}>
+                                                {assignment.type === 'Montagem' ? '🔧 ' : '📦 '}
                                                 {assignment.type}
                                             </span>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{assignment.instructorName}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-center font-medium text-gray-900">{assignment.days} dias</td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-bold text-green-600">R$ {assignment.totalValue.toFixed(2)}</td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-center">
+                                            <span className="font-semibold text-gray-900">{assignment.days}</span>
+                                            <span className="text-xs text-gray-500 ml-1">dias</span>
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-right">
+                                            <span className="font-bold text-primary-600">R$ {assignment.totalValue.toFixed(2)}</span>
+                                        </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{new Date(assignment.date).toLocaleDateString('pt-BR')}</td>
                                         {canManage && (
                                             <td className="px-6 py-4 whitespace-nowrap text-center text-sm">
