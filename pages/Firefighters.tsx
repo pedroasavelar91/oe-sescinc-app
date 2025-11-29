@@ -360,8 +360,8 @@ export const FirefightersPage: React.FC = () => {
                                                         <div className="flex items-center space-x-2">
                                                             <span className="text-xs text-gray-500">Vence:</span>
                                                             <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${isAtExpired
-                                                                    ? 'bg-red-100 text-red-800'
-                                                                    : 'bg-green-100 text-green-800'
+                                                                ? 'bg-red-100 text-red-800'
+                                                                : 'bg-green-100 text-green-800'
                                                                 }`}>
                                                                 {isAtExpired && '⚠️ '}
                                                                 {atExpiry.toLocaleDateString()}
@@ -382,8 +382,8 @@ export const FirefightersPage: React.FC = () => {
                                                                 <div className="flex items-center space-x-2">
                                                                     <span className="text-xs text-gray-500">Vence:</span>
                                                                     <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${isFireExpired
-                                                                            ? 'bg-orange-100 text-orange-800'
-                                                                            : 'bg-blue-100 text-blue-800'
+                                                                        ? 'bg-orange-100 text-orange-800'
+                                                                        : 'bg-blue-100 text-blue-800'
                                                                         }`}>
                                                                         {isFireExpired && '🔥 '}
                                                                         {fireExpiry.toLocaleDateString()}
@@ -445,63 +445,63 @@ export const FirefightersPage: React.FC = () => {
             {activeTab === 'dashboard' && (
                 <div className="space-y-6">
                     {/* Controls */}
-                    <div className="flex flex-col sm:flex-row justify-between items-center bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+                    <div className="flex flex-col sm:flex-row justify-between items-center bg-white p-4 rounded-xl shadow-sm border border-gray-200">
                         <div className="flex gap-2 mb-2 sm:mb-0">
                             <button
                                 onClick={() => setValidityType('AT')}
-                                className={`px-6 py-2.5 rounded-lg text-sm font-bold transition-all duration-200 ${validityType === 'AT' ? 'bg-gradient-to-r from-blue-600 to-blue-500 text-white shadow-md' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+                                className={`px-6 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${validityType === 'AT' ? 'bg-gray-800 text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
                             >
                                 Atualização Técnica (AT)
                             </button>
                             <button
                                 onClick={() => setValidityType('FOGO')}
-                                className={`px-6 py-2.5 rounded-lg text-sm font-bold transition-all duration-200 ${validityType === 'FOGO' ? 'bg-gradient-to-r from-orange-600 to-orange-500 text-white shadow-md' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+                                className={`px-6 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${validityType === 'FOGO' ? 'bg-gray-800 text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
                             >
                                 Exercício com Fogo
                             </button>
                         </div>
                         <button
                             onClick={exportMatrixToCSV}
-                            className="flex items-center space-x-2 bg-white border-2 border-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-50 hover:border-gray-400 text-sm font-medium transition-all duration-200 shadow-sm"
+                            className="flex items-center space-x-2 bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-50 text-sm font-medium transition-all duration-200"
                         >
                             <Download size={16} /> <span>Exportar CSV</span>
                         </button>
                     </div>
 
                     {/* Main Dashboard Card */}
-                    <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
                         {/* Header */}
-                        <div className="bg-gradient-to-r from-gray-800 to-gray-700 text-white p-6 text-center">
-                            <h3 className="text-2xl font-bold uppercase tracking-wide">
+                        <div className="bg-gray-50 border-b border-gray-200 p-6 text-center">
+                            <h3 className="text-xl font-bold text-gray-900 uppercase tracking-wide">
                                 Controle de Vencimentos OE-SESCINC - {yearFilter}
                             </h3>
                         </div>
 
                         {/* Summary Header */}
-                        <div className="bg-gradient-to-r from-green-600 to-green-500 text-white p-4">
-                            <h4 className="text-center text-sm font-bold uppercase tracking-wider mb-3">
+                        <div className="bg-gray-100 border-b border-gray-200 p-4">
+                            <h4 className="text-center text-sm font-semibold text-gray-700 uppercase tracking-wider mb-3">
                                 Total de Vencimentos
                             </h4>
 
                             {/* Month Summary Grid */}
                             <div className="grid grid-cols-13 gap-1">
-                                <div className="bg-green-700 rounded-lg p-2 text-center">
-                                    <div className="text-[10px] font-semibold uppercase">Base</div>
-                                    <div className="text-xs font-bold mt-1">Total</div>
+                                <div className="bg-gray-200 rounded-lg p-2 text-center">
+                                    <div className="text-[10px] font-semibold text-gray-700 uppercase">Base</div>
+                                    <div className="text-xs font-bold text-gray-900 mt-1">Total</div>
                                 </div>
                                 {monthNames.map((month, index) => {
                                     const shortMonth = month.substring(0, 3);
                                     const count = matrixData.monthTotals[index];
                                     return (
-                                        <div key={month} className="bg-green-700 rounded-lg p-2 text-center">
-                                            <div className="text-[10px] font-semibold">{shortMonth}/{yearFilter.slice(2)}</div>
-                                            <div className="text-lg font-bold mt-1">{count}</div>
+                                        <div key={month} className="bg-gray-200 rounded-lg p-2 text-center">
+                                            <div className="text-[10px] font-semibold text-gray-700">{shortMonth}/{yearFilter.slice(2)}</div>
+                                            <div className="text-lg font-bold text-gray-900 mt-1">{count}</div>
                                         </div>
                                     );
                                 })}
-                                <div className="bg-green-800 rounded-lg p-2 text-center">
-                                    <div className="text-[10px] font-semibold uppercase">Total</div>
-                                    <div className="text-lg font-bold mt-1">{matrixData.monthTotals.reduce((a, b) => a + b, 0)}</div>
+                                <div className="bg-gray-300 rounded-lg p-2 text-center">
+                                    <div className="text-[10px] font-semibold text-gray-700 uppercase">Total</div>
+                                    <div className="text-lg font-bold text-gray-900 mt-1">{matrixData.monthTotals.reduce((a, b) => a + b, 0)}</div>
                                 </div>
                             </div>
                         </div>
@@ -510,16 +510,16 @@ export const FirefightersPage: React.FC = () => {
                         <div className="overflow-x-auto">
                             <table className="min-w-full">
                                 <thead>
-                                    <tr className="bg-gradient-to-r from-green-600 to-green-500 text-white">
-                                        <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider w-32 sticky left-0 bg-green-600 z-10 border-r border-green-400">
+                                    <tr className="bg-gray-200 border-b border-gray-300">
+                                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider w-32 sticky left-0 bg-gray-200 z-10 border-r border-gray-300">
                                             Base
                                         </th>
                                         {monthNames.map(m => (
-                                            <th key={m} className="px-2 py-3 text-center text-[10px] font-bold uppercase tracking-wide border-r border-green-400 min-w-[70px]">
+                                            <th key={m} className="px-2 py-3 text-center text-[10px] font-semibold text-gray-700 uppercase tracking-wide border-r border-gray-300 min-w-[70px]">
                                                 {m.substring(0, 3)}/{yearFilter.slice(2)}
                                             </th>
                                         ))}
-                                        <th className="px-4 py-3 text-center text-xs font-bold uppercase tracking-wider sticky right-0 bg-green-600 z-10 border-l border-green-400">
+                                        <th className="px-4 py-3 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider sticky right-0 bg-gray-200 z-10 border-l border-gray-300">
                                             Total
                                         </th>
                                     </tr>
@@ -530,8 +530,8 @@ export const FirefightersPage: React.FC = () => {
                                         const isEvenRow = baseIndex % 2 === 0;
 
                                         return (
-                                            <tr key={base} className={`${isEvenRow ? 'bg-gray-50' : 'bg-white'} hover:bg-blue-50 transition-colors duration-150`}>
-                                                <td className={`px-4 py-3 text-sm font-bold text-gray-900 sticky left-0 ${isEvenRow ? 'bg-gray-50' : 'bg-white'} border-r border-gray-200 shadow-sm z-10`}>
+                                            <tr key={base} className={`${isEvenRow ? 'bg-gray-50' : 'bg-white'} hover:bg-gray-100 transition-colors duration-150`}>
+                                                <td className={`px-4 py-3 text-sm font-semibold text-gray-900 sticky left-0 ${isEvenRow ? 'bg-gray-50' : 'bg-white'} border-r border-gray-200 z-10`}>
                                                     {base}
                                                 </td>
                                                 {monthNames.map((_, index) => {
@@ -539,7 +539,7 @@ export const FirefightersPage: React.FC = () => {
                                                     return (
                                                         <td key={index} className="px-2 py-3 text-center border-r border-gray-100">
                                                             {count > 0 ? (
-                                                                <span className="inline-flex items-center justify-center min-w-[28px] h-7 px-2 bg-gradient-to-r from-red-500 to-red-600 text-white text-sm font-bold rounded-md shadow-sm">
+                                                                <span className="inline-flex items-center justify-center min-w-[28px] h-7 px-2 bg-gray-700 text-white text-sm font-semibold rounded-md">
                                                                     {count}
                                                                 </span>
                                                             ) : (
@@ -548,8 +548,8 @@ export const FirefightersPage: React.FC = () => {
                                                         </td>
                                                     );
                                                 })}
-                                                <td className={`px-4 py-3 text-center text-sm font-bold sticky right-0 ${isEvenRow ? 'bg-gray-100' : 'bg-gray-50'} border-l-2 border-gray-300 z-10`}>
-                                                    <span className={`${rowTotal > 0 ? 'text-red-600' : 'text-gray-400'}`}>
+                                                <td className={`px-4 py-3 text-center text-sm font-semibold sticky right-0 ${isEvenRow ? 'bg-gray-100' : 'bg-gray-50'} border-l-2 border-gray-300 z-10`}>
+                                                    <span className={`${rowTotal > 0 ? 'text-gray-900' : 'text-gray-400'}`}>
                                                         {rowTotal}
                                                     </span>
                                                 </td>
@@ -558,16 +558,16 @@ export const FirefightersPage: React.FC = () => {
                                     })}
 
                                     {/* Totals Row */}
-                                    <tr className="bg-gradient-to-r from-green-600 to-green-500 text-white font-bold border-t-2 border-green-700">
-                                        <td className="px-4 py-3 text-sm text-left uppercase tracking-wide sticky left-0 bg-green-600 border-r border-green-400 z-10">
+                                    <tr className="bg-gray-200 border-t-2 border-gray-300">
+                                        <td className="px-4 py-3 text-sm font-semibold text-gray-900 text-left uppercase tracking-wide sticky left-0 bg-gray-200 border-r border-gray-300 z-10">
                                             Total
                                         </td>
                                         {monthNames.map((_, index) => (
-                                            <td key={index} className="px-2 py-3 text-center text-sm border-r border-green-400">
+                                            <td key={index} className="px-2 py-3 text-center text-sm font-semibold text-gray-900 border-r border-gray-300">
                                                 {matrixData.monthTotals[index]}
                                             </td>
                                         ))}
-                                        <td className="px-4 py-3 text-center text-sm bg-green-700 sticky right-0 border-l border-green-400 z-10">
+                                        <td className="px-4 py-3 text-center text-sm font-semibold text-gray-900 bg-gray-300 sticky right-0 border-l border-gray-300 z-10">
                                             {matrixData.monthTotals.reduce((a, b) => a + b, 0)}
                                         </td>
                                     </tr>
