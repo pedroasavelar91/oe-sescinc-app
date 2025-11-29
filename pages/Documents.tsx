@@ -2,15 +2,18 @@ import React, { useState, useMemo } from 'react';
 import { useStore } from '../context/AppStore';
 import { UserRole, Folder, DocumentFile } from '../types';
 import { Folder as FolderIcon, FileText, Plus, Trash2, Download, Search, ChevronRight, Upload } from 'lucide-react';
+import { FileUpload } from '../components/FileUpload';
 
 export const DocumentsPage: React.FC = () => {
-    const { currentUser, folders, documents, addFolder, deleteFolder, addDocument, deleteDocument } = useStore();
+    const { currentUser, folders, documents, addFolder, deleteFolder, addDocument, deleteDocument, uploadDocument } = useStore();
     const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
     const [showFolderModal, setShowFolderModal] = useState(false);
     const [showDocModal, setShowDocModal] = useState(false);
     const [newFolderName, setNewFolderName] = useState('');
     const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
+    const [uploadingFile, setUploadingFile] = useState<File | null>(null);
+    const [isUploading, setIsUploading] = useState(false);
     const [newDocData, setNewDocData] = useState({ name: '', url: '', type: 'PDF' });
 
     if (!currentUser) return null;
@@ -72,21 +75,45 @@ export const DocumentsPage: React.FC = () => {
         );
     };
 
-    const handleAddDocument = () => {
-        if (!newDocData.name || !newDocData.url) return;
-        const doc: DocumentFile = {
-            id: Math.random().toString(36).substr(2, 9),
-            folderId: currentFolderId,
-            name: newDocData.name,
-            url: newDocData.url,
-            type: newDocData.type as 'PDF' | 'Image' | 'Other',
-            size: 0, // Mock size
-            uploadedBy: currentUser.id,
-            uploadedAt: new Date().toISOString()
-        };
-        addDocument(doc);
-        setNewDocData({ name: '', url: '', type: 'PDF' });
-        setShowDocModal(false);
+    const handleAddDocument = async () => {
+        if (!newDocData.name) {
+            alert('Digite um nome para o documento');
+            return;
+        }
+
+        if (!uploadingFile) {
+            alert('Selecione um arquivo');
+            return;
+        }
+
+        try {
+            setIsUploading(true);
+
+            // Upload do arquivo
+            const url = await uploadDocument(uploadingFile, currentFolderId);
+
+            // Criar registro do documento
+            const doc: DocumentFile = {
+                id: Math.random().toString(36).substr(2, 9),
+                folderId: currentFolderId,
+                name: newDocData.name,
+                url: url,
+                type: uploadingFile.type.includes('pdf') ? 'PDF' :
+                    uploadingFile.type.includes('image') ? 'Image' : 'Other',
+                size: uploadingFile.size,
+                uploadedBy: currentUser.id,
+                uploadedAt: new Date().toISOString()
+            };
+
+            addDocument(doc);
+            setNewDocData({ name: '', url: '', type: 'PDF' });
+            setUploadingFile(null);
+            setShowDocModal(false);
+        } catch (error) {
+            alert('Erro ao fazer upload: ' + (error as Error).message);
+        } finally {
+            setIsUploading(false);
+        }
     };
 
     const inputClass = "appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm bg-white text-gray-900";
@@ -228,8 +255,8 @@ export const DocumentsPage: React.FC = () => {
                                         <label
                                             key={role}
                                             className={`flex items-center space-x-2 p-2 rounded-lg border-2 cursor-pointer transition-all ${selectedRoles.includes(role)
-                                                    ? 'border-primary-500 bg-primary-50'
-                                                    : 'border-gray-200 hover:border-gray-300 bg-white'
+                                                ? 'border-primary-500 bg-primary-50'
+                                                : 'border-gray-200 hover:border-gray-300 bg-white'
                                                 }`}
                                         >
                                             <input
@@ -286,33 +313,34 @@ export const DocumentsPage: React.FC = () => {
                                     className={inputClass}
                                     value={newDocData.name}
                                     onChange={e => setNewDocData({ ...newDocData, name: e.target.value })}
+                                    placeholder="Ex: Manual de Procedimentos"
                                 />
                             </div>
                             <div>
-                                <label className="block text-xs font-medium text-gray-700 mb-1">URL do Arquivo</label>
-                                <input
-                                    className={inputClass}
-                                    value={newDocData.url}
-                                    onChange={e => setNewDocData({ ...newDocData, url: e.target.value })}
-                                    placeholder="https://..."
+                                <label className="block text-xs font-medium text-gray-700 mb-1">Arquivo</label>
+                                <FileUpload
+                                    onFileSelect={setUploadingFile}
+                                    accept="application/pdf,image/*"
+                                    maxSize={50}
+                                    label="Clique para selecionar arquivo"
                                 />
-                            </div>
-                            <div>
-                                <label className="block text-xs font-medium text-gray-700 mb-1">Tipo</label>
-                                <select
-                                    className={inputClass}
-                                    value={newDocData.type}
-                                    onChange={e => setNewDocData({ ...newDocData, type: e.target.value })}
-                                >
-                                    <option value="PDF">PDF</option>
-                                    <option value="Image">Imagem</option>
-                                    <option value="Other">Outro</option>
-                                </select>
                             </div>
                         </div>
                         <div className="flex justify-end gap-2 mt-6">
-                            <button onClick={() => setShowDocModal(false)} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded">Cancelar</button>
-                            <button onClick={handleAddDocument} className="px-4 py-2 bg-primary-600 text-white rounded hover:bg-primary-700">Adicionar</button>
+                            <button
+                                onClick={() => setShowDocModal(false)}
+                                className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded"
+                                disabled={isUploading}
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                onClick={handleAddDocument}
+                                className="px-4 py-2 bg-primary-600 text-white rounded hover:bg-primary-700 disabled:opacity-50"
+                                disabled={isUploading}
+                            >
+                                {isUploading ? 'Enviando...' : 'Adicionar'}
+                            </button>
                         </div>
                     </div>
                 </div>
