@@ -87,16 +87,6 @@ export interface ClassGroup {
   registrationNumber?: string;
   capBa?: string;
   schedule: ClassScheduleItem[];
-
-  // Setup/Teardown Instructors
-  setupInstructor1Id?: string;
-  setupInstructor1Days?: number;
-  setupInstructor2Id?: string;
-  setupInstructor2Days?: number;
-  teardownInstructor1Id?: string;
-  teardownInstructor1Days?: number;
-  teardownInstructor2Id?: string;
-  teardownInstructor2Days?: number;
 }
 
 export type EnrollmentStatus = 'Matriculado' | 'Cancelado' | 'Desligado' | 'Pendente' | 'Aprovado' | 'Reprovado';
