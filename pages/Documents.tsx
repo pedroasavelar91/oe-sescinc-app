@@ -56,7 +56,7 @@ export const DocumentsPage: React.FC = () => {
         const folder: Folder = {
             id: Math.random().toString(36).substr(2, 9),
             name: newFolderName,
-            parentId: currentFolderId,
+            parentId: currentFolderId ?? undefined,
             allowedRoles: selectedRoles.length > 0 ? selectedRoles : [], // Empty array = public
             createdBy: currentUser.id,
             createdAt: new Date().toISOString()
@@ -95,12 +95,12 @@ export const DocumentsPage: React.FC = () => {
             // Criar registro do documento
             const doc: DocumentFile = {
                 id: Math.random().toString(36).substr(2, 9),
-                folderId: currentFolderId,
+                folderId: currentFolderId ?? '',
                 name: newDocData.name,
                 url: url,
                 type: uploadingFile.type.includes('pdf') ? 'PDF' :
                     uploadingFile.type.includes('image') ? 'Image' : 'Other',
-                size: uploadingFile.size,
+                size: uploadingFile.size.toString(),
                 uploadedBy: currentUser.id,
                 uploadedAt: new Date().toISOString()
             };
