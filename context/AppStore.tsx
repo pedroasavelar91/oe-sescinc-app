@@ -288,6 +288,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         }
 
         if (isSupabaseConfigured()) {
+            console.log('✅ Supabase is configured!');
+            console.log('URL:', import.meta.env.VITE_SUPABASE_URL ? 'Set' : 'Not set');
+            console.log('Key:', import.meta.env.VITE_SUPABASE_ANON_KEY ? 'Set' : 'Not set');
+
             try {
                 // Check if we need to seed (Only works if tables exist)
                 const { count, error } = await supabase.from('users').select('*', { count: 'exact', head: true });
@@ -346,7 +350,9 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                 // But for now, we just leave it empty to respect "Exclusive Persistence"
             }
         } else {
-            console.warn("Supabase not configured. App will be empty.");
+            console.warn("⚠️ Supabase not configured. App will be empty.");
+            console.warn('VITE_SUPABASE_URL:', import.meta.env.VITE_SUPABASE_URL || 'NOT SET');
+            console.warn('VITE_SUPABASE_ANON_KEY:', import.meta.env.VITE_SUPABASE_ANON_KEY ? 'SET' : 'NOT SET');
             // No mock data fallback
         }
         setLoading(false);
@@ -422,17 +428,32 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     // --- Generic CRUD Wrappers ---
 
     const syncWithSupabase = async (table: string, action: 'INSERT' | 'UPDATE' | 'DELETE', data: any, id?: string) => {
-        if (!isSupabaseConfigured()) return;
+        console.log('🔄 syncWithSupabase called:', { table, action, isConfigured: isSupabaseConfigured() });
+
+        if (!isSupabaseConfigured()) {
+            console.warn('⚠️ Supabase not configured - data will NOT persist!');
+            return;
+        }
+
         try {
+            console.log(`📤 Attempting ${action} on table: ${table}`);
+
             if (action === 'INSERT') {
-                await supabase.from(table).insert(data);
+                const { error } = await supabase.from(table).insert(data);
+                if (error) throw error;
+                console.log(`✅ ${table} INSERT successful`);
             } else if (action === 'UPDATE') {
-                await supabase.from(table).update(data).eq('id', data.id);
+                const { error } = await supabase.from(table).update(data).eq('id', data.id);
+                if (error) throw error;
+                console.log(`✅ ${table} UPDATE successful`);
             } else if (action === 'DELETE' && id) {
-                await supabase.from(table).delete().eq('id', id);
+                const { error } = await supabase.from(table).delete().eq('id', id);
+                if (error) throw error;
+                console.log(`✅ ${table} DELETE successful`);
             }
-        } catch (e) {
-            console.error(`Supabase Sync Error (${table}):`, e);
+        } catch (e: any) {
+            console.error(`❌ Supabase Sync Error (${table}):`, e);
+            console.error('Error details:', e.message, e.details, e.hint);
         }
     };
 
