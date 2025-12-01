@@ -3,6 +3,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User, Course, ClassGroup, Student, Task, UserRole, AttendanceLog, GradeLog, PaymentRecord, ChecklistTemplate, ChecklistLog, Notification, SwapRequest, Firefighter, FirefighterLog, Base, Folder, DocumentFile, SetupTeardownAssignment } from '../types';
 import { initialUsers, initialCourses, initialClasses, initialStudents, initialTasks, initialAttendance, initialGradeLogs, initialPayments, initialChecklistTemplates, initialChecklistLogs, initialNotifications, initialSwapRequests, initialFirefighters, initialFirefighterLogs, initialBases } from '../services/mockData';
 import { supabase, isSupabaseConfigured } from '../services/supabase';
+import { mapStudentFromDB, mapStudentToDB, mapTaskFromDB, mapTaskToDB, mapAttendanceLogFromDB, mapAttendanceLogToDB, mapGradeLogFromDB, mapGradeLogToDB, mapPaymentFromDB, mapPaymentToDB, mapChecklistTemplateFromDB, mapChecklistTemplateToDB, mapChecklistLogFromDB, mapChecklistLogToDB, mapFirefighterFromDB, mapFirefighterToDB, mapFirefighterLogFromDB, mapFirefighterLogToDB, mapBaseFromDB, mapBaseToDB } from '../services/dataMappers';
 
 interface StoreContextType {
     currentUser: User | null;
@@ -316,18 +317,18 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                     safeFetch('users', setUsers),
                     safeFetch('courses', setCourses),
                     safeFetch('classes', setClasses, mapClassFromDB),
-                    safeFetch('students', setStudents),
-                    safeFetch('tasks', setTasks),
-                    safeFetch('attendance_logs', setAttendanceLogs),
-                    safeFetch('grade_logs', setGradeLogs),
-                    safeFetch('payments', setPayments),
-                    safeFetch('checklist_templates', setChecklistTemplates),
-                    safeFetch('checklist_logs', setChecklistLogs),
+                    safeFetch('students', setStudents, mapStudentFromDB),
+                    safeFetch('tasks', setTasks, mapTaskFromDB),
+                    safeFetch('attendance_logs', setAttendanceLogs, mapAttendanceLogFromDB),
+                    safeFetch('grade_logs', setGradeLogs, mapGradeLogFromDB),
+                    safeFetch('payments', setPayments, mapPaymentFromDB),
+                    safeFetch('checklist_templates', setChecklistTemplates, mapChecklistTemplateFromDB),
+                    safeFetch('checklist_logs', setChecklistLogs, mapChecklistLogFromDB),
                     safeFetch('notifications', setNotifications, mapNotificationFromDB),
                     safeFetch('swap_requests', setSwapRequests, mapSwapRequestFromDB),
-                    safeFetch('firefighters', setFirefighters),
-                    safeFetch('firefighter_logs', setFirefighterLogs),
-                    safeFetch('bases', setBases),
+                    safeFetch('firefighters', setFirefighters, mapFirefighterFromDB),
+                    safeFetch('firefighter_logs', setFirefighterLogs, mapFirefighterLogFromDB),
+                    safeFetch('bases', setBases, mapBaseFromDB),
                     safeFetch('folders', setFolders, mapFolderFromDB),
                     safeFetch('documents', setDocuments, mapDocumentFromDB),
                     safeFetch('setup_teardown_assignments', setSetupTeardownAssignments, (db: any) => ({
@@ -502,17 +503,17 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     const addStudent = async (student: Student) => {
         setStudents([...students, student]);
-        await syncWithSupabase('students', 'INSERT', student);
+        await syncWithSupabase('students', 'INSERT', mapStudentToDB(student));
     };
 
     const updateStudent = async (student: Student) => {
         setStudents(students.map(s => s.id === student.id ? student : s));
-        await syncWithSupabase('students', 'UPDATE', student);
+        await syncWithSupabase('students', 'UPDATE', mapStudentToDB(student));
     };
 
     const addTask = async (task: Task) => {
         setTasks([...tasks, task]);
-        await syncWithSupabase('tasks', 'INSERT', task);
+        await syncWithSupabase('tasks', 'INSERT', mapTaskToDB(task));
 
         // Notify Assignee
         if (task.assigneeId && task.assigneeId !== currentUser?.id) {
@@ -534,7 +535,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const updateTask = async (task: Task) => {
         const oldTask = tasks.find(t => t.id === task.id);
         setTasks(tasks.map(t => t.id === task.id ? task : t));
-        await syncWithSupabase('tasks', 'UPDATE', task);
+        await syncWithSupabase('tasks', 'UPDATE', mapTaskToDB(task));
 
         // Notify completion to creator
         if (oldTask && oldTask.status !== 'Concluída' && task.status === 'Concluída' && task.creatorId !== currentUser?.id) {
@@ -571,27 +572,27 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     const addAttendanceLog = async (log: AttendanceLog) => {
         setAttendanceLogs([...attendanceLogs, log]);
-        await syncWithSupabase('attendance_logs', 'INSERT', log);
+        await syncWithSupabase('attendance_logs', 'INSERT', mapAttendanceLogToDB(log));
     };
 
     const addGradeLog = async (log: GradeLog) => {
         setGradeLogs([...gradeLogs, log]);
-        await syncWithSupabase('grade_logs', 'INSERT', log);
+        await syncWithSupabase('grade_logs', 'INSERT', mapGradeLogToDB(log));
     };
 
     const addPayment = async (payment: PaymentRecord) => {
         setPayments([...payments, payment]);
-        await syncWithSupabase('payments', 'INSERT', payment);
+        await syncWithSupabase('payments', 'INSERT', mapPaymentToDB(payment));
     };
 
     const addChecklistLog = async (log: ChecklistLog) => {
         setChecklistLogs([...checklistLogs, log]);
-        await syncWithSupabase('checklist_logs', 'INSERT', log);
+        await syncWithSupabase('checklist_logs', 'INSERT', mapChecklistLogToDB(log));
     };
 
     const updateChecklistTemplate = async (template: ChecklistTemplate) => {
         setChecklistTemplates(checklistTemplates.map(t => t.id === template.id ? template : t));
-        await syncWithSupabase('checklist_templates', 'UPDATE', template);
+        await syncWithSupabase('checklist_templates', 'UPDATE', mapChecklistTemplateToDB(template));
     };
 
     const markNotificationAsRead = async (id: string) => {
@@ -676,12 +677,12 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     const addFirefighter = async (ff: Firefighter) => {
         setFirefighters([...firefighters, ff]);
-        await syncWithSupabase('firefighters', 'INSERT', ff);
+        await syncWithSupabase('firefighters', 'INSERT', mapFirefighterToDB(ff));
     };
 
     const updateFirefighter = async (ff: Firefighter) => {
         setFirefighters(firefighters.map(f => f.id === ff.id ? ff : f));
-        await syncWithSupabase('firefighters', 'UPDATE', ff);
+        await syncWithSupabase('firefighters', 'UPDATE', mapFirefighterToDB(ff));
     };
 
     const deleteFirefighter = async (id: string) => {
@@ -691,12 +692,12 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     const addFirefighterLog = async (log: FirefighterLog) => {
         setFirefighterLogs([...firefighterLogs, log]);
-        await syncWithSupabase('firefighter_logs', 'INSERT', log);
+        await syncWithSupabase('firefighter_logs', 'INSERT', mapFirefighterLogToDB(log));
     };
 
     const addBase = async (base: Base) => {
         setBases([...bases, base]);
-        await syncWithSupabase('bases', 'INSERT', base);
+        await syncWithSupabase('bases', 'INSERT', mapBaseToDB(base));
     };
 
     const deleteBase = async (id: string) => {
