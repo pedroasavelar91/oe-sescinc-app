@@ -80,8 +80,7 @@ export const mapTaskToDB = (task: Task) => ({
     creator_id: task.creatorId,
     assignee_id: task.assigneeId,
     priority: task.priority,
-    status: task.status,
-    resolution_notes: task.resolutionNotes
+    status: task.status
 });
 
 // AttendanceLog Mappers
