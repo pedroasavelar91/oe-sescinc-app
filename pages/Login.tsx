@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useStore } from '../context/AppStore';
-import { Shield, Eye, EyeOff } from 'lucide-react';
+import { Flame, Eye, EyeOff, Shield } from 'lucide-react';
 import { UserRole } from '../types';
 
 export const Login: React.FC = () => {
@@ -38,21 +38,27 @@ export const Login: React.FC = () => {
   return (
     <div className="min-h-screen bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-orange-100 via-gray-50 to-white flex flex-col justify-center py-12 sm:px-6 lg:px-8 relative overflow-hidden">
       {/* Futuristic Floating Particles */}
+      {/* Fire Sparks */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="floating-particle" style={{ left: '10%', animationDelay: '0s' }}></div>
-        <div className="floating-particle" style={{ left: '20%', animationDelay: '2s' }}></div>
-        <div className="floating-particle" style={{ left: '30%', animationDelay: '4s' }}></div>
-        <div className="floating-particle" style={{ left: '40%', animationDelay: '1s' }}></div>
-        <div className="floating-particle" style={{ left: '50%', animationDelay: '3s' }}></div>
-        <div className="floating-particle" style={{ left: '60%', animationDelay: '5s' }}></div>
-        <div className="floating-particle" style={{ left: '70%', animationDelay: '2.5s' }}></div>
-        <div className="floating-particle" style={{ left: '80%', animationDelay: '4.5s' }}></div>
-        <div className="floating-particle" style={{ left: '90%', animationDelay: '1.5s' }}></div>
+        {[...Array(60)].map((_, i) => (
+          <div
+            key={i}
+            className="floating-particle"
+            style={{
+              left: `${Math.random() * 100}%`,
+              animationDelay: `-${Math.random() * 5}s`,
+              animationDuration: `${2 + Math.random() * 3}s`
+            }}
+          ></div>
+        ))}
       </div>
 
+      {/* Fire Bottom Glow */}
+      <div className="fire-bottom-glow"></div>
+
       <div className="sm:mx-auto sm:w-full sm:max-w-md relative z-10 animate-slide-down flex flex-col items-center">
-        <div className="bg-white p-3 rounded-2xl shadow-lg mb-4">
-          <Shield size={48} className="text-primary-600 fill-current" />
+        <div className="bg-white p-4 rounded-full shadow-lg mb-6 ring-4 ring-orange-100 animate-pulse-slow">
+          <Flame size={48} className="text-orange-600 fill-orange-500" />
         </div>
         <h2 className="text-center text-4xl font-extrabold text-gray-900 tracking-tight">
           OE-SESCINC <span className="text-primary-600">Med+ Group</span>
