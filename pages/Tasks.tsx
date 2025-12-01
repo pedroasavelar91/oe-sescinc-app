@@ -2,11 +2,11 @@
 import React, { useState } from 'react';
 import { useStore } from '../context/AppStore';
 import { Task, UserRole, User } from '../types';
-import { Plus, MessageSquare, CheckCircle, Clock, AlertCircle, User as UserIcon, Send, X, ThumbsUp, ThumbsDown, ArrowRight, ChevronRight } from 'lucide-react';
+import { Plus, MessageSquare, CheckCircle, Clock, AlertCircle, User as UserIcon, Send, X, ThumbsUp, ThumbsDown, ArrowRight, ChevronRight, Trash2 } from 'lucide-react';
 import { GoogleGenAI } from '@google/genai';
 
 export const TasksPage: React.FC = () => {
-    const { tasks, addTask, updateTask, users, currentUser } = useStore();
+    const { tasks, addTask, updateTask, deleteTask, users, currentUser } = useStore();
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [selectedTask, setSelectedTask] = useState<Task | null>(null); // For Details View
     const [showCompleted, setShowCompleted] = useState(false);
@@ -428,9 +428,25 @@ export const TasksPage: React.FC = () => {
                                 </div>
                                 <h2 className="text-xl font-bold text-gray-900">{selectedTask.title}</h2>
                             </div>
-                            <button onClick={() => setSelectedTask(null)} className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 p-2 rounded-full transition-all">
-                                <X size={24} />
-                            </button>
+                            <div className="flex items-center gap-2">
+                                {currentUser?.id === selectedTask.creatorId && (
+                                    <button
+                                        onClick={() => {
+                                            if (window.confirm('Tem certeza que deseja excluir esta tarefa? Esta ação não pode ser desfeita.')) {
+                                                deleteTask(selectedTask.id);
+                                                setSelectedTask(null);
+                                            }
+                                        }}
+                                        className="text-red-600 hover:text-red-800 hover:bg-red-50 p-2 rounded-full transition-all"
+                                        title="Excluir tarefa"
+                                    >
+                                        <Trash2 size={20} />
+                                    </button>
+                                )}
+                                <button onClick={() => setSelectedTask(null)} className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 p-2 rounded-full transition-all">
+                                    <X size={24} />
+                                </button>
+                            </div>
                         </div>
 
                         {/* Body */}
