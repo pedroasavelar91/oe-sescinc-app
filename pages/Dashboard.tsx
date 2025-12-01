@@ -8,7 +8,7 @@ import {
 } from 'recharts';
 
 export const Dashboard: React.FC = () => {
-    const { classes, students, tasks, currentUser, payments } = useStore();
+    const { classes, students, tasks, currentUser, payments, notifications, firefighters } = useStore();
 
     if (!currentUser) return null;
 
@@ -153,35 +153,53 @@ export const Dashboard: React.FC = () => {
                     </div>
                 </div>
 
-                <div className="stagger-item bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl shadow-lg p-6 text-white hover:shadow-2xl hover:scale-105 transition-all duration-300 cursor-pointer relative overflow-hidden">
+                <div className="stagger-item bg-gradient-to-br from-yellow-500 to-yellow-600 rounded-xl shadow-lg p-6 text-white hover:shadow-2xl hover:scale-105 transition-all duration-300 cursor-pointer relative overflow-hidden">
                     <div className="absolute top-0 right-0 w-32 h-32 bg-white opacity-5 rounded-full -mr-16 -mt-16"></div>
                     <div className="flex justify-between items-start">
                         <div>
-                            <p className="text-orange-100 font-medium mb-1">Previsão a Pagar</p>
-                            <h3 className="text-3xl font-bold">R$ {toPay.toLocaleString('pt-BR')}</h3>
+                            <p className="text-yellow-100 font-medium mb-1">Atualização a Vencer</p>
+                            <h3 className="text-3xl font-bold">{(() => {
+                                const today = new Date();
+                                const in90Days = new Date(today.getTime() + 90 * 24 * 60 * 60 * 1000);
+                                return firefighters.filter(ff => {
+                                    if (!ff.lastUpdateDate) return false;
+                                    const updateDate = new Date(ff.lastUpdateDate);
+                                    const nextUpdate = new Date(updateDate.getTime() + 365 * 24 * 60 * 60 * 1000);
+                                    return nextUpdate >= today && nextUpdate <= in90Days;
+                                }).length;
+                            })()}</h3>
                         </div>
                         <div className="p-2 bg-white bg-opacity-20 rounded-lg">
-                            <Clock size={24} className="text-white" />
+                            <AlertCircle size={24} className="text-white" />
                         </div>
                     </div>
-                    <div className="mt-4 flex items-center text-sm text-orange-100">
-                        <AlertCircle size={14} className="mr-1" /> Próximo fechamento: 30/30
+                    <div className="mt-4 flex items-center text-sm text-yellow-100">
+                        <Clock size={14} className="mr-1" /> Próximos 90 dias
                     </div>
                 </div>
 
-                <div className="stagger-item bg-gradient-to-br from-blue-600 to-blue-700 rounded-xl shadow-lg p-6 text-white hover:shadow-2xl hover:scale-105 transition-all duration-300 cursor-pointer relative overflow-hidden">
+                <div className="stagger-item bg-gradient-to-br from-red-500 to-red-600 rounded-xl shadow-lg p-6 text-white hover:shadow-2xl hover:scale-105 transition-all duration-300 cursor-pointer relative overflow-hidden">
                     <div className="absolute top-0 right-0 w-32 h-32 bg-white opacity-5 rounded-full -mr-16 -mt-16"></div>
                     <div className="flex justify-between items-start">
                         <div>
-                            <p className="text-blue-100 font-medium mb-1">Horas Aula Ministradas</p>
-                            <h3 className="text-3xl font-bold">{totalHoursTaught}h</h3>
+                            <p className="text-red-100 font-medium mb-1">Exercício com Fogo a Vencer</p>
+                            <h3 className="text-3xl font-bold">{(() => {
+                                const today = new Date();
+                                const in90Days = new Date(today.getTime() + 90 * 24 * 60 * 60 * 1000);
+                                return firefighters.filter(ff => {
+                                    if (!ff.lastFireExerciseDate) return false;
+                                    const exerciseDate = new Date(ff.lastFireExerciseDate);
+                                    const nextExercise = new Date(exerciseDate.getTime() + 365 * 24 * 60 * 60 * 1000);
+                                    return nextExercise >= today && nextExercise <= in90Days;
+                                }).length;
+                            })()}</h3>
                         </div>
                         <div className="p-2 bg-white bg-opacity-20 rounded-lg">
-                            <BookOpen size={24} className="text-white" />
+                            <AlertCircle size={24} className="text-white" />
                         </div>
                     </div>
-                    <div className="mt-4 flex items-center text-sm text-blue-100">
-                        <TrendingUp size={14} className="mr-1" /> Aulas Realizadas
+                    <div className="mt-4 flex items-center text-sm text-red-100">
+                        <Clock size={14} className="mr-1" /> Próximos 90 dias
                     </div>
                 </div>
             </div>
@@ -202,24 +220,47 @@ export const Dashboard: React.FC = () => {
                 </div>
             </div>
 
-            {/* Lower Section: Recent Activity (Mock) */}
+            {/* Lower Section: Recent Activity */}
             <div className="card-premium overflow-hidden animate-slide-up">
                 <div className="px-6 py-4 border-b border-gray-100 bg-gray-50">
                     <h3 className="font-bold text-gray-800">Atividades Recentes</h3>
                 </div>
                 <div className="p-6">
                     <div className="space-y-4">
-                        {[1, 2, 3].map(i => (
-                            <div key={i} className="flex items-center space-x-4 pb-4 border-b border-gray-100 last:border-0 last:pb-0 hover:bg-gray-50 -mx-6 px-6 py-3 transition-colors cursor-pointer rounded-lg">
-                                <div className="h-10 w-10 rounded-full bg-gray-100 flex items-center justify-center text-gray-500">
-                                    <Clock size={18} />
+                        {(() => {
+                            const recentActivities = [
+                                ...tasks.filter(t => t.status === 'Concluída').slice(-3).map(t => ({
+                                    icon: <CheckCircle size={18} className="text-green-600" />,
+                                    title: `Tarefa concluída: ${t.title}`,
+                                    time: new Date(t.logs?.[t.logs.length - 1]?.timestamp || Date.now()).toLocaleString('pt-BR'),
+                                    bgColor: 'bg-green-50'
+                                })),
+                                ...notifications.filter(n => !n.read).slice(0, 3).map(n => ({
+                                    icon: <AlertCircle size={18} className="text-blue-600" />,
+                                    title: n.title,
+                                    time: new Date(n.timestamp).toLocaleString('pt-BR'),
+                                    bgColor: 'bg-blue-50'
+                                }))
+                            ].sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime()).slice(0, 5);
+
+                            if (recentActivities.length === 0) {
+                                return (
+                                    <p className="text-gray-500 italic text-center py-8">Nenhuma atividade recente</p>
+                                );
+                            }
+
+                            return recentActivities.map((activity, i) => (
+                                <div key={i} className="flex items-center space-x-4 pb-4 border-b border-gray-100 last:border-0 last:pb-0 hover:bg-gray-50 -mx-6 px-6 py-3 transition-colors cursor-pointer rounded-lg">
+                                    <div className={`h-10 w-10 rounded-full ${activity.bgColor} flex items-center justify-center`}>
+                                        {activity.icon}
+                                    </div>
+                                    <div className="flex-1">
+                                        <p className="text-sm font-medium text-gray-900">{activity.title}</p>
+                                        <p className="text-xs text-gray-500">{activity.time}</p>
+                                    </div>
                                 </div>
-                                <div>
-                                    <p className="text-sm font-medium text-gray-900">Novo pagamento registrado</p>
-                                    <p className="text-xs text-gray-500">Há {i * 2} horas • Por Ana Coordenadora</p>
-                                </div>
-                            </div>
-                        ))}
+                            ));
+                        })()}
                     </div>
                 </div>
             </div>
