@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useStore } from '../context/AppStore';
 import { UNIFORM_SIZES, SHOE_SIZES } from '../types';
-import { Save, Lock, User as UserIcon } from 'lucide-react';
+import { Save, Lock, User as UserIcon, Upload } from 'lucide-react';
 import { formatCPF } from '../utils/formatters';
 
 export const ProfilePage: React.FC = () => {
-    const { currentUser, updateUser } = useStore();
+    const { currentUser, updateUser, uploadProfilePhoto } = useStore();
     const [formData, setFormData] = useState<any>(null);
+    const [isUploading, setIsUploading] = useState(false);
 
     // Password state
     const [newPassword, setNewPassword] = useState('');
@@ -45,6 +46,36 @@ export const ProfilePage: React.FC = () => {
         setTimeout(() => setPasswordMessage(''), 3000);
     };
 
+    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files[0]) {
+            const file = e.target.files[0];
+            setIsUploading(true);
+
+            try {
+                // Try Supabase Upload first
+                try {
+                    const url = await uploadProfilePhoto(file, currentUser.id);
+                    setFormData({ ...formData, photoUrl: url });
+                } catch (supabaseError) {
+                    console.warn('Supabase upload failed, falling back to Base64:', supabaseError);
+
+                    // Fallback to Base64
+                    const reader = new FileReader();
+                    reader.onloadend = () => {
+                        const base64String = reader.result as string;
+                        setFormData({ ...formData, photoUrl: base64String });
+                    };
+                    reader.readAsDataURL(file);
+                }
+            } catch (error) {
+                console.error('Error handling file:', error);
+                alert('Erro ao processar a imagem.');
+            } finally {
+                setIsUploading(false);
+            }
+        }
+    };
+
     const inputClass = "appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm bg-white text-gray-900";
 
     return (
@@ -66,23 +97,43 @@ export const ProfilePage: React.FC = () => {
                             <input type="text" className={inputClass} value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-gray-700">Foto de Perfil (URL)</label>
-                            <div className="flex gap-4 items-center">
-                                <input
-                                    type="text"
-                                    className={inputClass}
-                                    value={formData.photoUrl || ''}
-                                    onChange={e => setFormData({ ...formData, photoUrl: e.target.value })}
-                                    placeholder="https://exemplo.com/foto.jpg"
-                                />
-                                {formData.photoUrl && (
-                                    <img
-                                        src={formData.photoUrl}
-                                        alt="Preview"
-                                        className="h-10 w-10 rounded-full object-cover border border-gray-200"
-                                        onError={(e) => (e.currentTarget.style.display = 'none')}
+                            <label className="block text-sm font-medium text-gray-700">Foto de Perfil</label>
+                            <div className="flex gap-4 items-center mt-1">
+                                <div className="relative group">
+                                    <div className="h-16 w-16 rounded-full overflow-hidden border-2 border-gray-200 bg-gray-50 flex items-center justify-center">
+                                        {formData.photoUrl ? (
+                                            <img
+                                                src={formData.photoUrl}
+                                                alt="Profile"
+                                                className="h-full w-full object-cover"
+                                                onError={(e) => (e.currentTarget.style.display = 'none')}
+                                            />
+                                        ) : (
+                                            <UserIcon className="text-gray-400" size={32} />
+                                        )}
+                                    </div>
+                                    <label className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-0 group-hover:bg-opacity-30 rounded-full cursor-pointer transition-all">
+                                        <Upload className="text-white opacity-0 group-hover:opacity-100" size={20} />
+                                        <input
+                                            type="file"
+                                            className="hidden"
+                                            accept="image/*"
+                                            onChange={handleFileChange}
+                                            disabled={isUploading}
+                                        />
+                                    </label>
+                                </div>
+                                <div className="flex-1">
+                                    <p className="text-xs text-gray-500 mb-2">Clique na foto para alterar. JPG, PNG ou WebP. Máx 5MB.</p>
+                                    {isUploading && <span className="text-xs text-primary-600 font-medium animate-pulse">Enviando...</span>}
+                                    <input
+                                        type="text"
+                                        className={inputClass}
+                                        value={formData.photoUrl || ''}
+                                        onChange={e => setFormData({ ...formData, photoUrl: e.target.value })}
+                                        placeholder="Ou cole uma URL aqui..."
                                     />
-                                )}
+                                </div>
                             </div>
                         </div>
                         <div>

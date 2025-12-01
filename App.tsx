@@ -19,6 +19,7 @@ import { CertificatesPage } from './pages/Certificates';
 import { FirefightersPage } from './pages/Firefighters';
 import { DocumentsPage } from './pages/Documents';
 import { SetupTeardownPage } from './pages/SetupTeardown';
+import { OrganogramPage } from './pages/Organogram';
 import { isSupabaseConfigured } from './services/supabase';
 import { AlertTriangle } from 'lucide-react';
 
@@ -88,6 +89,7 @@ const AppRoutes = () => {
       <Route path="/login" element={currentUser ? <Navigate to="/" /> : <Login />} />
 
       <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+      <Route path="/organogram" element={<ProtectedRoute><OrganogramPage /></ProtectedRoute>} />
       <Route path="/users" element={<ProtectedRoute><UsersPage /></ProtectedRoute>} />
       <Route path="/courses" element={<ProtectedRoute><CoursesPage /></ProtectedRoute>} />
       <Route path="/classes" element={<ProtectedRoute><ClassesPage /></ProtectedRoute>} />
