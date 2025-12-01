@@ -1,22 +1,19 @@
 -- ============================================
--- COMPLETE SUPABASE SCHEMA RESET
+-- SUPABASE COMPLETE RESET SCRIPT
 -- ============================================
--- This script will DROP all existing tables and recreate them
--- WARNING: This will DELETE ALL DATA!
--- ============================================
-
--- Enable UUID extension
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-
--- ============================================
--- DROP ALL EXISTING TABLES (in correct order due to foreign keys)
+-- ATENÇÃO: ESTE SCRIPT APAGARÁ TODOS OS DADOS!
+-- Ele recria o banco de dados do zero para garantir compatibilidade total.
 -- ============================================
 
+-- 1. DROP ALL TABLES (Limpeza)
 DROP TABLE IF EXISTS public.setup_teardown_assignments CASCADE;
+DROP TABLE IF EXISTS public.firefighter_logs CASCADE;
+DROP TABLE IF EXISTS public.firefighters CASCADE;
+DROP TABLE IF EXISTS public.bases CASCADE;
 DROP TABLE IF EXISTS public.documents CASCADE;
 DROP TABLE IF EXISTS public.folders CASCADE;
-DROP TABLE IF EXISTS public.firefighter_logs CASCADE;
 DROP TABLE IF EXISTS public.swap_requests CASCADE;
+DROP TABLE IF EXISTS public.notifications CASCADE;
 DROP TABLE IF EXISTS public.checklist_logs CASCADE;
 DROP TABLE IF EXISTS public.checklist_templates CASCADE;
 DROP TABLE IF EXISTS public.payments CASCADE;
@@ -26,262 +23,266 @@ DROP TABLE IF EXISTS public.tasks CASCADE;
 DROP TABLE IF EXISTS public.students CASCADE;
 DROP TABLE IF EXISTS public.classes CASCADE;
 DROP TABLE IF EXISTS public.courses CASCADE;
-DROP TABLE IF EXISTS public.firefighters CASCADE;
-DROP TABLE IF EXISTS public.bases CASCADE;
 DROP TABLE IF EXISTS public.users CASCADE;
-DROP TABLE IF EXISTS public.notifications CASCADE;
 
--- ============================================
--- CREATE TABLES WITH CORRECT SCHEMA
--- ============================================
+-- 2. CREATE TABLES (Recriação)
 
--- USERS TABLE
+-- USERS
 CREATE TABLE public.users (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  name TEXT NOT NULL,
-  cpf TEXT NOT NULL UNIQUE,
-  role TEXT NOT NULL,
-  email TEXT NOT NULL UNIQUE,
-  phone TEXT,
-  birth_date DATE,
-  registration_date DATE,
-  created_by TEXT,
-  base TEXT,
-  uniform_size JSONB,
-  ppe_size JSONB,
-  photo_url TEXT,
-  password TEXT
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    cpf TEXT NOT NULL,
+    role TEXT NOT NULL,
+    email TEXT NOT NULL,
+    phone TEXT NOT NULL,
+    birth_date TEXT NOT NULL,
+    registration_date TEXT NOT NULL,
+    created_by TEXT NOT NULL,
+    base TEXT,
+    uniform_size JSONB, -- { jumpsuit, shoes, shirt }
+    ppe_size JSONB,     -- { pants, jacket, gloves, boots }
+    photo_url TEXT,
+    password TEXT
 );
 
--- COURSES TABLE
+-- COURSES
 CREATE TABLE public.courses (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  name TEXT NOT NULL,
-  type TEXT NOT NULL,
-  subjects JSONB
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    type TEXT NOT NULL,
+    subjects JSONB DEFAULT '[]'::jsonb -- Array of Subject objects
 );
 
--- CLASSES TABLE
+-- CLASSES
 CREATE TABLE public.classes (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  name TEXT NOT NULL,
-  start_date DATE,
-  end_date DATE,
-  course_id UUID REFERENCES public.courses(id),
-  student_ids UUID[],
-  days_of_week INTEGER[],
-  include_saturday BOOLEAN DEFAULT false,
-  include_sunday BOOLEAN DEFAULT false,
-  hours_per_day NUMERIC,
-  theory_start_date DATE,
-  practice_start_date DATE,
-  registration_number TEXT,
-  cap_ba TEXT,
-  subjects JSONB
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    start_date TEXT NOT NULL,
+    end_date TEXT NOT NULL,
+    course_id TEXT NOT NULL, -- Link lógico, sem FK estrita para evitar erros de ordem
+    student_ids JSONB DEFAULT '[]'::jsonb, -- Array of strings
+    days_of_week JSONB DEFAULT '[]'::jsonb, -- Array of numbers
+    include_weekends BOOLEAN DEFAULT false,
+    include_saturday BOOLEAN DEFAULT false,
+    include_sunday BOOLEAN DEFAULT false,
+    hours_per_day INTEGER DEFAULT 8,
+    theory_start_date TEXT,
+    practice_start_date TEXT,
+    registration_number TEXT,
+    cap_ba TEXT,
+    schedule JSONB DEFAULT '[]'::jsonb, -- Array of ClassScheduleItem
+    
+    -- Setup/Teardown fields
+    setup_instructor_1_id TEXT,
+    setup_instructor_1_days INTEGER DEFAULT 0,
+    setup_instructor_2_id TEXT,
+    setup_instructor_2_days INTEGER DEFAULT 0,
+    teardown_instructor_1_id TEXT,
+    teardown_instructor_1_days INTEGER DEFAULT 0,
+    teardown_instructor_2_id TEXT,
+    teardown_instructor_2_days INTEGER DEFAULT 0
 );
 
--- STUDENTS TABLE
+-- STUDENTS
 CREATE TABLE public.students (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  name TEXT NOT NULL,
-  cpf TEXT NOT NULL UNIQUE,
-  class_id UUID REFERENCES public.classes(id),
-  enrollment_status TEXT,
-  rg TEXT,
-  rg_issuer TEXT,
-  birth_date DATE,
-  phone TEXT,
-  email TEXT,
-  origin TEXT,
-  address TEXT,
-  nationality TEXT,
-  mother_name TEXT,
-  father_name TEXT,
-  matricula TEXT,
-  registro TEXT,
-  cap_code TEXT,
-  class_name TEXT,
-  grades JSONB,
-  final_theory NUMERIC,
-  final_practical NUMERIC,
-  final_grade NUMERIC
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    cpf TEXT NOT NULL,
+    class_id TEXT,
+    enrollment_status TEXT NOT NULL,
+    rg TEXT NOT NULL,
+    rg_issuer TEXT NOT NULL,
+    birth_date TEXT NOT NULL,
+    phone TEXT NOT NULL,
+    email TEXT NOT NULL,
+    origin TEXT NOT NULL,
+    address TEXT NOT NULL,
+    nationality TEXT NOT NULL,
+    mother_name TEXT NOT NULL,
+    father_name TEXT NOT NULL,
+    matricula TEXT,
+    registro TEXT,
+    cap_code TEXT,
+    class_name TEXT,
+    grades JSONB DEFAULT '{}'::jsonb,
+    final_theory NUMERIC DEFAULT 0,
+    final_practical NUMERIC DEFAULT 0,
+    final_grade NUMERIC DEFAULT 0
 );
 
--- TASKS TABLE
+-- TASKS
 CREATE TABLE public.tasks (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  title TEXT NOT NULL,
-  description TEXT,
-  start_date DATE,
-  deadline DATE,
-  creator_id UUID REFERENCES public.users(id),
-  assignee_id UUID REFERENCES public.users(id),
-  priority TEXT,
-  status TEXT,
-  comments JSONB
+    id TEXT PRIMARY KEY,
+    title TEXT NOT NULL,
+    description TEXT NOT NULL,
+    start_date TEXT NOT NULL,
+    deadline TEXT NOT NULL,
+    creator_id TEXT NOT NULL,
+    assignee_id TEXT,
+    priority TEXT NOT NULL,
+    status TEXT NOT NULL,
+    comments JSONB DEFAULT '[]'::jsonb
 );
 
--- ATTENDANCE LOGS TABLE
+-- ATTENDANCE LOGS
 CREATE TABLE public.attendance_logs (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  class_id UUID REFERENCES public.classes(id),
-  date DATE,
-  time TEXT,
-  timestamp TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  taken_by_id UUID REFERENCES public.users(id),
-  taken_by_name TEXT,
-  notes TEXT,
-  records JSONB
+    id TEXT PRIMARY KEY,
+    class_id TEXT NOT NULL,
+    date TEXT NOT NULL,
+    time TEXT NOT NULL,
+    timestamp TEXT NOT NULL,
+    taken_by_id TEXT NOT NULL,
+    taken_by_name TEXT NOT NULL,
+    notes TEXT,
+    records JSONB DEFAULT '[]'::jsonb -- Array of AttendanceRecord
 );
 
--- GRADE LOGS TABLE
+-- GRADE LOGS
 CREATE TABLE public.grade_logs (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  class_id UUID REFERENCES public.classes(id),
-  timestamp TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  user_id UUID REFERENCES public.users(id),
-  user_name TEXT,
-  details TEXT
+    id TEXT PRIMARY KEY,
+    class_id TEXT NOT NULL,
+    timestamp TEXT NOT NULL,
+    user_id TEXT NOT NULL,
+    user_name TEXT NOT NULL,
+    details TEXT NOT NULL
 );
 
--- PAYMENTS TABLE
+-- PAYMENTS
 CREATE TABLE public.payments (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  schedule_item_id TEXT,
-  instructor_id UUID REFERENCES public.users(id),
-  amount NUMERIC,
-  date_paid DATE,
-  paid_by TEXT
+    id TEXT PRIMARY KEY,
+    schedule_item_id TEXT NOT NULL,
+    instructor_id TEXT NOT NULL,
+    amount NUMERIC NOT NULL,
+    date_paid TEXT NOT NULL,
+    paid_by TEXT NOT NULL
 );
 
--- CHECKLIST TEMPLATES TABLE
+-- CHECKLIST TEMPLATES
 CREATE TABLE public.checklist_templates (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  type TEXT,
-  title TEXT,
-  items JSONB
+    id TEXT PRIMARY KEY,
+    type TEXT NOT NULL,
+    title TEXT NOT NULL,
+    items JSONB DEFAULT '[]'::jsonb
 );
 
--- CHECKLIST LOGS TABLE
+-- CHECKLIST LOGS
 CREATE TABLE public.checklist_logs (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  template_id UUID REFERENCES public.checklist_templates(id),
-  type TEXT,
-  date DATE,
-  timestamp TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  user_id UUID REFERENCES public.users(id),
-  user_name TEXT,
-  class_id UUID REFERENCES public.classes(id),
-  stage TEXT,
-  items JSONB,
-  is_compliant BOOLEAN,
-  notes TEXT
+    id TEXT PRIMARY KEY,
+    template_id TEXT NOT NULL,
+    type TEXT NOT NULL,
+    date TEXT NOT NULL,
+    timestamp TEXT NOT NULL,
+    user_id TEXT NOT NULL,
+    user_name TEXT NOT NULL,
+    class_id TEXT,
+    stage TEXT,
+    items JSONB DEFAULT '[]'::jsonb,
+    is_compliant BOOLEAN DEFAULT false,
+    notes TEXT
 );
 
--- NOTIFICATIONS TABLE
+-- NOTIFICATIONS
 CREATE TABLE public.notifications (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  user_id UUID REFERENCES public.users(id),
-  title TEXT,
-  message TEXT,
-  type TEXT,
-  read BOOLEAN DEFAULT false,
-  timestamp TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  metadata JSONB
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    title TEXT NOT NULL,
+    message TEXT NOT NULL,
+    type TEXT NOT NULL,
+    read BOOLEAN DEFAULT false,
+    timestamp TEXT NOT NULL,
+    metadata JSONB
 );
 
--- SWAP REQUESTS TABLE
+-- SWAP REQUESTS
 CREATE TABLE public.swap_requests (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  requester_id UUID REFERENCES public.users(id),
-  requester_name TEXT,
-  target_instructor_id UUID REFERENCES public.users(id),
-  target_instructor_name TEXT,
-  class_id UUID REFERENCES public.classes(id),
-  class_name TEXT,
-  schedule_id TEXT,
-  date DATE,
-  time TEXT,
-  status TEXT CHECK (status IN ('Pendente', 'Aceito', 'Recusado')),
-  timestamp TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    id TEXT PRIMARY KEY,
+    requester_id TEXT NOT NULL,
+    requester_name TEXT NOT NULL,
+    target_instructor_id TEXT NOT NULL,
+    target_instructor_name TEXT NOT NULL,
+    class_id TEXT NOT NULL,
+    class_name TEXT NOT NULL,
+    schedule_id TEXT NOT NULL,
+    date TEXT NOT NULL,
+    time TEXT NOT NULL,
+    status TEXT NOT NULL,
+    timestamp TEXT NOT NULL
 );
 
--- BASES TABLE
-CREATE TABLE public.bases (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  name TEXT NOT NULL UNIQUE,
-  region TEXT,
-  airport_class TEXT
-);
-
--- FIREFIGHTERS TABLE
-CREATE TABLE public.firefighters (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  name TEXT NOT NULL,
-  cpf TEXT NOT NULL UNIQUE,
-  rg TEXT,
-  birth_date DATE,
-  phone TEXT,
-  email TEXT,
-  address TEXT,
-  base_id UUID REFERENCES public.bases(id),
-  registration_date DATE,
-  status TEXT
-);
-
--- FIREFIGHTER LOGS TABLE
-CREATE TABLE public.firefighter_logs (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  firefighter_id UUID REFERENCES public.firefighters(id),
-  firefighter_name TEXT,
-  timestamp TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  user_id UUID REFERENCES public.users(id),
-  user_name TEXT,
-  details TEXT
-);
-
--- FOLDERS TABLE
+-- FOLDERS
 CREATE TABLE public.folders (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  name TEXT NOT NULL,
-  parent_id UUID REFERENCES public.folders(id),
-  allowed_roles TEXT[],
-  created_by UUID REFERENCES public.users(id),
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    parent_id TEXT,
+    allowed_roles JSONB DEFAULT '[]'::jsonb, -- Array of strings
+    created_by TEXT NOT NULL,
+    created_at TEXT NOT NULL
 );
 
--- DOCUMENTS TABLE
+-- DOCUMENTS
 CREATE TABLE public.documents (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  folder_id UUID REFERENCES public.folders(id),
-  name TEXT NOT NULL,
-  url TEXT NOT NULL,
-  type TEXT,
-  size TEXT,
-  uploaded_by UUID REFERENCES public.users(id),
-  uploaded_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    id TEXT PRIMARY KEY,
+    folder_id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    url TEXT NOT NULL,
+    type TEXT NOT NULL,
+    size TEXT NOT NULL,
+    uploaded_by TEXT NOT NULL,
+    uploaded_at TEXT NOT NULL
 );
 
--- SETUP/TEARDOWN ASSIGNMENTS TABLE
+-- BASES
+CREATE TABLE public.bases (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    region TEXT NOT NULL,
+    airport_class TEXT NOT NULL
+);
+
+-- FIREFIGHTERS
+CREATE TABLE public.firefighters (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    base TEXT NOT NULL,
+    region TEXT NOT NULL,
+    airport_class TEXT NOT NULL,
+    graduation_date TEXT NOT NULL,
+    last_update_date TEXT NOT NULL,
+    is_not_updated BOOLEAN DEFAULT false,
+    last_fire_exercise_date TEXT,
+    is_away BOOLEAN DEFAULT false,
+    away_start_date TEXT,
+    away_end_date TEXT,
+    away_reason TEXT
+);
+
+-- FIREFIGHTER LOGS
+CREATE TABLE public.firefighter_logs (
+    id TEXT PRIMARY KEY,
+    firefighter_id TEXT NOT NULL,
+    firefighter_name TEXT NOT NULL,
+    timestamp TEXT NOT NULL,
+    user_id TEXT NOT NULL,
+    user_name TEXT NOT NULL,
+    details TEXT NOT NULL
+);
+
+-- SETUP TEARDOWN ASSIGNMENTS
 CREATE TABLE public.setup_teardown_assignments (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  class_id UUID REFERENCES public.classes(id),
-  class_name TEXT,
-  type TEXT CHECK (type IN ('Montagem', 'Desmontagem')),
-  instructor_id UUID REFERENCES public.users(id),
-  instructor_name TEXT,
-  days INTEGER,
-  rate NUMERIC DEFAULT 350,
-  total_value NUMERIC,
-  date DATE,
-  notes TEXT,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    id TEXT PRIMARY KEY,
+    class_id TEXT NOT NULL,
+    class_name TEXT NOT NULL,
+    type TEXT NOT NULL,
+    instructor_id TEXT NOT NULL,
+    instructor_name TEXT NOT NULL,
+    days INTEGER NOT NULL,
+    rate NUMERIC NOT NULL,
+    total_value NUMERIC NOT NULL,
+    date TEXT NOT NULL,
+    notes TEXT
 );
 
--- ============================================
--- ENABLE ROW LEVEL SECURITY (RLS)
--- ============================================
-
+-- 3. ENABLE RLS (Segurança Básica)
 ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Public access" ON public.users FOR ALL USING (true);
 
@@ -318,6 +319,12 @@ CREATE POLICY "Public access" ON public.notifications FOR ALL USING (true);
 ALTER TABLE public.swap_requests ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Public access" ON public.swap_requests FOR ALL USING (true);
 
+ALTER TABLE public.folders ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Public access" ON public.folders FOR ALL USING (true);
+
+ALTER TABLE public.documents ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Public access" ON public.documents FOR ALL USING (true);
+
 ALTER TABLE public.bases ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Public access" ON public.bases FOR ALL USING (true);
 
@@ -327,40 +334,34 @@ CREATE POLICY "Public access" ON public.firefighters FOR ALL USING (true);
 ALTER TABLE public.firefighter_logs ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Public access" ON public.firefighter_logs FOR ALL USING (true);
 
-ALTER TABLE public.folders ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Public access" ON public.folders FOR ALL USING (true);
-
-ALTER TABLE public.documents ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Public access" ON public.documents FOR ALL USING (true);
-
 ALTER TABLE public.setup_teardown_assignments ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Public access" ON public.setup_teardown_assignments FOR ALL USING (true);
 
--- ============================================
--- CREATE STORAGE BUCKETS
--- ============================================
 
--- Create profile-photos bucket
-INSERT INTO storage.buckets (id, name, public)
-VALUES ('profile-photos', 'profile-photos', true)
-ON CONFLICT (id) DO NOTHING;
+-- 4. INSERT MASTER USER (Usuário Admin)
+INSERT INTO public.users (
+    id, name, cpf, role, email, phone, birth_date, registration_date, created_by, 
+    uniform_size, ppe_size, photo_url, password
+) VALUES (
+    'admin-master-id',
+    'Administrador Mestre',
+    '000.000.000-00',
+    'Administrador',
+    'admin@medgroup.com',
+    '(11) 99999-9999',
+    '1980-01-01',
+    '2024-01-01',
+    'System',
+    '{"jumpsuit": "M", "shoes": "40", "shirt": "M"}',
+    '{"pants": "M", "jacket": "M", "gloves": "M", "boots": "40"}',
+    'https://ui-avatars.com/api/?name=Admin+Master&background=random',
+    'admin123' -- Em produção, use hash!
+);
 
--- Create documents bucket
-INSERT INTO storage.buckets (id, name, public)
-VALUES ('documents', 'documents', true)
-ON CONFLICT (id) DO NOTHING;
-
--- Enable public access to buckets
-CREATE POLICY "Public access to profile photos"
-ON storage.objects FOR ALL
-USING (bucket_id = 'profile-photos');
-
-CREATE POLICY "Public access to documents"
-ON storage.objects FOR ALL
-USING (bucket_id = 'documents');
-
--- ============================================
--- DONE!
--- ============================================
--- All tables have been recreated with the correct schema
--- You can now use the application and data will persist correctly
+-- 5. MENSAGEM FINAL
+DO $$
+BEGIN
+    RAISE NOTICE '✅ BANCO DE DADOS RESETADO COM SUCESSO!';
+    RAISE NOTICE 'Todas as tabelas foram recriadas com schema correto.';
+    RAISE NOTICE 'Usuário Mestre criado: admin@medgroup.com';
+END $$;
