@@ -30,10 +30,8 @@ DELETE FROM attendance_logs WHERE class_id NOT IN (SELECT id FROM classes);
 -- 7. Limpar logs de notas
 DELETE FROM grade_logs WHERE class_id NOT IN (SELECT id FROM classes);
 
--- 8. Limpar pagamentos órfãos
-DELETE FROM payments WHERE schedule_item_id NOT IN (
-  SELECT unnest(schedule::json->'id') FROM classes
-);
+-- 8. Limpar pagamentos órfãos (comentado - requer lógica mais complexa)
+-- DELETE FROM payments WHERE schedule_item_id NOT IN (SELECT id FROM classes);
 
 -- 9. Limpar notificações antigas
 DELETE FROM notifications WHERE timestamp < NOW() - INTERVAL '30 days';
