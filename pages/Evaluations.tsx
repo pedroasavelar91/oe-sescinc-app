@@ -4,8 +4,6 @@ import { useStore } from '../context/AppStore';
 import { EVALUATION_SCHEMAS } from '../constants';
 import { CourseType, Student, GradeLog, EnrollmentStatus } from '../types';
 import { Save, Edit2, X, FileText, User as UserIcon, Clock, Download } from 'lucide-react';
-import jsPDF from 'jspdf';
-import 'jspdf-autotable';
 
 export const EvaluationsPage: React.FC = () => {
     const { classes, courses, students, updateStudent, currentUser, addGradeLog, gradeLogs } = useStore();
@@ -159,64 +157,57 @@ export const EvaluationsPage: React.FC = () => {
         setIsEditing(false);
     };
 
-    const exportToPDF = () => {
+    const exportToCSV = () => {
         if (!selectedClass || !course || !schema) return;
 
-        const doc: any = new jsPDF('l', 'mm', 'a4'); // Landscape
+        // 1. Headers
+        const theoryHeaders = schema.theory;
+        const practiceHeaders = schema.practice;
 
-        // Header
-        doc.setFontSize(16);
-        doc.text(`Boletim de Notas: ${selectedClass.name}`, 14, 15);
-        doc.setFontSize(10);
-        doc.text(`Curso: ${course.name}`, 14, 22);
-        doc.text(`Gerado em: ${new Date().toLocaleDateString()} às ${new Date().toLocaleTimeString()}`, 200, 22);
-
-        // Columns Construction
-        // Row 1: Group Headers
-        const headRow1 = [
-            { content: 'Aluno', rowSpan: 2, styles: { valign: 'middle', halign: 'center', fontStyle: 'bold' } },
-            { content: 'Status', rowSpan: 2, styles: { valign: 'middle', halign: 'center', fontStyle: 'bold' } },
-            { content: 'Avaliação Teórica', colSpan: schema.theory.length + 1, styles: { halign: 'center', fillColor: [37, 99, 235], textColor: 255, fontStyle: 'bold' } },
-            { content: 'Avaliação Prática', colSpan: schema.practice.length + 1, styles: { halign: 'center', fillColor: [234, 88, 12], textColor: 255, fontStyle: 'bold' } },
-            { content: 'Média Final', rowSpan: 2, styles: { valign: 'middle', halign: 'center', fillColor: [243, 244, 246], fontStyle: 'bold' } }
+        const headers = [
+            'Nome do Aluno',
+            'Status',
+            ...theoryHeaders.map(h => `Teoria: ${h}`),
+            'Média Teórica',
+            ...practiceHeaders.map(h => `Prática: ${h}`),
+            'Média Prática',
+            'Nota Final'
         ];
 
-        // Row 2: Detailed Columns
-        const headRow2 = [
-            ...schema.theory.map(col => ({ content: col, styles: { halign: 'center', fontSize: 7 } })),
-            { content: 'Final T.', styles: { halign: 'center', fontStyle: 'bold', fillColor: [239, 246, 255] } },
-            ...schema.practice.map(col => ({ content: col, styles: { halign: 'center', fontSize: 7 } })),
-            { content: 'Final P.', styles: { halign: 'center', fontStyle: 'bold', fillColor: [255, 247, 237] } }
-        ];
-
-        // Data Body
-        const body = classStudents.map(student => {
+        // 2. Rows
+        const rows = classStudents.map(student => {
             const s = tempGrades[student.id] || student;
 
-            const theoryGrades = schema.theory.map(col => s.grades[col] ?? '-');
-            const practiceGrades = schema.practice.map(col => s.grades[col] ?? '-');
+            const theoryValues = theoryHeaders.map(col => s.grades[col] ?? 0);
+            const practiceValues = practiceHeaders.map(col => s.grades[col] ?? 0);
 
             return [
                 s.name,
                 s.enrollmentStatus,
-                ...theoryGrades,
-                s.finalTheory.toFixed(1),
-                ...practiceGrades,
-                s.finalPractical.toFixed(1),
-                s.finalGrade.toFixed(1)
+                ...theoryValues,
+                s.finalTheory?.toFixed(2) || '0.00',
+                ...practiceValues,
+                s.finalPractical?.toFixed(2) || '0.00',
+                s.finalGrade?.toFixed(2) || '0.00'
             ];
         });
 
-        doc.autoTable({
-            startY: 28,
-            head: [headRow1, headRow2],
-            body: body,
-            theme: 'grid',
-            styles: { fontSize: 8, cellPadding: 2, lineColor: [200, 200, 200] },
-            headStyles: { textColor: 20 },
-        });
+        // 3. Construct CSV Content
+        const csvContent = [
+            headers.join(','),
+            ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
+        ].join('\n');
 
-        doc.save(`Notas_${selectedClass.name.replace(/\//g, '-')}.pdf`);
+        // 4. Download
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.setAttribute('href', url);
+        link.setAttribute('download', `Notas_${selectedClass.name.replace(/\s+/g, '_')}.csv`);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
     };
 
     const inputClass = "appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm bg-white text-gray-900";
@@ -258,12 +249,10 @@ export const EvaluationsPage: React.FC = () => {
                 {selectedClass && (
                     <div className="flex space-x-2">
                         <button
-                            onClick={exportToPDF}
-                            className="flex items-center space-x-2 bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-50 transition"
-                            title="Exportar para PDF"
+                            onClick={exportToCSV}
+                            className="btn-premium bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 flex items-center gap-2 px-4 py-2 rounded-lg shadow-sm transition-all"
                         >
-                            <Download size={18} />
-                            <span className="hidden sm:inline">Exportar PDF</span>
+                            <Download size={18} /> Exportar CSV
                         </button>
 
                         {!isEditing ? (

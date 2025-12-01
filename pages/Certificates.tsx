@@ -17,11 +17,27 @@ export const CertificatesPage: React.FC = () => {
 
     const inputClass = "appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm bg-white text-gray-900";
 
+    // Helper to get Course Letter code
+    const getCourseLetter = (type: CourseType) => {
+        switch (type) {
+            case CourseType.CBA_2:
+            case CourseType.CBA_2_COMP:
+                return 'H';
+            case CourseType.CBA_AT:
+                return 'A';
+            case CourseType.CBA_CE:
+                return 'E';
+            default:
+                return 'X';
+        }
+    };
+
     // Derive Certificate Data
     const certificateData = useMemo(() => {
         const today = new Date();
 
-        return students.filter(s => {
+        // 1. Filter eligible students
+        const eligibleStudents = students.filter(s => {
             if (!s.classId) return false;
             const cls = classes.find(c => c.id === s.classId);
             if (!cls) return false;
@@ -30,13 +46,29 @@ export const CertificatesPage: React.FC = () => {
             const isApproved = s.enrollmentStatus === 'Aprovado';
 
             return isClassFinished || isApproved;
-        }).map(s => {
-            const cls = classes.find(c => c.id === s.classId);
-            const course = courses.find(c => c.id === cls?.courseId);
+        });
 
+        // 2. Group by Class to calculate indexes
+        const studentsByClass: { [key: string]: typeof eligibleStudents } = {};
+        eligibleStudents.forEach(s => {
+            if (!studentsByClass[s.classId!]) studentsByClass[s.classId!] = [];
+            studentsByClass[s.classId!].push(s);
+        });
+
+        let allCertificates: any[] = [];
+
+        Object.keys(studentsByClass).forEach(classId => {
+            const cls = classes.find(c => c.id === classId);
+            const course = courses.find(c => c.id === cls?.courseId);
+            if (!cls || !course) return;
+
+            // Sort alphabetically for consistent indexing
+            const classStudents = studentsByClass[classId].sort((a, b) => a.name.localeCompare(b.name));
+
+            // Get Class Year/Num
             let num = '00';
             let year = '2025';
-            if (cls?.name) {
+            if (cls.name) {
                 const parts = cls.name.split(' ');
                 const suffix = parts[parts.length - 1];
                 if (suffix.includes('/')) {
@@ -44,20 +76,48 @@ export const CertificatesPage: React.FC = () => {
                 }
             }
 
-            return {
-                id: s.id,
-                name: s.name,
-                cpf: s.cpf,
-                courseName: course?.name || 'N/A',
-                endDate: cls?.endDate,
-                classId: cls?.id,
-                className: cls?.name,
-                year: year,
-                matricula: s.matricula || 'Gerado em Alunos',
-                registro: s.registro || 'Gerado em Alunos',
-                capBa: s.capCode || 'Gerado em Alunos'
-            };
+            const courseLetter = getCourseLetter(course.type);
+            const baseReg = parseInt(cls.registrationNumber || '0');
+            const baseCap = parseInt(cls.capBa || '0');
+
+            // We need to know the student's index within the WHOLE class (not just eligible ones)
+            // So we need to fetch ALL students for this class to determine the correct index
+            const allClassStudents = students.filter(s => s.classId === classId).sort((a, b) => a.name.localeCompare(b.name));
+
+            classStudents.forEach(s => {
+                // Find index in the full class list
+                const index = allClassStudents.findIndex(st => st.id === s.id) + 1;
+
+                // Calculate Fields
+                const formattedIndex = index.toString().padStart(2, '0');
+                const matricula = s.matricula || `${formattedIndex}/${course.name.split(' ')[0]}/Nº${num}-${year}`;
+
+                const seqReg = baseReg + index;
+                const registro = s.registro || `08/${courseLetter}${seqReg}/${year}`;
+
+                let capBa = s.capCode || '-';
+                if (course.type !== CourseType.CBA_CE && !s.capCode) {
+                    const seqCap = baseCap + index;
+                    capBa = `08/C${seqCap}/${year}`;
+                }
+
+                allCertificates.push({
+                    id: s.id,
+                    name: s.name,
+                    cpf: s.cpf,
+                    courseName: course.name,
+                    endDate: cls.endDate,
+                    classId: cls.id,
+                    className: cls.name,
+                    year: year,
+                    matricula,
+                    registro,
+                    capBa
+                });
+            });
         });
+
+        return allCertificates;
     }, [students, classes, courses]);
 
     const filteredCertificates = certificateData.filter(c => {

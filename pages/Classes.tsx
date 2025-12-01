@@ -243,15 +243,15 @@ export const ClassesPage: React.FC = () => {
         }
 
         const theorySubjects = subjects.filter(s =>
-            s.modality === 'Teórica' ||
-            s.modality === 'Teorica' ||
-            (s.modality && s.modality.includes('Te'))
+            (s.modality as string) === 'Teórica' ||
+            (s.modality as string) === 'Teorica' ||
+            (s.modality && (s.modality as string).includes('Te'))
         );
 
         const practiceSubjects = subjects.filter(s =>
-            s.modality === 'Prática' ||
-            s.modality === 'Pratica' ||
-            (s.modality && s.modality.includes('Pr'))
+            (s.modality as string) === 'Prática' ||
+            (s.modality as string) === 'Pratica' ||
+            (s.modality && (s.modality as string).includes('Pr'))
         );
 
         const config = {
@@ -774,25 +774,64 @@ export const ClassesPage: React.FC = () => {
         );
     }
 
+    // Filters
+    const [selectedCourseFilter, setSelectedCourseFilter] = useState('');
+    const [selectedYearFilter, setSelectedYearFilter] = useState('');
+
+    // Derived Data for Filters
+    const availableYears = Array.from(new Set(classes.map(c => new Date(c.startDate).getFullYear()))).sort((a, b) => b - a);
+
+    const filteredClasses = classes.filter(cls => {
+        const matchesCourse = selectedCourseFilter ? cls.courseId === selectedCourseFilter : true;
+        const matchesYear = selectedYearFilter ? new Date(cls.startDate).getFullYear().toString() === selectedYearFilter : true;
+        return matchesCourse && matchesYear;
+    });
+
     // List View
     return (
         <div className="space-y-6">
-            <div className="flex justify-between items-center">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
                     <h1 className="text-3xl font-bold text-gray-900">Gerenciamento de Turmas</h1>
                     <p className="text-gray-500 mt-1">Gerencie turmas e cronogramas</p>
                 </div>
-                <button
-                    onClick={() => setView('create')}
-                    className="btn-premium flex items-center space-x-2 bg-gradient-to-r from-primary-600 to-primary-500 hover:from-primary-700 hover:to-primary-600 text-white px-6 py-3 rounded-lg shadow-md transition-all duration-200"
-                >
-                    <Plus size={20} />
-                    <span className="font-semibold">Nova Turma</span>
-                </button>
+                <div className="flex flex-wrap gap-2 w-full md:w-auto">
+                    {/* Filters */}
+                    <select
+                        className="input-premium px-3 py-2 rounded-lg border border-gray-300 bg-white text-sm"
+                        value={selectedCourseFilter}
+                        onChange={e => setSelectedCourseFilter(e.target.value)}
+                    >
+                        <option value="">Todos os Cursos</option>
+                        {courses.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    </select>
+
+                    <select
+                        className="input-premium px-3 py-2 rounded-lg border border-gray-300 bg-white text-sm"
+                        value={selectedYearFilter}
+                        onChange={e => setSelectedYearFilter(e.target.value)}
+                    >
+                        <option value="">Todos os Anos</option>
+                        {availableYears.map(year => <option key={year} value={year}>{year}</option>)}
+                    </select>
+
+                    <button
+                        onClick={() => setView('create')}
+                        className="btn-premium flex items-center space-x-2 bg-gradient-to-r from-primary-600 to-primary-500 hover:from-primary-700 hover:to-primary-600 text-white px-6 py-2 rounded-lg shadow-md transition-all duration-200"
+                    >
+                        <Plus size={20} />
+                        <span className="font-semibold">Nova Turma</span>
+                    </button>
+                </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {classes.map(cls => {
+                {filteredClasses.length === 0 && (
+                    <div className="col-span-full text-center py-12 bg-white rounded-lg border border-dashed border-gray-300">
+                        <p className="text-gray-500">Nenhuma turma encontrada com os filtros selecionados.</p>
+                    </div>
+                )}
+                {filteredClasses.map(cls => {
                     const course = courses.find(c => c.id === cls.courseId);
                     const status = getStatus(cls);
 

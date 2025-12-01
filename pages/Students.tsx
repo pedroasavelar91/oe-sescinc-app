@@ -171,12 +171,29 @@ export const StudentsPage: React.FC = () => {
         setStudentForm({ enrollmentStatus: 'Matriculado' });
     };
 
+    const [selectedYearFilter, setSelectedYearFilter] = useState('');
+
+    // Derived Data for Filters
+    const availableYears = Array.from(new Set(classes.map(c => new Date(c.startDate).getFullYear()))).sort((a, b) => b - a);
+
     const filtered = computedStudents.filter(s => {
         const matchesSearch = s.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
             s.cpf.includes(searchTerm) ||
             s.matricula.includes(searchTerm);
+
         const matchesClass = selectedClassFilter ? s.classId === selectedClassFilter : true;
-        return matchesSearch && matchesClass;
+
+        let matchesYear = true;
+        if (selectedYearFilter) {
+            const studentClass = classes.find(c => c.id === s.classId);
+            if (studentClass) {
+                matchesYear = new Date(studentClass.startDate).getFullYear().toString() === selectedYearFilter;
+            } else {
+                matchesYear = false; // Unassigned students don't match a specific year filter
+            }
+        }
+
+        return matchesSearch && matchesClass && matchesYear;
     });
 
     const inputClass = "appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm bg-white text-gray-900";
@@ -209,9 +226,20 @@ export const StudentsPage: React.FC = () => {
                         />
                     </div>
 
-                    <div className="w-full md:w-64">
+                    <div className="flex gap-2 w-full md:w-auto">
                         <select
-                            className={inputClass}
+                            className={`${inputClass} w-32`}
+                            value={selectedYearFilter}
+                            onChange={(e) => setSelectedYearFilter(e.target.value)}
+                        >
+                            <option value="">Todos os Anos</option>
+                            {availableYears.map(year => (
+                                <option key={year} value={year}>{year}</option>
+                            ))}
+                        </select>
+
+                        <select
+                            className={`${inputClass} w-48`}
                             value={selectedClassFilter}
                             onChange={(e) => setSelectedClassFilter(e.target.value)}
                         >

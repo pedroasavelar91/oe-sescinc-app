@@ -318,8 +318,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
         if (isSupabaseConfigured()) {
             console.log('✅ Supabase is configured!');
-            console.log('URL:', import.meta.env.VITE_SUPABASE_URL ? 'Set' : 'Not set');
-            console.log('Key:', import.meta.env.VITE_SUPABASE_ANON_KEY ? 'Set' : 'Not set');
+            console.log('URL:', (import.meta as any).env.VITE_SUPABASE_URL ? 'Set' : 'Not set');
+            console.log('Key:', (import.meta as any).env.VITE_SUPABASE_ANON_KEY ? 'Set' : 'Not set');
 
             try {
                 // Check if we need to seed (If users OR courses OR classes are missing)
@@ -380,8 +380,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             }
         } else {
             console.warn("⚠️ Supabase not configured. App will be empty.");
-            console.warn('VITE_SUPABASE_URL:', import.meta.env.VITE_SUPABASE_URL || 'NOT SET');
-            console.warn('VITE_SUPABASE_ANON_KEY:', import.meta.env.VITE_SUPABASE_ANON_KEY ? 'SET' : 'NOT SET');
+            console.warn('VITE_SUPABASE_URL:', (import.meta as any).env.VITE_SUPABASE_URL || 'NOT SET');
+            console.warn('VITE_SUPABASE_ANON_KEY:', (import.meta as any).env.VITE_SUPABASE_ANON_KEY ? 'SET' : 'NOT SET');
         }
 
         // ALWAYS set loading to false, regardless of Supabase config
@@ -569,6 +569,18 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     };
 
     const addTask = async (task: Task) => {
+        // Initialize logs if empty
+        if (!task.logs || task.logs.length === 0) {
+            task.logs = [{
+                id: Math.random().toString(36).substr(2, 9),
+                timestamp: new Date().toISOString(),
+                userId: currentUser?.id || 'system',
+                userName: currentUser?.name || 'Sistema',
+                action: 'created',
+                details: 'Tarefa criada'
+            }];
+        }
+
         setTasks([...tasks, task]);
         await syncWithSupabase('tasks', 'INSERT', mapTaskToDB(task));
 

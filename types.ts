@@ -88,6 +88,16 @@ export interface ClassGroup {
   registrationNumber?: string;
   capBa?: string;
   schedule: ClassScheduleItem[];
+
+  // Setup/Teardown Fields
+  setupInstructor1Id?: string | null;
+  setupInstructor1Days?: number;
+  setupInstructor2Id?: string | null;
+  setupInstructor2Days?: number;
+  teardownInstructor1Id?: string | null;
+  teardownInstructor1Days?: number;
+  teardownInstructor2Id?: string | null;
+  teardownInstructor2Days?: number;
 }
 
 export type EnrollmentStatus = 'Matriculado' | 'Cancelado' | 'Desligado' | 'Pendente' | 'Aprovado' | 'Reprovado';
@@ -125,6 +135,15 @@ export interface Student {
   finalGrade: number;
 }
 
+export interface TaskLog {
+  id: string;
+  timestamp: string;
+  userId: string;
+  userName: string;
+  action: 'created' | 'updated' | 'status_change' | 'comment_added' | 'finished';
+  details: string;
+}
+
 export interface Task {
   id: string;
   title: string;
@@ -136,6 +155,8 @@ export interface Task {
   priority: 'Baixa' | 'Média' | 'Alta';
   status: 'Pendente' | 'Aguardando Aprovação' | 'Concluída';
   comments: { userId: string; text: string; date: string }[];
+  logs: TaskLog[];
+  resolutionNotes?: string;
 }
 
 export type AttendanceStatus = 'Presente' | 'Ausente' | 'Justificado';

@@ -22,13 +22,15 @@ export const TasksPage: React.FC = () => {
     const getAiSuggestion = async () => {
         if (!newTask.title) return;
         try {
-            const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+            const ai = new GoogleGenAI({ apiKey: (import.meta as any).env.VITE_GEMINI_API_KEY || '' });
             const response = await ai.models.generateContent({
                 model: 'gemini-2.5-flash',
                 contents: `Suggest a brief, professional description and checklist for a task titled: "${newTask.title}" for a fire safety instructor.`,
             });
-            setAiSuggestion(response.text);
-            setNewTask({ ...newTask, description: response.text });
+            const r = response as any;
+            const text = typeof r.text === 'function' ? r.text() : r.text;
+            setAiSuggestion(text || '');
+            setNewTask({ ...newTask, description: text || '' });
         } catch (error) {
             console.error("AI Error", error);
         }
@@ -47,7 +49,8 @@ export const TasksPage: React.FC = () => {
             assigneeId: newTask.assigneeId, // If undefined, private
             priority: newTask.priority as any,
             status: 'Pendente',
-            comments: []
+            comments: [],
+            logs: []
         };
         addTask(t);
         setShowCreateModal(false);
@@ -73,25 +76,53 @@ export const TasksPage: React.FC = () => {
         setCommentText('');
     };
 
+    const [resolutionNotes, setResolutionNotes] = useState('');
+
     // --- Workflow Logic ---
     const handleStatusChange = (task: Task, action: 'request_finish' | 'approve' | 'reject' | 'finish_private') => {
         let newStatus = task.status;
+        let logAction = '';
+        let logDetails = '';
 
         if (action === 'finish_private') {
             newStatus = 'Concluída';
+            logAction = 'finished';
+            logDetails = `Tarefa concluída por ${currentUser?.name}. Notas: ${resolutionNotes || 'Sem notas'}`;
         } else if (action === 'request_finish') {
             newStatus = 'Aguardando Aprovação';
+            logAction = 'status_change';
+            logDetails = `Solicitação de conclusão por ${currentUser?.name}. Notas: ${resolutionNotes || 'Sem notas'}`;
         } else if (action === 'approve') {
             newStatus = 'Concluída';
+            logAction = 'finished';
+            logDetails = `Conclusão aprovada por ${currentUser?.name}.`;
         } else if (action === 'reject') {
             newStatus = 'Pendente';
+            logAction = 'status_change';
+            logDetails = `Conclusão recusada por ${currentUser?.name}.`;
         }
 
-        const updatedTask = { ...task, status: newStatus };
+        const newLog = {
+            id: Math.random().toString(36).substr(2, 9),
+            timestamp: new Date().toISOString(),
+            userId: currentUser?.id || 'system',
+            userName: currentUser?.name || 'Sistema',
+            action: logAction as any,
+            details: logDetails
+        };
+
+        const updatedTask = {
+            ...task,
+            status: newStatus,
+            logs: [...(task.logs || []), newLog],
+            resolutionNotes: (action === 'finish_private' || action === 'request_finish') ? resolutionNotes : task.resolutionNotes
+        };
+
         updateTask(updatedTask);
         if (selectedTask && selectedTask.id === task.id) {
             setSelectedTask(updatedTask);
         }
+        setResolutionNotes(''); // Reset notes
     };
 
     // --- Filtering ---
@@ -240,6 +271,20 @@ export const TasksPage: React.FC = () => {
                                 </div>
                             </div>
 
+                            {/* Resolution Notes Input */}
+                            {selectedTask.status !== 'Concluída' && (
+                                <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-100">
+                                    <h4 className="text-sm font-bold text-yellow-900 mb-2">Notas de Conclusão / Resolução</h4>
+                                    <textarea
+                                        className="w-full p-2 border border-yellow-200 rounded-md text-sm focus:outline-none focus:border-yellow-400"
+                                        placeholder="Descreva como a tarefa foi resolvida ou adicione observações..."
+                                        rows={3}
+                                        value={resolutionNotes}
+                                        onChange={e => setResolutionNotes(e.target.value)}
+                                    />
+                                </div>
+                            )}
+
                             {/* Action Buttons */}
                             {selectedTask.status !== 'Concluída' && (
                                 <div className="py-4 border-t border-b border-gray-100">
@@ -329,6 +374,27 @@ export const TasksPage: React.FC = () => {
                                     >
                                         <Send size={18} />
                                     </button>
+                                </div>
+                            </div>
+
+                            {/* Activity Log */}
+                            <div className="border-t border-gray-100 pt-6">
+                                <h4 className="text-sm font-bold text-gray-900 mb-4 flex items-center gap-2">
+                                    <Clock size={16} /> Histórico de Atividades
+                                </h4>
+                                <div className="space-y-3 max-h-40 overflow-y-auto">
+                                    {selectedTask.logs?.length === 0 && <p className="text-sm text-gray-400 italic">Nenhuma atividade registrada.</p>}
+                                    {selectedTask.logs?.slice().reverse().map((log, idx) => (
+                                        <div key={idx} className="flex gap-3 text-sm">
+                                            <div className="min-w-[4px] w-1 bg-gray-200 rounded-full"></div>
+                                            <div>
+                                                <p className="text-gray-900 font-medium text-xs">
+                                                    {log.userName} <span className="text-gray-400 font-normal">• {new Date(log.timestamp).toLocaleDateString()} {new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                                </p>
+                                                <p className="text-gray-600">{log.details}</p>
+                                            </div>
+                                        </div>
+                                    ))}
                                 </div>
                             </div>
                         </div>

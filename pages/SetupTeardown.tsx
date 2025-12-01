@@ -188,51 +188,80 @@ export const SetupTeardownPage: React.FC = () => {
                                 <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Dias</th>
                                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Valor Total</th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Data</th>
+                                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Status Pagamento</th>
                                 {canManage && <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>}
                             </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
                             {filteredAssignments.length === 0 ? (
                                 <tr>
-                                    <td colSpan={canManage ? 7 : 6} className="px-6 py-8 text-center text-gray-500">
+                                    <td colSpan={canManage ? 8 : 7} className="px-6 py-8 text-center text-gray-500">
                                         Nenhuma atribuição encontrada
                                     </td>
                                 </tr>
                             ) : (
-                                filteredAssignments.map(assignment => (
-                                    <tr key={assignment.id} className="hover:bg-gray-50">
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{assignment.className}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <span className={`inline-flex items-center px-2.5 py-1 text-xs font-semibold rounded-md ${assignment.type === 'Montagem'
-                                                ? 'bg-green-100 text-green-800'
-                                                : 'bg-orange-100 text-orange-800'
-                                                }`}>
-                                                {assignment.type === 'Montagem' ? '🔧 ' : '📦 '}
-                                                {assignment.type}
-                                            </span>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{assignment.instructorName}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-center">
-                                            <span className="font-semibold text-gray-900">{assignment.days}</span>
-                                            <span className="text-xs text-gray-500 ml-1">dias</span>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-right">
-                                            <span className="font-bold text-primary-600">R$ {assignment.totalValue.toFixed(2)}</span>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{new Date(assignment.date).toLocaleDateString('pt-BR')}</td>
-                                        {canManage && (
-                                            <td className="px-6 py-4 whitespace-nowrap text-center text-sm">
-                                                <button
-                                                    onClick={() => handleDelete(assignment.id)}
-                                                    className="text-red-600 hover:text-red-800 transition-colors"
-                                                    title="Excluir"
-                                                >
-                                                    <Trash2 size={18} />
-                                                </button>
+                                filteredAssignments.map(assignment => {
+                                    const isPaid = payments.some(p => p.scheduleItemId === assignment.id);
+                                    return (
+                                        <tr key={assignment.id} className="hover:bg-gray-50">
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{assignment.className}</td>
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                <span className={`inline-flex items-center px-2.5 py-1 text-xs font-semibold rounded-md ${assignment.type === 'Montagem'
+                                                    ? 'bg-green-100 text-green-800'
+                                                    : 'bg-orange-100 text-orange-800'
+                                                    }`}>
+                                                    {assignment.type === 'Montagem' ? '🔧 ' : '📦 '}
+                                                    {assignment.type}
+                                                </span>
                                             </td>
-                                        )}
-                                    </tr>
-                                ))
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{assignment.instructorName}</td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-center">
+                                                <span className="font-semibold text-gray-900">{assignment.days}</span>
+                                                <span className="text-xs text-gray-500 ml-1">dias</span>
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-right">
+                                                <span className="font-bold text-primary-600">R$ {assignment.totalValue.toFixed(2)}</span>
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{new Date(assignment.date).toLocaleDateString('pt-BR')}</td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-center">
+                                                <span className={`px-2 py-1 rounded-full text-xs font-bold ${isPaid ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
+                                                    {isPaid ? 'Pago' : 'Pendente'}
+                                                </span>
+                                            </td>
+                                            {canManage && (
+                                                <td className="px-6 py-4 whitespace-nowrap text-center text-sm flex justify-center gap-2">
+                                                    {!isPaid && (
+                                                        <button
+                                                            onClick={() => {
+                                                                if (confirm(`Confirmar pagamento de R$ ${assignment.totalValue.toFixed(2)} para ${assignment.instructorName}?`)) {
+                                                                    addPayment({
+                                                                        id: Math.random().toString(36).substr(2, 9),
+                                                                        scheduleItemId: assignment.id,
+                                                                        instructorId: assignment.instructorId,
+                                                                        amount: assignment.totalValue,
+                                                                        datePaid: new Date().toISOString(),
+                                                                        paidBy: currentUser.id
+                                                                    });
+                                                                }
+                                                            }}
+                                                            className="text-green-600 hover:text-green-800 transition-colors"
+                                                            title="Registrar Pagamento"
+                                                        >
+                                                            <DollarSign size={18} />
+                                                        </button>
+                                                    )}
+                                                    <button
+                                                        onClick={() => handleDelete(assignment.id)}
+                                                        className="text-red-600 hover:text-red-800 transition-colors"
+                                                        title="Excluir"
+                                                    >
+                                                        <Trash2 size={18} />
+                                                    </button>
+                                                </td>
+                                            )}
+                                        </tr>
+                                    );
+                                })
                             )}
                         </tbody>
                     </table>
