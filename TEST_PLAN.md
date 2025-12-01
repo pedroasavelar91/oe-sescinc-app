@@ -114,24 +114,6 @@ Após os testes, verifique diretamente no Supabase:
    - `away_reason`
 
 5. Verifique se os dados inseridos aparecem corretamente
-
----
-
-## 📊 Checklist Final
-
-- [ ] Estudante criado e persiste após reload
-- [ ] Turma criada e persiste após reload
-- [ ] Bombeiro criado com TODOS os campos
-- [ ] Bombeiro persiste após reload
-- [ ] Tarefa criada e persiste
-- [ ] Console sem erros de SQL
-- [ ] Dados visíveis no Supabase Table Editor
-- [ ] Todos os campos snake_case mapeados corretamente
-
----
-
-## ⚠️ Se Algo Falhar
-
 ### Erro: "column does not exist"
 - **Causa:** Script SQL não executou corretamente
 - **Solução:** Re-execute o `supabase-schema-fix.sql`
