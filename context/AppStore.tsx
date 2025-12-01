@@ -3,7 +3,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User, Course, ClassGroup, Student, Task, UserRole, AttendanceLog, GradeLog, PaymentRecord, ChecklistTemplate, ChecklistLog, Notification, SwapRequest, Firefighter, FirefighterLog, Base, Folder, DocumentFile, SetupTeardownAssignment } from '../types';
 import { initialUsers, initialCourses, initialClasses, initialStudents, initialTasks, initialAttendance, initialGradeLogs, initialPayments, initialChecklistTemplates, initialChecklistLogs, initialNotifications, initialSwapRequests, initialFirefighters, initialFirefighterLogs, initialBases } from '../services/mockData';
 import { supabase, isSupabaseConfigured } from '../services/supabase';
-import { mapStudentFromDB, mapStudentToDB, mapTaskFromDB, mapTaskToDB, mapAttendanceLogFromDB, mapAttendanceLogToDB, mapGradeLogFromDB, mapGradeLogToDB, mapPaymentFromDB, mapPaymentToDB, mapChecklistTemplateFromDB, mapChecklistTemplateToDB, mapChecklistLogFromDB, mapChecklistLogToDB, mapFirefighterFromDB, mapFirefighterToDB, mapFirefighterLogFromDB, mapFirefighterLogToDB, mapBaseFromDB, mapBaseToDB } from '../services/dataMappers';
+import { mapStudentFromDB, mapStudentToDB, mapTaskFromDB, mapTaskToDB, mapAttendanceLogFromDB, mapAttendanceLogToDB, mapGradeLogFromDB, mapGradeLogToDB, mapPaymentFromDB, mapPaymentToDB, mapChecklistTemplateFromDB, mapChecklistTemplateToDB, mapChecklistLogFromDB, mapChecklistLogToDB, mapFirefighterFromDB, mapFirefighterToDB, mapFirefighterLogFromDB, mapFirefighterLogToDB, mapBaseFromDB, mapBaseToDB, mapUserFromDB, mapUserToDB } from '../services/dataMappers';
 
 interface StoreContextType {
     currentUser: User | null;
@@ -314,7 +314,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                 };
 
                 await Promise.all([
-                    safeFetch('users', setUsers),
+                    safeFetch('users', setUsers, mapUserFromDB),
                     safeFetch('courses', setCourses),
                     safeFetch('classes', setClasses, mapClassFromDB),
                     safeFetch('students', setStudents, mapStudentFromDB),
@@ -462,7 +462,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     const addUser = async (user: User) => {
         setUsers([...users, user]);
-        await syncWithSupabase('users', 'INSERT', user);
+        await syncWithSupabase('users', 'INSERT', mapUserToDB(user));
     };
 
     const updateUser = async (user: User) => {
@@ -471,7 +471,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             setCurrentUser(user);
             localStorage.setItem('medgroup_user', JSON.stringify(user));
         }
-        await syncWithSupabase('users', 'UPDATE', user);
+        await syncWithSupabase('users', 'UPDATE', mapUserToDB(user), user.id);
     };
 
     const addCourse = async (course: Course) => {

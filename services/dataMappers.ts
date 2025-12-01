@@ -1,6 +1,6 @@
 // Data mappers for converting between database snake_case and TypeScript camelCase
 
-import { Student, Task, AttendanceLog, GradeLog, PaymentRecord, ChecklistTemplate, ChecklistLog, Firefighter, FirefighterLog, Base, Region, AirportClass } from '../types';
+import { Student, Task, AttendanceLog, GradeLog, PaymentRecord, ChecklistTemplate, ChecklistLog, Firefighter, FirefighterLog, Base, Region, AirportClass, User, UserRole } from '../types';
 
 // Student Mappers
 export const mapStudentFromDB = (db: any): Student => ({
@@ -243,6 +243,42 @@ export const mapFirefighterLogToDB = (log: FirefighterLog) => ({
     user_id: log.userId,
     user_name: log.userName,
     details: log.details
+});
+
+
+// User Mappers
+export const mapUserFromDB = (db: any): User => ({
+    id: db.id,
+    name: db.name,
+    cpf: db.cpf,
+    role: db.role as UserRole,
+    email: db.email,
+    phone: db.phone,
+    birthDate: db.birth_date,
+    registrationDate: db.registration_date,
+    createdBy: db.created_by,
+    base: db.base,
+    uniformSize: db.uniform_size,
+    ppeSize: db.ppe_size,
+    photoUrl: db.photo_url,
+    password: db.password
+});
+
+export const mapUserToDB = (user: User) => ({
+    id: user.id,
+    name: user.name,
+    cpf: user.cpf,
+    role: user.role,
+    email: user.email,
+    phone: user.phone,
+    birth_date: user.birthDate,
+    registration_date: user.registrationDate,
+    created_by: user.createdBy,
+    base: user.base,
+    uniform_size: user.uniformSize,
+    ppe_size: user.ppeSize,
+    photo_url: user.photoUrl,
+    password: user.password
 });
 
 // Base Mappers
