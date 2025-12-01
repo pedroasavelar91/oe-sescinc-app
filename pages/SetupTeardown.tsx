@@ -4,7 +4,7 @@ import { SetupTeardownAssignment, UserRole } from '../types';
 import { Wrench, Plus, Trash2, Edit2, DollarSign, Calendar, User } from 'lucide-react';
 
 export const SetupTeardownPage: React.FC = () => {
-    const { currentUser, classes, users, setupTeardownAssignments, addSetupTeardownAssignment, deleteSetupTeardownAssignment } = useStore();
+    const { currentUser, classes, users, setupTeardownAssignments, addSetupTeardownAssignment, deleteSetupTeardownAssignment, payments, addPayment } = useStore();
     const [modalOpen, setModalOpen] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
     const [filterClass, setFilterClass] = useState('');
