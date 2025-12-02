@@ -64,3 +64,15 @@ export const getLocalDateString = (date: Date): string => {
 export const getCurrentTimestamp = (): string => {
     return new Date().toISOString();
 };
+
+export const formatDateTime = (dateInput: string | Date | null | undefined): string => {
+    if (!dateInput) return '-';
+    const date = new Date(dateInput);
+    return date.toLocaleString('pt-BR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+};

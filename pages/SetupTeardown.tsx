@@ -98,7 +98,7 @@ export const SetupTeardownPage: React.FC = () => {
         const csvContent = [
             headers.join(','),
             ...filteredAssignments.map(a => {
-                const isPaid = payments.some(p => p.referenceId === a.id);
+                const isPaid = payments.some(p => p.scheduleItemId === a.id);
                 return [
                     `"${a.className}"`,
                     a.type,
@@ -269,7 +269,7 @@ export const SetupTeardownPage: React.FC = () => {
                                 </tr>
                             ) : (
                                 filteredAssignments.map(assignment => {
-                                    const isPaid = payments.some(p => p.referenceId === assignment.id);
+                                    const isPaid = payments.some(p => p.scheduleItemId === assignment.id);
                                     return (
                                         <tr key={assignment.id} className="hover:bg-gray-50 transition-colors group">
                                             <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900">{assignment.className}</td>
@@ -315,13 +315,11 @@ export const SetupTeardownPage: React.FC = () => {
                                                                 if (confirm(`Confirmar pagamento de R$ ${assignment.totalValue.toFixed(2)} para ${assignment.instructorName}?`)) {
                                                                     addPayment({
                                                                         id: Math.random().toString(36).substr(2, 9),
-                                                                        referenceId: assignment.id,
-                                                                        type: 'SETUP_TEARDOWN',
+                                                                        scheduleItemId: assignment.id,
                                                                         instructorId: assignment.instructorId,
                                                                         amount: assignment.totalValue,
-                                                                        date: new Date().toISOString(),
-                                                                        status: 'PAID',
-                                                                        notes: `Pagamento de ${assignment.type} - ${assignment.className}`
+                                                                        datePaid: new Date().toISOString(),
+                                                                        paidBy: currentUser?.id || 'unknown'
                                                                     });
                                                                 }
                                                             }}

@@ -1,6 +1,6 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { User, Course, ClassGroup, Student, Task, UserRole, AttendanceLog, GradeLog, PaymentRecord, ChecklistTemplate, ChecklistLog, Notification, SwapRequest, Firefighter, FirefighterLog, Base, Folder, DocumentFile, SetupTeardownAssignment, Question, QuestionReview, QuestionApprover } from '../types';
+import { User, Course, ClassGroup, Student, Task, UserRole, AttendanceLog, GradeLog, PaymentRecord, ChecklistTemplate, ChecklistLog, Notification, SwapRequest, Firefighter, FirefighterLog, Base, Folder, DocumentFile, SetupTeardownAssignment, Question, QuestionReview, QuestionApprover, TrainingSchedule } from '../types';
 import { initialUsers, initialCourses, initialClasses, initialStudents, initialTasks, initialAttendance, initialGradeLogs, initialPayments, initialChecklistTemplates, initialChecklistLogs, initialNotifications, initialSwapRequests, initialFirefighters, initialFirefighterLogs, initialBases } from '../services/mockData';
 import { supabase, isSupabaseConfigured } from '../services/supabase';
 import { mapStudentFromDB, mapStudentToDB, mapTaskFromDB, mapTaskToDB, mapAttendanceLogFromDB, mapAttendanceLogToDB, mapGradeLogFromDB, mapGradeLogToDB, mapPaymentFromDB, mapPaymentToDB, mapChecklistTemplateFromDB, mapChecklistTemplateToDB, mapChecklistLogFromDB, mapChecklistLogToDB, mapFirefighterFromDB, mapFirefighterToDB, mapFirefighterLogFromDB, mapFirefighterLogToDB, mapBaseFromDB, mapBaseToDB, mapUserFromDB, mapUserToDB } from '../services/dataMappers';
@@ -28,10 +28,15 @@ interface StoreContextType {
     questions: Question[];
     questionReviews: QuestionReview[];
     questionApprovers: QuestionApprover[];
+    trainingSchedules: TrainingSchedule[];
 
     loading: boolean;
     login: (email: string) => Promise<void>;
     logout: () => void;
+
+    addTrainingSchedule: (schedule: TrainingSchedule) => Promise<void>;
+    updateTrainingSchedule: (id: string, updates: Partial<TrainingSchedule>) => Promise<void>;
+    deleteTrainingSchedule: (id: string) => Promise<void>;
 
     addUser: (user: User) => Promise<void>;
     addCourse: (course: Course) => Promise<void>;
@@ -92,7 +97,6 @@ interface StoreContextType {
 
     // File Upload
     uploadDocument: (file: File, folderId: string | null) => Promise<string>;
-    uploadProfilePhoto: (file: File, userId: string) => Promise<string>;
     uploadProfilePhoto: (file: File, userId: string) => Promise<string>;
     deleteFile: (bucket: string, path: string) => Promise<void>;
     seedDatabase: () => Promise<void>;
@@ -801,6 +805,105 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         await syncWithSupabase('firefighters', 'UPDATE', mapFirefighterToDB(ff));
     };
 
+    // Training Schedules State
+    const [trainingSchedules, setTrainingSchedules] = useState<TrainingSchedule[]>([]);
+
+    // Load Training Schedules
+    const loadTrainingSchedules = async () => {
+        try {
+            const { data, error } = await supabase
+                .from('training_schedules')
+                .select('*')
+                .order('created_at', { ascending: false });
+
+            if (error) throw error;
+
+            if (data) {
+                setTrainingSchedules(data.map(item => ({
+                    id: item.id,
+                    className: item.class_name,
+                    origin: item.origin,
+                    destination: item.destination,
+                    medtruckDisplacementStart: item.medtruck_displacement_start,
+                    medtruckDisplacementEnd: item.medtruck_displacement_end,
+                    setupDate: item.setup_date,
+                    teardownDate: item.teardown_date,
+                    theoryStart: item.theory_start,
+                    theoryEnd: item.theory_end,
+                    theoryStudentCount: item.theory_student_count,
+                    practiceStart: item.practice_start,
+                    practiceEnd: item.practice_end,
+                    practiceStudentCount: item.practice_student_count,
+                    studentLocality: item.student_locality,
+                    location: item.location
+                })));
+            }
+        } catch (error) {
+            console.error('Error loading training schedules:', error);
+        }
+    };
+
+    const addTrainingSchedule = async (schedule: TrainingSchedule) => {
+        const newSchedule = { ...schedule, id: crypto.randomUUID() };
+        setTrainingSchedules(prev => [newSchedule, ...prev]);
+
+        const dbRecord = {
+            id: newSchedule.id,
+            class_name: newSchedule.className,
+            origin: newSchedule.origin,
+            destination: newSchedule.destination,
+            medtruck_displacement_start: newSchedule.medtruckDisplacementStart,
+            medtruck_displacement_end: newSchedule.medtruckDisplacementEnd,
+            setup_date: newSchedule.setupDate,
+            teardown_date: newSchedule.teardownDate,
+            theory_start: newSchedule.theoryStart,
+            theory_end: newSchedule.theoryEnd,
+            theory_student_count: newSchedule.theoryStudentCount,
+            practice_start: newSchedule.practiceStart,
+            practice_end: newSchedule.practiceEnd,
+            practice_student_count: newSchedule.practiceStudentCount,
+            student_locality: newSchedule.studentLocality,
+            location: newSchedule.location
+        };
+
+        await syncWithSupabase('training_schedules', 'INSERT', dbRecord);
+    };
+
+    const updateTrainingSchedule = async (id: string, updates: Partial<TrainingSchedule>) => {
+        setTrainingSchedules(prev => prev.map(s => s.id === id ? { ...s, ...updates } : s));
+
+        const schedule = trainingSchedules.find(s => s.id === id);
+        if (!schedule) return;
+
+        const updatedSchedule = { ...schedule, ...updates };
+
+        const dbRecord = {
+            class_name: updatedSchedule.className,
+            origin: updatedSchedule.origin,
+            destination: updatedSchedule.destination,
+            medtruck_displacement_start: updatedSchedule.medtruckDisplacementStart,
+            medtruck_displacement_end: updatedSchedule.medtruckDisplacementEnd,
+            setup_date: updatedSchedule.setupDate,
+            teardown_date: updatedSchedule.teardownDate,
+            theory_start: updatedSchedule.theoryStart,
+            theory_end: updatedSchedule.theoryEnd,
+            theory_student_count: updatedSchedule.theoryStudentCount,
+            practice_start: updatedSchedule.practiceStart,
+            practice_end: updatedSchedule.practiceEnd,
+            practice_student_count: updatedSchedule.practiceStudentCount,
+            student_locality: updatedSchedule.studentLocality,
+            location: updatedSchedule.location,
+            updated_at: new Date().toISOString()
+        };
+
+        await syncWithSupabase('training_schedules', 'UPDATE', dbRecord, id);
+    };
+
+    const deleteTrainingSchedule = async (id: string) => {
+        setTrainingSchedules(prev => prev.filter(s => s.id !== id));
+        await syncWithSupabase('training_schedules', 'DELETE', {}, id);
+    };
+
     const deleteFirefighter = async (id: string) => {
         setFirefighters(firefighters.filter(f => f.id !== id));
         await syncWithSupabase('firefighters', 'DELETE', null, id);
@@ -1111,7 +1214,12 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                 }
             },
 
-            seedDatabase
+            seedDatabase,
+
+            trainingSchedules,
+            addTrainingSchedule,
+            updateTrainingSchedule,
+            deleteTrainingSchedule
         }}>
             {children}
         </StoreContext.Provider >

@@ -6,7 +6,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, Users, BookOpen, GraduationCap,
   ClipboardCheck, CheckSquare, DollarSign, LogOut, Menu, Shield, UserCog,
-  CalendarCheck, ClipboardList, Bell, Check, X, FileBadge, Flame, Wrench
+  CalendarCheck, ClipboardList, Bell, Check, X, FileBadge, Flame, Wrench, Calendar
 } from 'lucide-react';
 
 const SidebarItem = ({ icon: Icon, label, path, active, onClick }: any) => (
@@ -139,6 +139,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
 
           <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 px-2 mt-6">Administrativo</div>
           {showDocuments && <SidebarItem icon={FileBadge} label="Documentos" path="/documents" active={isActive('/documents')} onClick={() => setMobileMenuOpen(false)} />}
+          <SidebarItem icon={Calendar} label="Cronograma" path="/schedule" active={isActive('/schedule')} onClick={() => setMobileMenuOpen(false)} />
           {showTasks && <SidebarItem icon={CheckSquare} label="Tarefas" path="/tasks" active={isActive('/tasks')} onClick={() => setMobileMenuOpen(false)} />}
           {showFinance && <SidebarItem icon={DollarSign} label="Financeiro" path="/finance" active={isActive('/finance')} onClick={() => setMobileMenuOpen(false)} />}
           {showFirefighters && (

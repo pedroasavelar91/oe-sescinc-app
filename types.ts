@@ -451,3 +451,21 @@ export interface QuestionApprover {
   assignedAt: string;
   isActive: boolean;
 }
+export interface TrainingSchedule {
+  id: string;
+  className: string;
+  origin: string;
+  destination: string;
+  medtruckDisplacementStart: string;
+  medtruckDisplacementEnd: string;
+  setupDate: string;
+  teardownDate: string;
+  theoryStart: string;
+  theoryEnd: string;
+  theoryStudentCount: number;
+  practiceStart: string;
+  practiceEnd: string;
+  practiceStudentCount: number;
+  studentLocality: string;
+  location: string;
+}
