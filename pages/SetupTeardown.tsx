@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { useStore } from '../context/AppStore';
 import { SetupTeardownAssignment, UserRole } from '../types';
 import { Wrench, Plus, Trash2, Edit2, DollarSign, Calendar, User, Download } from 'lucide-react';
-import { formatDate } from '../utils/dateUtils';
+import { formatDate, getCurrentDateString } from '../utils/dateUtils';
 
 export const SetupTeardownPage: React.FC = () => {
     const { currentUser, classes, users, setupTeardownAssignments, addSetupTeardownAssignment, deleteSetupTeardownAssignment, payments, addPayment } = useStore();
@@ -79,7 +79,7 @@ export const SetupTeardownPage: React.FC = () => {
             days: formData.days,
             rate: 350,
             totalValue: formData.days * 350,
-            date: new Date().toISOString().split('T')[0],
+            date: getCurrentDateString(),
             notes: formData.notes
         };
 
@@ -116,7 +116,7 @@ export const SetupTeardownPage: React.FC = () => {
         const link = document.createElement('a');
         const url = URL.createObjectURL(blob);
         link.setAttribute('href', url);
-        link.setAttribute('download', `montagem_desmontagem_${new Date().toISOString().split('T')[0]}.csv`);
+        link.setAttribute('download', `montagem_desmontagem_${getCurrentDateString()}.csv`);
         link.style.visibility = 'hidden';
         document.body.appendChild(link);
         link.click();
@@ -291,6 +291,13 @@ export const SetupTeardownPage: React.FC = () => {
                                                         </button>
                                                     )}
                                                     <button
+                                                        onClick={() => handleOpenModal(assignment)}
+                                                        className="text-blue-600 hover:text-blue-800 transition-colors"
+                                                        title="Editar"
+                                                    >
+                                                        <Edit2 size={18} />
+                                                    </button>
+                                                    <button
                                                         onClick={() => handleDelete(assignment.id)}
                                                         className="text-red-600 hover:text-red-800 transition-colors"
                                                         title="Excluir"
@@ -310,8 +317,8 @@ export const SetupTeardownPage: React.FC = () => {
 
             {/* Modal */}
             {modalOpen && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 animate-fade-in">
-                    <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-backdrop">
+                    <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto animate-scale-in">
                         <div className="p-6 border-b border-gray-200 rounded-t-xl">
                             <h2 className="text-2xl font-bold text-gray-900">
                                 {editingId ? 'Editar' : 'Nova'} Atribuição

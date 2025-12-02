@@ -18,7 +18,8 @@ export const DocumentsPage: React.FC = () => {
 
     if (!currentUser) return null;
 
-    const canManage = currentUser.role === UserRole.GESTOR;
+    const canManageFolders = currentUser.role === UserRole.GESTOR || currentUser.role === UserRole.COORDENADOR;
+    const canUploadDocuments = currentUser.role === UserRole.GESTOR || currentUser.role === UserRole.COORDENADOR || currentUser.role === UserRole.INSTRUTOR;
 
     // Available roles for selection
     const availableRoles = [
@@ -125,20 +126,24 @@ export const DocumentsPage: React.FC = () => {
                     <h1 className="text-3xl font-bold text-gray-900">Documentos</h1>
                     <p className="text-gray-500 mt-1">Gestão de arquivos e procedimentos</p>
                 </div>
-                {canManage && (
+                {(canManageFolders || canUploadDocuments) && (
                     <div className="flex gap-2">
-                        <button
-                            onClick={() => setShowFolderModal(true)}
-                            className="flex items-center space-x-2 bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-50 transition"
-                        >
-                            <Plus size={18} /> <span>Nova Pasta</span>
-                        </button>
-                        <button
-                            onClick={() => setShowDocModal(true)}
-                            className="btn-premium flex items-center space-x-2 bg-gradient-to-r from-primary-600 to-primary-500 hover:from-primary-700 hover:to-primary-600 text-white px-4 py-2 rounded-lg shadow-md transition"
-                        >
-                            <Upload size={18} /> <span>Novo Arquivo</span>
-                        </button>
+                        {canManageFolders && (
+                            <button
+                                onClick={() => setShowFolderModal(true)}
+                                className="flex items-center space-x-2 bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-50 transition"
+                            >
+                                <Plus size={18} /> <span>Nova Pasta</span>
+                            </button>
+                        )}
+                        {canUploadDocuments && (
+                            <button
+                                onClick={() => setShowDocModal(true)}
+                                className="btn-premium flex items-center space-x-2 bg-gradient-to-r from-primary-600 to-primary-500 hover:from-primary-700 hover:to-primary-600 text-white px-4 py-2 rounded-lg shadow-md transition"
+                            >
+                                <Upload size={18} /> <span>Novo Arquivo</span>
+                            </button>
+                        )}
                     </div>
                 )}
             </div>
@@ -175,7 +180,7 @@ export const DocumentsPage: React.FC = () => {
                     >
                         <div className="flex items-center justify-between mb-2">
                             <FolderIcon className="text-yellow-500 fill-current" size={32} />
-                            {canManage && (
+                            {canManageFolders && (
                                 <button
                                     onClick={(e) => { e.stopPropagation(); deleteFolder(folder.id); }}
                                     className="text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition"
@@ -206,7 +211,7 @@ export const DocumentsPage: React.FC = () => {
                                 >
                                     <Download size={16} />
                                 </a>
-                                {canManage && (
+                                {canUploadDocuments && (
                                     <button
                                         onClick={() => deleteDocument(doc.id)}
                                         className="text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition"
@@ -230,7 +235,7 @@ export const DocumentsPage: React.FC = () => {
 
             {/* Create Folder Modal */}
             {showFolderModal && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 animate-fade-in">
+                <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50 animate-backdrop">
                     <div className="bg-white p-6 rounded-xl shadow-2xl w-full max-w-md animate-scale-in">
                         <h3 className="text-lg font-bold mb-4 text-gray-900">Nova Pasta</h3>
 
@@ -303,8 +308,8 @@ export const DocumentsPage: React.FC = () => {
 
             {/* Add Document Modal */}
             {showDocModal && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                    <div className="bg-white p-6 rounded-lg shadow-xl w-96 animate-scale-in">
+                <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50 animate-backdrop">
+                    <div className="bg-white p-6 rounded-xl shadow-xl w-96 animate-scale-in">
                         <h3 className="text-lg font-bold mb-4">Novo Documento</h3>
                         <div className="space-y-4">
                             <div>

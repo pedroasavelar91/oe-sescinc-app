@@ -2,9 +2,11 @@
 import React, { useState, useMemo } from 'react';
 import { useStore } from '../context/AppStore';
 import { Student, CourseType, EnrollmentStatus } from '../types';
-import { Plus, Pencil, X, Trash2, Download } from 'lucide-react';
+import { Plus, Pencil, X, Trash2, Download, FileText } from 'lucide-react';
 import { formatCPF } from '../utils/formatters';
 import { formatDate } from '../utils/dateUtils';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 export const StudentsPage: React.FC = () => {
     const { students, classes, addStudent, updateStudent, deleteStudent, courses } = useStore();
@@ -100,16 +102,19 @@ export const StudentsPage: React.FC = () => {
                 if (s.enrollmentStatus !== 'Cancelado' && s.enrollmentStatus !== 'Desligado') {
                     validStudentCounter++; // Increment only for valid students
 
-                    // 2. Registro: 08/Letra + (Base + Sequencia) / Ano
+                    // 2. Registro: 08/Letra + (Base + Sequencia - 1) / Ano
+                    // Usar base + counter - 1 para começar no número indicado
                     const baseReg = parseInt(cls.registrationNumber || '0');
-                    const seqReg = baseReg + validStudentCounter;
-                    registro = `08 / ${courseLetter}${seqReg}/${year}`;
+                    const seqReg = baseReg + validStudentCounter - 1;
+                    const formattedSeqReg = seqReg.toString().padStart(4, '0'); // 4 dígitos
+                    registro = `08 / ${courseLetter}${formattedSeqReg}/${year}`;
 
-                    // 3. CAP-BA: 08/C + (Base + Sequencia) / Ano (Skip for CBA-CE)
+                    // 3. CAP-BA: 08/C + (Base + Sequencia - 1) / Ano (Skip for CBA-CE)
                     if (course?.type !== CourseType.CBA_CE) {
                         const baseCap = parseInt(cls.capBa || '0');
-                        const seqCap = baseCap + validStudentCounter;
-                        capCode = `08/C${seqCap}/${year}`;
+                        const seqCap = baseCap + validStudentCounter - 1;
+                        const formattedSeqCap = seqCap.toString().padStart(4, '0'); // 4 dígitos
+                        capCode = `08/C${formattedSeqCap}/${year}`;
                     }
                 }
 
@@ -228,6 +233,40 @@ export const StudentsPage: React.FC = () => {
         link.click();
     };
 
+    const handleExportPDF = () => {
+        const doc = new jsPDF('l', 'mm', 'a4'); // landscape
+
+        doc.setFontSize(16);
+        doc.text('Lista de Alunos', 14, 15);
+        doc.setFontSize(10);
+        doc.text(`Gerado em: ${new Date().toLocaleDateString('pt-BR')}`, 14, 22);
+
+        const tableData = filtered.map(s => [
+            s.matricula,
+            s.name,
+            s.className,
+            s.enrollmentStatus,
+            formatCPF(s.cpf),
+            s.registro,
+            s.capCode,
+            s.finalTheory?.toFixed(1) || '-',
+            s.finalPractical?.toFixed(1) || '-',
+            s.finalGrade?.toFixed(1) || '-'
+        ]);
+
+        autoTable(doc, {
+            head: [['Matrícula', 'Nome', 'Turma', 'Status', 'CPF', 'Registro', 'CAP-BA', 'Teórica', 'Prática', 'Final']],
+            body: tableData,
+            startY: 28,
+            styles: { fontSize: 8, cellPadding: 2 },
+            headStyles: { fillColor: [234, 88, 12], textColor: 255, fontStyle: 'bold' },
+            alternateRowStyles: { fillColor: [245, 245, 245] },
+            margin: { left: 14, right: 14 }
+        });
+
+        doc.save('alunos.pdf');
+    };
+
     const inputClass = "appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm bg-white text-gray-900";
 
     return (
@@ -242,7 +281,14 @@ export const StudentsPage: React.FC = () => {
                     className="btn-premium flex items-center space-x-2 bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 px-4 py-3 rounded-lg shadow-sm transition-all duration-200 mr-2"
                 >
                     <Download size={20} />
-                    <span className="font-semibold">Exportar CSV</span>
+                    <span className="font-semibold">CSV</span>
+                </button>
+                <button
+                    onClick={handleExportPDF}
+                    className="btn-premium flex items-center space-x-2 bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 px-4 py-3 rounded-lg shadow-sm transition-all duration-200 mr-2"
+                >
+                    <FileText size={20} />
+                    <span className="font-semibold">PDF</span>
                 </button>
                 <button
                     onClick={() => setShowModal(true)}

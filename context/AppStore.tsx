@@ -1,6 +1,6 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { User, Course, ClassGroup, Student, Task, UserRole, AttendanceLog, GradeLog, PaymentRecord, ChecklistTemplate, ChecklistLog, Notification, SwapRequest, Firefighter, FirefighterLog, Base, Folder, DocumentFile, SetupTeardownAssignment } from '../types';
+import { User, Course, ClassGroup, Student, Task, UserRole, AttendanceLog, GradeLog, PaymentRecord, ChecklistTemplate, ChecklistLog, Notification, SwapRequest, Firefighter, FirefighterLog, Base, Folder, DocumentFile, SetupTeardownAssignment, Question, QuestionReview, QuestionApprover } from '../types';
 import { initialUsers, initialCourses, initialClasses, initialStudents, initialTasks, initialAttendance, initialGradeLogs, initialPayments, initialChecklistTemplates, initialChecklistLogs, initialNotifications, initialSwapRequests, initialFirefighters, initialFirefighterLogs, initialBases } from '../services/mockData';
 import { supabase, isSupabaseConfigured } from '../services/supabase';
 import { mapStudentFromDB, mapStudentToDB, mapTaskFromDB, mapTaskToDB, mapAttendanceLogFromDB, mapAttendanceLogToDB, mapGradeLogFromDB, mapGradeLogToDB, mapPaymentFromDB, mapPaymentToDB, mapChecklistTemplateFromDB, mapChecklistTemplateToDB, mapChecklistLogFromDB, mapChecklistLogToDB, mapFirefighterFromDB, mapFirefighterToDB, mapFirefighterLogFromDB, mapFirefighterLogToDB, mapBaseFromDB, mapBaseToDB, mapUserFromDB, mapUserToDB } from '../services/dataMappers';
@@ -25,6 +25,9 @@ interface StoreContextType {
     folders: Folder[];
     documents: DocumentFile[];
     setupTeardownAssignments: SetupTeardownAssignment[];
+    questions: Question[];
+    questionReviews: QuestionReview[];
+    questionApprovers: QuestionApprover[];
 
     loading: boolean;
     login: (email: string) => Promise<void>;
@@ -78,6 +81,14 @@ interface StoreContextType {
     // Setup/Teardown
     addSetupTeardownAssignment: (assignment: SetupTeardownAssignment) => Promise<void>;
     deleteSetupTeardownAssignment: (id: string) => Promise<void>;
+
+    // Question Bank
+    addQuestion: (question: Question) => Promise<void>;
+    updateQuestion: (question: Question) => Promise<void>;
+    deleteQuestion: (id: string) => Promise<void>;
+    reviewQuestion: (questionId: string, action: 'Aprovada' | 'Rejeitada' | 'Em Revisão', notes: string, reviewerId: string) => Promise<void>;
+    addApprover: (userId: string, userName: string, assignedBy: string) => Promise<void>;
+    removeApprover: (approverId: string) => Promise<void>;
 
     // File Upload
     uploadDocument: (file: File, folderId: string | null) => Promise<string>;
@@ -265,6 +276,9 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const [bases, setBases] = useState<Base[]>([]);
     const [folders, setFolders] = useState<Folder[]>([]);
     const [documents, setDocuments] = useState<DocumentFile[]>([]);
+    const [questions, setQuestions] = useState<Question[]>([]);
+    const [questionReviews, setQuestionReviews] = useState<QuestionReview[]>([]);
+    const [questionApprovers, setQuestionApprovers] = useState<QuestionApprover[]>([]);
 
     // Initial Load
     useEffect(() => {
@@ -807,7 +821,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     return (
         <StoreContext.Provider value={{
-            currentUser, users, courses, classes, students, tasks, attendanceLogs, gradeLogs, payments, checklistTemplates, checklistLogs, notifications, swapRequests, firefighters, firefighterLogs, bases, folders, documents, setupTeardownAssignments,
+            currentUser, users, courses, classes, students, tasks, attendanceLogs, gradeLogs, payments, checklistTemplates, checklistLogs, notifications, swapRequests, firefighters, firefighterLogs, bases, folders, documents, setupTeardownAssignments, questions, questionReviews, questionApprovers,
             loading, login, logout,
             addUser, addCourse, updateCourse, deleteCourse, addClass, updateClass, deleteClass, addStudent, updateStudent, deleteStudent, addTask, updateTask, deleteTask,
             addAttendanceLog, addGradeLog, addPayment, deletePayment, addChecklistLog, updateChecklistTemplate,
@@ -938,6 +952,147 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                 } catch (error) {
                     console.error('Erro ao fazer upload da foto:', error);
                     throw error;
+                }
+            },
+
+            // Question Bank Functions
+            addQuestion: async (question: Question) => {
+                setQuestions([...questions, question]);
+                // Sync with Supabase if configured
+                if (isSupabaseConfigured()) {
+                    await syncWithSupabase('questions', 'INSERT', {
+                        id: question.id,
+                        title: question.title,
+                        subject: question.subject,
+                        content: question.content,
+                        option_a: question.optionA,
+                        option_b: question.optionB,
+                        option_c: question.optionC,
+                        option_d: question.optionD,
+                        correct_option: question.correctOption,
+                        explanation: question.explanation,
+                        created_by: question.createdBy,
+                        created_by_name: question.createdByName,
+                        created_at: question.createdAt,
+                        status: question.status,
+                        times_used: question.timesUsed
+                    });
+                }
+            },
+
+            updateQuestion: async (question: Question) => {
+                setQuestions(questions.map(q => q.id === question.id ? question : q));
+                if (isSupabaseConfigured()) {
+                    await syncWithSupabase('questions', 'UPDATE', {
+                        id: question.id,
+                        title: question.title,
+                        subject: question.subject,
+                        content: question.content,
+                        option_a: question.optionA,
+                        option_b: question.optionB,
+                        option_c: question.optionC,
+                        option_d: question.optionD,
+                        correct_option: question.correctOption,
+                        explanation: question.explanation,
+                        status: question.status,
+                        reviewer_id: question.reviewerId,
+                        reviewer_name: question.reviewerName,
+                        reviewed_at: question.reviewedAt,
+                        review_notes: question.reviewNotes,
+                        times_used: question.timesUsed
+                    });
+                }
+            },
+
+            deleteQuestion: async (id: string) => {
+                setQuestions(questions.filter(q => q.id !== id));
+                await syncWithSupabase('questions', 'DELETE', null, id);
+            },
+
+            reviewQuestion: async (questionId: string, action: 'Aprovada' | 'Rejeitada' | 'Em Revisão', notes: string, reviewerId: string) => {
+                const question = questions.find(q => q.id === questionId);
+                if (!question) return;
+
+                const reviewer = users.find(u => u.id === reviewerId);
+                const updatedQuestion: Question = {
+                    ...question,
+                    status: action,
+                    reviewerId,
+                    reviewerName: reviewer?.name || '',
+                    reviewedAt: new Date().toISOString(),
+                    reviewNotes: notes
+                };
+
+                setQuestions(questions.map(q => q.id === questionId ? updatedQuestion : q));
+
+                // Add review to history
+                const review: QuestionReview = {
+                    id: Math.random().toString(36).substr(2, 9),
+                    questionId,
+                    reviewerId,
+                    reviewerName: reviewer?.name || '',
+                    timestamp: new Date().toISOString(),
+                    action: action === 'Em Revisão' ? 'Solicitou Revisão' : action,
+                    notes
+                };
+                setQuestionReviews([...questionReviews, review]);
+
+                if (isSupabaseConfigured()) {
+                    await syncWithSupabase('questions', 'UPDATE', {
+                        id: updatedQuestion.id,
+                        status: updatedQuestion.status,
+                        reviewer_id: updatedQuestion.reviewerId,
+                        reviewer_name: updatedQuestion.reviewerName,
+                        reviewed_at: updatedQuestion.reviewedAt,
+                        review_notes: updatedQuestion.reviewNotes
+                    });
+
+                    await syncWithSupabase('question_reviews', 'INSERT', {
+                        id: review.id,
+                        question_id: review.questionId,
+                        reviewer_id: review.reviewerId,
+                        reviewer_name: review.reviewerName,
+                        timestamp: review.timestamp,
+                        action: review.action,
+                        notes: review.notes
+                    });
+                }
+            },
+
+            addApprover: async (userId: string, userName: string, assignedBy: string) => {
+                const approver: QuestionApprover = {
+                    id: Math.random().toString(36).substr(2, 9),
+                    userId,
+                    userName,
+                    assignedBy,
+                    assignedByName: currentUser?.name || '',
+                    assignedAt: new Date().toISOString(),
+                    isActive: true
+                };
+                setQuestionApprovers([...questionApprovers, approver]);
+
+                if (isSupabaseConfigured()) {
+                    await syncWithSupabase('question_approvers', 'INSERT', {
+                        id: approver.id,
+                        user_id: approver.userId,
+                        user_name: approver.userName,
+                        assigned_by: approver.assignedBy,
+                        assigned_by_name: approver.assignedByName,
+                        assigned_at: approver.assignedAt,
+                        is_active: approver.isActive
+                    });
+                }
+            },
+
+            removeApprover: async (approverId: string) => {
+                setQuestionApprovers(questionApprovers.map(a =>
+                    a.id === approverId ? { ...a, isActive: false } : a
+                ));
+
+                if (isSupabaseConfigured()) {
+                    await supabase.from('question_approvers')
+                        .update({ is_active: false })
+                        .eq('id', approverId);
                 }
             },
 

@@ -204,6 +204,7 @@ export interface ChecklistItemDefinition {
   id: string;
   text: string;
   category: string;
+  quantity?: number; // Quantidade esperada (para equipamentos)
 }
 
 export interface ChecklistTemplate {
@@ -219,6 +220,7 @@ export interface ChecklistItemResult {
   status: 'Conforme' | 'Não Conforme' | 'N/A';
   comment?: string;
   photoUrl?: string; // Base64
+  quantity?: number; // Quantidade verificada (para equipamentos)
 }
 
 export interface ChecklistLog {
@@ -345,3 +347,107 @@ export interface SetupTeardownAssignment {
 // Helper types for UI
 export const UNIFORM_SIZES = ['PP', 'P', 'M', 'G', 'GG', 'XG'];
 export const SHOE_SIZES = ['35', '36', '37', '38', '39', '40', '41', '42', '43', '44', '45'];
+
+// =====================================================
+// BANCO DE QUESTÕES
+// =====================================================
+
+// Question Bank Types
+export type QuestionStatus = 'Pendente' | 'Aprovada' | 'Rejeitada' | 'Em Revisão';
+
+// Lista de matérias extraída da imagem (formatada em UPPERCASE, sem duplicidades)
+export const QUESTION_SUBJECTS = [
+  'ARTIGOS PERIGOSOS',
+  'ARTIGOS PERIGOSOS E PROCEDIMENTOS EM EMERGÊNCIAS QUÍMICAS',
+  'ATUAÇÃO DO BOMBEIRO DE AERÓDROMO NA RESPOSTA À EMERGÊNCIA AEROPORTUÁRIA',
+  'CARRO CONTRAINCÊNDIO DE AERÓDROMO (CCI)',
+  'COMUNICAÇÃO E COORDENAÇÃO DE EQUIPES',
+  'CONHECIMENTOS GERAIS DE ATENDIMENTO PRÉ-HOSPITALAR (APH)',
+  'CONHECIMENTOS GERAIS DE AVIAÇÃO',
+  'ELABORAÇÃO DE RELATÓRIOS REFERENTES A ATUAÇÃO DO SESCINC',
+  'ESTUDO DE CASO EM GRUPO DE DIVERSOS TIPOS DE OCORRÊNCIAS AEROPORTUÁRIAS',
+  'EXTINTORES DE INCÊNDIO PORTÁTEIS E SOBRE RODAS',
+  'FAMILIARIZAÇÃO COM AERONAVES',
+  'FAMILIARIZAÇÃO COM O AERÓDROMO',
+  'FUNDAMENTOS DE FATORES HUMANOS',
+  'FUNDAMENTOS DE SEGURANÇA E SAÚDE NO TRABALHO EM AERÓDROMOS',
+  'GERENCIAMENTO DE EQUIPE DE SERVIÇO',
+  'INFORMAÇÕES ADMINISTRATIVAS E OPERACIONAIS DO SESCINC',
+  'LEGISLAÇÃO (EMERGÊNCIAS QUÍMICAS)',
+  'LEGISLAÇÃO APLICADA AO SISTEMA DE RESPOSTA À EMERGÊNCIA AEROPORTUÁRIA (SREA)',
+  'LGE DE USO AERONÁUTICO E AGENTES EXTINTORES PRINCIPAL E COMPLEMENTAR',
+  'LIDERANÇA',
+  'MATERIAIS E EQUIPAMENTOS DE APOIO ÀS OPERAÇÕES DE RESGATE E COMBATE A INCÊNDIO DISPONIBILIZADOS PELO SESCINC',
+  'NOÇÕES BÁSICAS DO SISTEMA DE GERENCIAMENTO DA SEGURANÇA OPERACIONAL (SGSO)',
+  'NOÇÕES DE HIDRÁULICA',
+  'NOÇÕES DE PRIMEIROS SOCORROS',
+  'PROCEDIMENTOS EM EMERGÊNCIAS QUÍMICAS',
+  'PROCEDIMENTOS OPERACIONAIS DE APH',
+  'PROCEDIMENTOS OPERACIONAIS DO SESCINC',
+  'PROTEÇÃO CONTRAINCÊNDIO EM EDIFICAÇÕES AEROPORTUÁRIAS',
+  'PROTEÇÃO INDIVIDUAL DO BOMBEIRO DE AERÓDROMO',
+  'RECURSOS HUMANOS PARA O SESCINC',
+  'SALVAMENTO EM ALTURA',
+  'SERVIÇO DE PREVENÇÃO, SALVAMENTO E COMBATE A INCÊNDIO EM AERÓDROMOS CIVIS (SESCINC)',
+  'SISTEMA DE AVIAÇÃO CIVIL',
+  'SISTEMA DE RESPOSTA À EMERGÊNCIA AEROPORTUÁRIA (SREA)',
+  'TÁTICAS DE MANEABILIDADE COM MANGUEIRAS',
+  'TÁTICAS DE REGASTE E COMBATE A INCÊNDIO EM AERONAVES',
+  'TÉCNICAS DE EXPOSIÇÃO ORAL',
+  'TÉCNICAS DE MANEABILIDADE COM MANGUEIRAS',
+  'TEORIA CONTRAINCÊNDIO',
+  'TRABALHO E DESEMPENHO EM EQUIPE',
+  'VEÍCULOS DE APOIO ÀS OPERAÇÕES DO SESCINC',
+  'VEÍCULOS DE INFORMAÇÃO E COMUNICAÇÃO'
+] as const;
+
+export type QuestionSubject = typeof QUESTION_SUBJECTS[number];
+
+export interface Question {
+  id: string;
+  title?: string; // Título opcional para referência interna
+  subject: QuestionSubject;
+  content: string; // Enunciado
+  optionA: string;
+  optionB: string;
+  optionC: string;
+  optionD: string;
+  correctOption: 'A' | 'B' | 'C' | 'D';
+  explanation?: string;
+
+  // Metadata
+  createdBy: string;
+  createdByName: string;
+  createdAt: string;
+
+  // Approval workflow
+  status: QuestionStatus;
+  reviewerId?: string;
+  reviewerName?: string;
+  reviewedAt?: string;
+  reviewNotes?: string;
+
+  // Usage tracking
+  timesUsed: number;
+  lastUsedAt?: string;
+}
+
+export interface QuestionReview {
+  id: string;
+  questionId: string;
+  reviewerId: string;
+  reviewerName: string;
+  timestamp: string;
+  action: 'Aprovada' | 'Rejeitada' | 'Solicitou Revisão';
+  notes: string;
+}
+
+export interface QuestionApprover {
+  id: string;
+  userId: string;
+  userName: string;
+  assignedBy: string;
+  assignedByName: string;
+  assignedAt: string;
+  isActive: boolean;
+}

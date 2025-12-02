@@ -2,13 +2,14 @@
 import React, { useMemo } from 'react';
 import { useStore } from '../context/AppStore';
 import { UserRole, CourseType } from '../types';
+import { HOURLY_RATES } from '../constants';
 import { BookOpen, DollarSign, TrendingUp, AlertCircle, CheckCircle, Clock, Calendar } from 'lucide-react';
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from 'recharts';
 
 export const Dashboard: React.FC = () => {
-    const { classes, students, tasks, currentUser, payments, notifications, firefighters } = useStore();
+    const { classes, students, tasks, currentUser, payments, notifications, firefighters, setupTeardownAssignments } = useStore();
 
     if (!currentUser) return null;
 
@@ -91,8 +92,36 @@ export const Dashboard: React.FC = () => {
 
     // 1. Financial Stats
     const totalPaid = payments.reduce((acc, p) => acc + p.amount, 0);
-    const totalRevenue = 150000; // Mock target/total
-    const toPay = totalRevenue - totalPaid;
+
+    // 2. Calculate Real Pending Value (dynamic calculation)
+    const realPendingValue = useMemo(() => {
+        let pending = 0;
+
+        // Calculate unpaid schedule items (aulas)
+        classes.forEach(cls => {
+            cls.schedule.forEach(item => {
+                const isPaid = payments.some(p => p.scheduleItemId === item.id);
+                if (!isPaid) {
+                    // Use hourly rates based on modality
+                    const subject = cls.schedule.find(s => s.id === item.id);
+                    const rate = subject?.moduleId?.toLowerCase().includes('prática') || subject?.moduleId?.toLowerCase().includes('pratica')
+                        ? HOURLY_RATES.PRACTICE
+                        : HOURLY_RATES.THEORY;
+                    pending += item.duration * rate;
+                }
+            });
+        });
+
+        // Add unpaid setup/teardown assignments
+        setupTeardownAssignments.forEach(assignment => {
+            const isPaid = payments.some(p => p.scheduleItemId === assignment.id);
+            if (!isPaid) {
+                pending += assignment.totalValue;
+            }
+        });
+
+        return pending;
+    }, [classes, payments, setupTeardownAssignments]);
 
     // 2. Hours Stats
     const today = new Date();
@@ -100,40 +129,6 @@ export const Dashboard: React.FC = () => {
         const pastItems = cls.schedule.filter(item => new Date(item.date) <= today);
         return acc + pastItems.reduce((sAcc, item) => sAcc + item.duration, 0);
     }, 0);
-
-    // 3. Calculate Real Pending Value
-    const realPendingValue = useMemo(() => {
-        let pending = 0;
-        classes.forEach(cls => {
-            cls.schedule.forEach(item => {
-                // Check if item is paid
-                const isPaid = payments.some(p => p.scheduleItemId === item.id);
-                if (!isPaid) {
-                    // Calculate value: duration * rate (assuming rate logic from Finance or standard rate)
-                    // For simplicity, using a standard rate or checking if we can get it.
-                    // In Finance.tsx we used HOURLY_RATES. Let's import it or approximate.
-                    // Actually, let's look at how Finance calculates it.
-                    // It uses HOURLY_RATES[role] * hours.
-                    // Since we don't have easy access to role rates here without importing constants and mapping users,
-                    // we will use a simplified calculation or import HOURLY_RATES.
-                    // Let's assume a standard rate for now or try to be more precise if possible.
-                    // Given the complexity, let's use a placeholder logic or better, import HOURLY_RATES.
-                    // But we need to know the instructor's role.
-                    // Let's stick to the 'toPay' logic if it was working, but user said "Values to pay".
-                    // The previous 'toPay' was 150000 - totalPaid.
-                    // Let's try to sum up unpaid items if we can.
-                    // If too complex, we might need to refactor.
-                    // For now, let's use the 'toPay' variable but rename/repurpose it if needed.
-                    // Actually, let's try to do it right.
-                    // We need HOURLY_RATES.
-                }
-            });
-        });
-        // Fallback to the mock logic if we can't easily calculate exact pending without more imports/logic
-        // The user asked for "Values to pay".
-        // Let's use the existing 'toPay' logic but display it in a new card.
-        return toPay;
-    }, [classes, payments, toPay]);
 
     // 3. Charts Data: Graduated Students per Course Type
     const graduatedPerCourse = [

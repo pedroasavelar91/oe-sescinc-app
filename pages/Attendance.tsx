@@ -1,7 +1,10 @@
 import React, { useState, useMemo } from 'react';
 import { useStore } from '../context/AppStore';
 import { AttendanceLog, AttendanceStatus, EnrollmentStatus, ClassScheduleItem } from '../types';
-import { Calendar, Check, Clock, X, ChevronRight, User as UserIcon, Save, Grid, List, Download } from 'lucide-react';
+import { Calendar, Check, Clock, X, ChevronRight, User as UserIcon, Save, Grid, List, Download, FileText } from 'lucide-react';
+import { getCurrentDateString } from '../utils/dateUtils';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 interface MatrixColumn {
     id: string;
@@ -16,7 +19,7 @@ export const AttendancePage: React.FC = () => {
     const [viewMode, setViewMode] = useState<'history' | 'take' | 'matrix'>('history');
 
     // State for taking attendance
-    const [attendanceDate, setAttendanceDate] = useState(new Date().toISOString().split('T')[0]);
+    const [attendanceDate, setAttendanceDate] = useState(getCurrentDateString());
     const [attendanceTime, setAttendanceTime] = useState(new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }));
     const [attendanceNotes, setAttendanceNotes] = useState('');
 
@@ -75,7 +78,7 @@ export const AttendancePage: React.FC = () => {
 
         setPresences(initialPresences);
         setJustifications(initialJustifications);
-        setAttendanceDate(new Date().toISOString().split('T')[0]);
+        setAttendanceDate(getCurrentDateString());
         setAttendanceTime(new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }));
         setAttendanceNotes('');
         setViewMode('take');
@@ -163,7 +166,7 @@ export const AttendancePage: React.FC = () => {
         // 2. Future Schedule - Source of Truth for Projection
         // We only show scheduled items that are strictly in the future (Date > Today)
         // This avoids cluttering today/past with "missed" schedule blocks if they weren't logged exactly as planned.
-        const today = new Date().toISOString().split('T')[0];
+        const today = getCurrentDateString();
 
         // Filter schedule items
         const futureSchedule = selectedClass.schedule.filter(item => item.date > today);
@@ -249,6 +252,69 @@ export const AttendancePage: React.FC = () => {
         link.href = URL.createObjectURL(blob);
         link.download = `frequencia_${selectedClass.name.replace(/\s+/g, '_')}.csv`;
         link.click();
+    };
+
+    const handleExportMatrixPDF = () => {
+        if (!selectedClass) return;
+
+        const doc = new jsPDF('l', 'mm', 'a4');
+
+        doc.setFontSize(16);
+        doc.text(`Quadro de Frequência - ${selectedClass.name}`, 14, 15);
+        doc.setFontSize(10);
+        doc.text(`Gerado em: ${new Date().toLocaleDateString('pt-BR')}`, 14, 22);
+
+        // Headers
+        const dateHeaders = matrixColumns.map(col => {
+            const [y, m, d] = col.date.split('-');
+            return `${d}/${m}`;
+        });
+        const headers = ['Aluno', '%', ...dateHeaders];
+
+        // Rows
+        const tableData = classStudents.map(student => {
+            const stats = getAttendanceStats(student.id);
+            const percentage = stats.percent.toFixed(0);
+
+            const statuses = matrixColumns.map(col => {
+                return getStudentStatusForColumn(student.id, col);
+            });
+
+            return [student.name, percentage, ...statuses];
+        });
+
+        autoTable(doc, {
+            head: [headers],
+            body: tableData,
+            startY: 28,
+            styles: { fontSize: 7, cellPadding: 1.5, halign: 'center' },
+            headStyles: { fillColor: [234, 88, 12], textColor: 255, fontStyle: 'bold' },
+            columnStyles: {
+                0: { halign: 'left', cellWidth: 50 },
+                1: { cellWidth: 10 }
+            },
+            didParseCell: function (data) {
+                if (data.section === 'body' && data.column.index > 1) {
+                    const value = data.cell.raw;
+                    if (value === 'P') {
+                        data.cell.styles.fillColor = [220, 252, 231];
+                        data.cell.styles.textColor = [22, 163, 74];
+                        data.cell.styles.fontStyle = 'bold';
+                    } else if (value === 'F') {
+                        data.cell.styles.fillColor = [254, 226, 226];
+                        data.cell.styles.textColor = [220, 38, 38];
+                        data.cell.styles.fontStyle = 'bold';
+                    } else if (value === 'J') {
+                        data.cell.styles.fillColor = [254, 249, 195];
+                        data.cell.styles.textColor = [161, 98, 7];
+                        data.cell.styles.fontStyle = 'bold';
+                    }
+                }
+            },
+            margin: { left: 14, right: 14 }
+        });
+
+        doc.save(`frequencia_${selectedClass.name.replace(/\s+/g, '_')}.pdf`);
     };
 
     const inputClass = "appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm bg-white text-gray-900";
@@ -462,7 +528,14 @@ export const AttendancePage: React.FC = () => {
                             className="ml-4 flex items-center space-x-1 text-primary-600 hover:text-primary-800 text-sm font-medium transition-colors"
                         >
                             <Download size={16} />
-                            <span>Exportar CSV</span>
+                            <span>CSV</span>
+                        </button>
+                        <button
+                            onClick={handleExportMatrixPDF}
+                            className="ml-2 flex items-center space-x-1 text-primary-600 hover:text-primary-800 text-sm font-medium transition-colors"
+                        >
+                            <FileText size={16} />
+                            <span>PDF</span>
                         </button>
                     </div>
 

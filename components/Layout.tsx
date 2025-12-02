@@ -76,6 +76,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
   const showFinance = isManagerOrCoord || isInstructorOrAux;
   const showFirefighters = isManagerOrCoord || isAmbassador;
   const showUsers = isManagerOrCoord;
+  const showQuestionBank = isManagerOrCoord || isInstructorOrAux;
   const showProfile = true;
 
   // Helper to determine active state (exact match for root, startsWith for others)
@@ -127,6 +128,9 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
           {showEvaluations && <SidebarItem icon={ClipboardCheck} label="Avaliações" path="/evaluations" active={isActive('/evaluations')} onClick={() => setMobileMenuOpen(false)} />}
           {showCertificates && (
             <SidebarItem icon={FileBadge} label="Certificados" path="/certificates" active={isActive('/certificates')} onClick={() => setMobileMenuOpen(false)} />
+          )}
+          {showQuestionBank && (
+            <SidebarItem icon={BookOpen} label="Banco de Questões" path="/question-bank" active={isActive('/question-bank')} onClick={() => setMobileMenuOpen(false)} />
           )}
 
           <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 px-2 mt-6">Operacional</div>

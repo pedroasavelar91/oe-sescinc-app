@@ -3,6 +3,7 @@ import React, { useState, useMemo } from 'react';
 import { useStore } from '../context/AppStore';
 import { UserRole, ChecklistType, ChecklistItemResult, ChecklistLog, ChecklistItemDefinition } from '../types';
 import { ClipboardList, CheckCircle, XCircle, Plus, Trash2, Camera, MessageSquare, AlertTriangle, Eye, Settings } from 'lucide-react';
+import { getCurrentDateString } from '../utils/dateUtils';
 
 export const ChecklistsPage: React.FC = () => {
     const { currentUser, checklistTemplates, checklistLogs, addChecklistLog, updateChecklistTemplate, classes } = useStore();
@@ -19,6 +20,7 @@ export const ChecklistsPage: React.FC = () => {
     const [manageType, setManageType] = useState<ChecklistType>('VEICULO');
     const [newItemText, setNewItemText] = useState('');
     const [newItemCategory, setNewItemCategory] = useState('');
+    const [newItemQuantity, setNewItemQuantity] = useState<number | ''>('');
 
     if (!currentUser) return null;
 
@@ -85,7 +87,7 @@ export const ChecklistsPage: React.FC = () => {
             id: Math.random().toString(36).substr(2, 9),
             templateId: activeTemplate.id,
             type: activeTemplate.type,
-            date: new Date().toISOString().split('T')[0],
+            date: getCurrentDateString(),
             timestamp: new Date().toISOString(),
             userId: currentUser.id,
             userName: currentUser.name,
@@ -111,7 +113,8 @@ export const ChecklistsPage: React.FC = () => {
         const newItem: ChecklistItemDefinition = {
             id: Math.random().toString(36).substr(2, 9),
             text: newItemText,
-            category: newItemCategory || 'Geral'
+            category: newItemCategory || 'Geral',
+            quantity: newItemQuantity !== '' ? Number(newItemQuantity) : undefined
         };
 
         const updatedTemplate = {
@@ -120,6 +123,7 @@ export const ChecklistsPage: React.FC = () => {
         };
         updateChecklistTemplate(updatedTemplate);
         setNewItemText('');
+        setNewItemQuantity('');
     };
 
     const handleDeleteItem = (itemId: string) => {
@@ -176,134 +180,196 @@ export const ChecklistsPage: React.FC = () => {
 
             {/* --- FILL TAB --- */}
             {activeTab === 'fill' && (
-                <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-6">
+                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 animate-fade-in">
                     {!selectedType ? (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             {availableTemplates.map(t => (
                                 <button
                                     key={t.id}
                                     onClick={() => handleStartChecklist(t.type)}
-                                    className="flex flex-col items-center justify-center p-8 border-2 border-dashed border-gray-300 rounded-lg hover:border-primary-500 hover:bg-gray-50 transition group"
+                                    className="relative overflow-hidden group bg-white p-8 rounded-xl border border-gray-200 shadow-sm hover:shadow-md hover:border-primary-500 transition-all duration-300 text-left"
                                 >
-                                    <ClipboardList size={48} className="text-gray-400 group-hover:text-primary-500 mb-4" />
-                                    <h3 className="text-lg font-bold text-gray-900">{t.title}</h3>
-                                    <p className="text-sm text-gray-500 text-center mt-2">
-                                        {t.type === 'VEICULO' ? 'Verificação diária da carreta e caminhão.' : 'Controle de materiais por curso.'}
-                                    </p>
+                                    <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                                        <ClipboardList size={120} className="text-primary-600 transform rotate-12 translate-x-8 -translate-y-8" />
+                                    </div>
+                                    <div className="relative z-10">
+                                        <div className="w-14 h-14 bg-primary-50 rounded-lg flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300">
+                                            <ClipboardList size={32} className="text-primary-600" />
+                                        </div>
+                                        <h3 className="text-xl font-bold text-gray-900 mb-2">{t.title}</h3>
+                                        <p className="text-gray-500 text-sm leading-relaxed">
+                                            {t.type === 'VEICULO' ? 'Verificação diária completa das condições de segurança e operacionais da carreta e caminhão.' : 'Controle rigoroso de materiais e equipamentos utilizados em cursos e treinamentos.'}
+                                        </p>
+                                    </div>
                                 </button>
                             ))}
                             {availableTemplates.length === 0 && (
-                                <p className="text-gray-500 italic">Nenhum checklist disponível para o seu perfil.</p>
+                                <div className="col-span-full text-center py-12 bg-gray-50 rounded-xl border border-dashed border-gray-300">
+                                    <ClipboardList size={48} className="mx-auto text-gray-300 mb-4" />
+                                    <p className="text-gray-500 font-medium">Nenhum checklist disponível para o seu perfil.</p>
+                                </div>
                             )}
                         </div>
                     ) : (
-                        <div className="space-y-6 animate-fade-in">
-                            <div className="flex justify-between items-center border-b border-gray-100 pb-4">
-                                <h2 className="text-xl font-bold text-gray-900">{activeTemplate?.title}</h2>
-                                <button onClick={() => setSelectedType('')} className="text-gray-500 hover:text-gray-700">Cancelar</button>
+                        <div className="space-y-8 animate-slide-up">
+                            {/* Header */}
+                            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-gray-100 pb-6">
+                                <div>
+                                    <button onClick={() => setSelectedType('')} className="text-sm text-gray-500 hover:text-gray-900 mb-2 flex items-center transition-colors">
+                                        ← Voltar para seleção
+                                    </button>
+                                    <h2 className="text-2xl font-bold text-gray-900">{activeTemplate?.title}</h2>
+                                </div>
+                                <div className="text-sm text-gray-500 bg-gray-50 px-4 py-2 rounded-lg border border-gray-100">
+                                    {getCurrentDateString()}
+                                </div>
                             </div>
 
+                            {/* Context Fields */}
                             {selectedType === 'EQUIPAMENTOS' && (
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-gray-50 p-4 rounded-lg">
+                                <div className="bg-blue-50 border border-blue-100 rounded-xl p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">Turma</label>
-                                        <select className={inputClass} value={selectedClassId} onChange={e => setSelectedClassId(e.target.value)}>
+                                        <label className="block text-sm font-semibold text-blue-900 mb-2">Turma</label>
+                                        <select className="w-full bg-white border-blue-200 text-blue-900 rounded-lg focus:ring-blue-500 focus:border-blue-500" value={selectedClassId} onChange={e => setSelectedClassId(e.target.value)}>
                                             <option value="">Selecione a turma...</option>
                                             {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                                         </select>
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">Etapa</label>
-                                        <div className="flex space-x-4 mt-2">
-                                            <label className="inline-flex items-center">
-                                                <input type="radio" className="form-radio text-primary-600" checked={selectedStage === 'INICIO'} onChange={() => setSelectedStage('INICIO')} />
-                                                <span className="ml-2 text-gray-700">Início do Curso</span>
-                                            </label>
-                                            <label className="inline-flex items-center">
-                                                <input type="radio" className="form-radio text-primary-600" checked={selectedStage === 'TERMINO'} onChange={() => setSelectedStage('TERMINO')} />
-                                                <span className="ml-2 text-gray-700">Término do Curso</span>
-                                            </label>
+                                        <label className="block text-sm font-semibold text-blue-900 mb-2">Etapa</label>
+                                        <div className="flex bg-white rounded-lg p-1 border border-blue-200">
+                                            <button
+                                                onClick={() => setSelectedStage('INICIO')}
+                                                className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-all ${selectedStage === 'INICIO' ? 'bg-blue-100 text-blue-700 shadow-sm' : 'text-gray-500 hover:bg-gray-50'}`}
+                                            >
+                                                Início
+                                            </button>
+                                            <button
+                                                onClick={() => setSelectedStage('TERMINO')}
+                                                className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-all ${selectedStage === 'TERMINO' ? 'bg-blue-100 text-blue-700 shadow-sm' : 'text-gray-500 hover:bg-gray-50'}`}
+                                            >
+                                                Término
+                                            </button>
                                         </div>
                                     </div>
                                 </div>
                             )}
 
-                            <div className="space-y-4">
-                                {activeTemplate?.items.map(item => {
-                                    const result = itemsResult[item.id] || { status: 'N/A' };
-                                    const isNonCompliant = result.status === 'Não Conforme';
+                            {/* Checklist Items Grouped */}
+                            <div className="space-y-8">
+                                {Object.entries(
+                                    activeTemplate?.items.reduce((acc, item) => {
+                                        const cat = item.category || 'Geral';
+                                        if (!acc[cat]) acc[cat] = [];
+                                        acc[cat].push(item);
+                                        return acc;
+                                    }, {} as Record<string, typeof activeTemplate.items>) || {}
+                                ).map(([category, items]) => (
+                                    <div key={category} className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                                        <div className="bg-gray-50 px-6 py-4 border-b border-gray-200 flex items-center gap-3">
+                                            <div className="w-2 h-6 bg-primary-500 rounded-full"></div>
+                                            <h3 className="text-lg font-bold text-gray-900">{category}</h3>
+                                            <span className="text-xs font-medium text-gray-500 bg-white px-2 py-1 rounded border border-gray-200 ml-auto">
+                                                {items.length} itens
+                                            </span>
+                                        </div>
+                                        <div className="divide-y divide-gray-100">
+                                            {items.map(item => {
+                                                const result = itemsResult[item.id] || { status: 'N/A' };
+                                                const isNonCompliant = result.status === 'Não Conforme';
 
-                                    return (
-                                        <div key={item.id} className={`p-4 rounded-lg border ${isNonCompliant ? 'border-red-200 bg-red-50' : 'border-gray-200 bg-white'}`}>
-                                            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                                                <div className="flex-1">
-                                                    <span className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-1">{item.category}</span>
-                                                    <p className="font-medium text-gray-900">{item.text}</p>
-                                                </div>
-                                                <div className="flex items-center gap-2">
-                                                    <button
-                                                        onClick={() => handleItemChange(item.id, 'status', 'Conforme')}
-                                                        className={`px-3 py-2 rounded-md flex items-center gap-1 text-sm font-medium ${result.status === 'Conforme' ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
-                                                    >
-                                                        <CheckCircle size={16} /> Conforme
-                                                    </button>
-                                                    <button
-                                                        onClick={() => handleItemChange(item.id, 'status', 'Não Conforme')}
-                                                        className={`px-3 py-2 rounded-md flex items-center gap-1 text-sm font-medium ${result.status === 'Não Conforme' ? 'bg-red-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
-                                                    >
-                                                        <XCircle size={16} /> Não Conforme
-                                                    </button>
-                                                </div>
-                                            </div>
-
-                                            {isNonCompliant && (
-                                                <div className="mt-4 pt-4 border-t border-red-100 animate-fade-in grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                    <div>
-                                                        <label className="block text-xs font-medium text-red-700 mb-1">Comentário Obrigatório</label>
-                                                        <textarea
-                                                            className={`${inputClass} border-red-300 focus:ring-red-500 focus:border-red-500`}
-                                                            rows={2}
-                                                            placeholder="Descreva o problema..."
-                                                            value={result.comment || ''}
-                                                            onChange={e => handleItemChange(item.id, 'comment', e.target.value)}
-                                                        />
-                                                    </div>
-                                                    <div>
-                                                        <label className="block text-xs font-medium text-red-700 mb-1">Foto da Evidência</label>
-                                                        <div className="flex items-center gap-2">
-                                                            <label className="cursor-pointer bg-white border border-red-300 text-red-700 px-3 py-2 rounded shadow-sm hover:bg-red-50 text-sm flex items-center gap-2">
-                                                                <Camera size={16} /> Adicionar Foto
-                                                                <input type="file" accept="image/*" className="hidden" onChange={(e) => handlePhotoUpload(item.id, e)} />
-                                                            </label>
-                                                            {result.photoUrl && <span className="text-xs text-green-600 font-medium">Foto anexada!</span>}
+                                                return (
+                                                    <div key={item.id} className={`p-6 transition-colors duration-300 ${isNonCompliant ? 'bg-red-50/50' : 'hover:bg-gray-50'}`}>
+                                                        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                                                            <div className="flex-1">
+                                                                <div className="flex items-center gap-3">
+                                                                    <p className="text-base font-medium text-gray-900">{item.text}</p>
+                                                                    {item.quantity && (
+                                                                        <span className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded border border-blue-100">
+                                                                            Qtd: {item.quantity}
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                            <div className="flex items-center bg-gray-100 rounded-lg p-1">
+                                                                <button
+                                                                    onClick={() => handleItemChange(item.id, 'status', 'Conforme')}
+                                                                    className={`px-4 py-2 rounded-md text-sm font-medium transition-all flex items-center gap-2 ${result.status === 'Conforme' ? 'bg-white text-green-700 shadow-sm ring-1 ring-black/5' : 'text-gray-500 hover:text-gray-700'}`}
+                                                                >
+                                                                    <CheckCircle size={16} className={result.status === 'Conforme' ? 'text-green-600' : 'text-gray-400'} />
+                                                                    Conforme
+                                                                </button>
+                                                                <div className="w-px h-4 bg-gray-300 mx-1"></div>
+                                                                <button
+                                                                    onClick={() => handleItemChange(item.id, 'status', 'Não Conforme')}
+                                                                    className={`px-4 py-2 rounded-md text-sm font-medium transition-all flex items-center gap-2 ${result.status === 'Não Conforme' ? 'bg-white text-red-700 shadow-sm ring-1 ring-black/5' : 'text-gray-500 hover:text-gray-700'}`}
+                                                                >
+                                                                    <XCircle size={16} className={result.status === 'Não Conforme' ? 'text-red-600' : 'text-gray-400'} />
+                                                                    Não Conforme
+                                                                </button>
+                                                            </div>
                                                         </div>
-                                                        {result.photoUrl && (
-                                                            <img src={result.photoUrl} alt="Evidência" className="mt-2 h-20 w-auto rounded border border-gray-300" />
+
+                                                        {isNonCompliant && (
+                                                            <div className="mt-4 pt-4 border-t border-red-100 animate-scale-in origin-top">
+                                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                                                    <div>
+                                                                        <label className="block text-xs font-bold text-red-800 uppercase tracking-wider mb-2">
+                                                                            Descrição do Problema <span className="text-red-500">*</span>
+                                                                        </label>
+                                                                        <textarea
+                                                                            className="w-full px-4 py-3 bg-white border border-red-200 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 text-sm text-gray-900 placeholder-red-300 transition-shadow"
+                                                                            rows={3}
+                                                                            placeholder="Descreva detalhadamente o que está irregular..."
+                                                                            value={result.comment || ''}
+                                                                            onChange={e => handleItemChange(item.id, 'comment', e.target.value)}
+                                                                        />
+                                                                    </div>
+                                                                    <div>
+                                                                        <label className="block text-xs font-bold text-red-800 uppercase tracking-wider mb-2">Evidência Fotográfica</label>
+                                                                        <div className="flex items-start gap-4">
+                                                                            <label className="cursor-pointer group flex flex-col items-center justify-center w-32 h-32 bg-white border-2 border-dashed border-red-200 rounded-lg hover:border-red-400 hover:bg-red-50 transition-all">
+                                                                                <Camera size={24} className="text-red-300 group-hover:text-red-500 mb-2" />
+                                                                                <span className="text-xs text-red-400 group-hover:text-red-600 font-medium">Adicionar Foto</span>
+                                                                                <input type="file" accept="image/*" className="hidden" onChange={(e) => handlePhotoUpload(item.id, e)} />
+                                                                            </label>
+                                                                            {result.photoUrl && (
+                                                                                <div className="relative group">
+                                                                                    <img src={result.photoUrl} alt="Evidência" className="h-32 w-auto rounded-lg border border-gray-200 shadow-sm object-cover" />
+                                                                                    <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-10 transition-all rounded-lg"></div>
+                                                                                </div>
+                                                                            )}
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
                                                         )}
                                                     </div>
-                                                </div>
-                                            )}
+                                                );
+                                            })}
                                         </div>
-                                    );
-                                })}
+                                    </div>
+                                ))}
                             </div>
 
-                            <div className="pt-6 border-t border-gray-200">
-                                <label className="block text-sm font-medium text-gray-700 mb-2">Observações Gerais</label>
+                            <div className="bg-gray-50 rounded-xl p-6 border border-gray-200">
+                                <label className="block text-sm font-bold text-gray-900 mb-2">Observações Gerais</label>
                                 <textarea
-                                    className={`${inputClass} h-24`}
-                                    rows={3}
+                                    className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-shadow"
+                                    rows={4}
+                                    placeholder="Alguma observação adicional sobre o checklist?"
                                     value={logNotes}
                                     onChange={e => setLogNotes(e.target.value)}
                                 />
                             </div>
 
-                            <div className="flex justify-end pt-4">
+                            <div className="flex justify-end pt-4 pb-8">
                                 <button
                                     onClick={handleSubmit}
-                                    className="btn-premium bg-gradient-to-r from-primary-600 to-primary-500 hover:from-primary-700 hover:to-primary-600 text-white px-8 py-3 rounded-lg shadow-md font-semibold transition-all duration-200"
+                                    className="btn-premium bg-gradient-to-r from-primary-600 to-primary-500 hover:from-primary-700 hover:to-primary-600 text-white px-8 py-4 rounded-xl shadow-lg hover:shadow-xl font-bold text-lg transform hover:-translate-y-0.5 transition-all duration-200 flex items-center gap-3"
                                 >
-                                    Salvar Checklist
+                                    <CheckCircle size={24} />
+                                    Finalizar Checklist
                                 </button>
                             </div>
                         </div>
@@ -402,6 +468,19 @@ export const ChecklistsPage: React.FC = () => {
                                     onChange={e => setNewItemCategory(e.target.value)}
                                 />
                             </div>
+                            {manageType === 'EQUIPAMENTOS' && (
+                                <div className="w-24">
+                                    <label className="block text-xs font-medium text-gray-500 mb-1">Qtd.</label>
+                                    <input
+                                        type="number"
+                                        min="1"
+                                        className={inputClass}
+                                        placeholder="0"
+                                        value={newItemQuantity}
+                                        onChange={e => setNewItemQuantity(e.target.value === '' ? '' : Number(e.target.value))}
+                                    />
+                                </div>
+                            )}
                             <button
                                 onClick={handleAddItem}
                                 className="bg-green-600 text-white p-2 rounded-md hover:bg-green-700 h-[38px] w-[38px] flex items-center justify-center"

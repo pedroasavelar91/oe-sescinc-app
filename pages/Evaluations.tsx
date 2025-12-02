@@ -4,6 +4,8 @@ import { useStore } from '../context/AppStore';
 import { EVALUATION_SCHEMAS } from '../constants';
 import { CourseType, Student, GradeLog, EnrollmentStatus } from '../types';
 import { Save, Edit2, X, FileText, User as UserIcon, Clock, Download } from 'lucide-react';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 export const EvaluationsPage: React.FC = () => {
     const { classes, courses, students, updateStudent, currentUser, addGradeLog, gradeLogs } = useStore();
@@ -210,6 +212,93 @@ export const EvaluationsPage: React.FC = () => {
         document.body.removeChild(link);
     };
 
+    const exportToPDF = () => {
+        if (!selectedClass || !course || !schema) return;
+
+        const doc = new jsPDF('l', 'mm', 'a4');
+
+        doc.setFontSize(16);
+        doc.text(`Avaliações - ${selectedClass.name}`, 14, 15);
+        doc.setFontSize(10);
+        doc.text(`Curso: ${course.name}`, 14, 22);
+        doc.text(`Gerado em: ${new Date().toLocaleDateString('pt-BR')}`, 14, 27);
+
+        // Headers
+        const theoryHeaders = schema.theory;
+        const practiceHeaders = schema.practice;
+
+        const headers = [
+            'Aluno',
+            'Status',
+            ...theoryHeaders,
+            'Méd T',
+            ...practiceHeaders,
+            'Méd P',
+            'Final'
+        ];
+
+        // Rows
+        const tableData = classStudents.map(student => {
+            const s = tempGrades[student.id] || student;
+
+            const theoryValues = theoryHeaders.map(col => {
+                const val = s.grades[col];
+                return val !== undefined && val !== '' ? val.toString() : '-';
+            });
+            const practiceValues = practiceHeaders.map(col => {
+                const val = s.grades[col];
+                return val !== undefined && val !== '' ? val.toString() : '-';
+            });
+
+            return [
+                s.name,
+                s.enrollmentStatus,
+                ...theoryValues,
+                s.finalTheory?.toFixed(1) || '0.0',
+                ...practiceValues,
+                s.finalPractical?.toFixed(1) || '0.0',
+                s.finalGrade?.toFixed(1) || '0.0'
+            ];
+        });
+
+        autoTable(doc, {
+            head: [headers],
+            body: tableData,
+            startY: 32,
+            styles: { fontSize: 7, cellPadding: 1.5, halign: 'center' },
+            headStyles: { fillColor: [234, 88, 12], textColor: 255, fontStyle: 'bold' },
+            columnStyles: {
+                0: { halign: 'left', cellWidth: 40 },
+                1: { cellWidth: 20 }
+            },
+            didParseCell: function (data) {
+                if (data.section === 'body') {
+                    // Color code final grades
+                    const colIndex = data.column.index;
+                    const theoryFinalCol = 2 + theoryHeaders.length;
+                    const practiceFinalCol = theoryFinalCol + practiceHeaders.length + 1;
+                    const finalCol = practiceFinalCol + 1;
+
+                    if (colIndex === theoryFinalCol || colIndex === practiceFinalCol || colIndex === finalCol) {
+                        const value = parseFloat(data.cell.raw as string);
+                        if (!isNaN(value)) {
+                            if (value >= 7) {
+                                data.cell.styles.textColor = [22, 163, 74];
+                                data.cell.styles.fontStyle = 'bold';
+                            } else {
+                                data.cell.styles.textColor = [220, 38, 38];
+                                data.cell.styles.fontStyle = 'bold';
+                            }
+                        }
+                    }
+                }
+            },
+            margin: { left: 14, right: 14 }
+        });
+
+        doc.save(`Notas_${selectedClass.name.replace(/\s+/g, '_')}.pdf`);
+    };
+
     const inputClass = "appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm bg-white text-gray-900";
     const gradeInputClass = `w-full text-center text-xs border rounded focus:ring-primary-500 focus:border-primary-500 px-1 py-1 transition-colors ${isEditing ? 'bg-white border-gray-300 text-gray-900' : 'bg-gray-50 border-transparent text-gray-600 cursor-default'}`;
 
@@ -252,7 +341,13 @@ export const EvaluationsPage: React.FC = () => {
                             onClick={exportToCSV}
                             className="btn-premium bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 flex items-center gap-2 px-4 py-2 rounded-lg shadow-sm transition-all"
                         >
-                            <Download size={18} /> Exportar CSV
+                            <Download size={18} /> CSV
+                        </button>
+                        <button
+                            onClick={exportToPDF}
+                            className="btn-premium bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 flex items-center gap-2 px-4 py-2 rounded-lg shadow-sm transition-all"
+                        >
+                            <FileText size={18} /> PDF
                         </button>
 
                         {!isEditing ? (

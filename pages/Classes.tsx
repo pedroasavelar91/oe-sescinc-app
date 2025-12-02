@@ -654,7 +654,7 @@ export const ClassesPage: React.FC = () => {
                                 <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider border-b pb-1">Identificação</h3>
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Curso</label>
-                                    <select className={inputClass} onChange={e => setNewClass({ ...newClass, courseId: e.target.value })}>
+                                    <select className={inputClass} value={newClass.courseId || ''} onChange={e => setNewClass({ ...newClass, courseId: e.target.value })}>
                                         <option value="">Selecione um curso...</option>
                                         {courses.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                                     </select>
@@ -711,11 +711,11 @@ export const ClassesPage: React.FC = () => {
                                 <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider border-b pb-1">Datas de Início</h3>
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Início Aulas Teóricas</label>
-                                    <input type="date" className={inputClass} onChange={e => setNewClass({ ...newClass, theoryStartDate: e.target.value })} />
+                                    <input type="date" className={inputClass} value={newClass.theoryStartDate || ''} onChange={e => setNewClass({ ...newClass, theoryStartDate: e.target.value })} />
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Início Aulas Práticas</label>
-                                    <input type="date" className={inputClass} onChange={e => setNewClass({ ...newClass, practiceStartDate: e.target.value })} />
+                                    <input type="date" className={inputClass} value={newClass.practiceStartDate || ''} onChange={e => setNewClass({ ...newClass, practiceStartDate: e.target.value })} />
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Horas/Dia</label>
@@ -823,7 +823,7 @@ export const ClassesPage: React.FC = () => {
 
                 {/* Swap Modal */}
                 {swapModalOpen && (
-                    <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
+                    <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-backdrop">
                         <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-2xl animate-scale-in">
                             <h3 className="text-lg font-bold mb-4">Solicitar Permuta de Aula</h3>
                             <p className="text-sm text-gray-600 mb-4">

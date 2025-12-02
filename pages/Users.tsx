@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { useStore } from '../context/AppStore';
 import { User, UserRole, UNIFORM_SIZES, SHOE_SIZES } from '../types';
 import { Plus, Search, Filter, X, Trash2, Edit2 } from 'lucide-react';
+import { getCurrentDateString } from '../utils/dateUtils';
 import { formatCPF } from '../utils/formatters';
 
 export const UsersPage: React.FC = () => {
@@ -57,7 +58,7 @@ export const UsersPage: React.FC = () => {
         email: newUser.email || '',
         phone: newUser.phone || '',
         birthDate: newUser.birthDate || '',
-        registrationDate: new Date().toISOString().split('T')[0],
+        registrationDate: getCurrentDateString(),
         createdBy: currentUser.name,
         base: newUser.base,
         uniformSize: newUser.uniformSize as any,

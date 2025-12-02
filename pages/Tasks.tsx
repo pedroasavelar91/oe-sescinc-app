@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { useStore } from '../context/AppStore';
 import { Task, UserRole, User } from '../types';
 import { Plus, MessageSquare, CheckCircle, Clock, AlertCircle, User as UserIcon, Send, X, ThumbsUp, ThumbsDown, ArrowRight, ChevronRight, Trash2 } from 'lucide-react';
+import { getCurrentDateString } from '../utils/dateUtils';
 import { GoogleGenAI } from '@google/genai';
 
 export const TasksPage: React.FC = () => {
@@ -44,7 +45,7 @@ export const TasksPage: React.FC = () => {
             id: Math.random().toString(36).substr(2, 9),
             title: newTask.title,
             description: newTask.description || '',
-            startDate: newTask.startDate || new Date().toISOString().split('T')[0],
+            startDate: newTask.startDate || getCurrentDateString(),
             deadline: newTask.deadline || '',
             creatorId: currentUser.id,
             assigneeId: newTask.assigneeId, // If undefined, private
