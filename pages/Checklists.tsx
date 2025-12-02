@@ -379,47 +379,71 @@ export const ChecklistsPage: React.FC = () => {
 
             {/* --- HISTORY TAB --- */}
             {activeTab === 'history' && (
-                <div className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden">
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden animate-fade-in">
                     <div className="overflow-x-auto">
                         <table className="min-w-full divide-y divide-gray-200">
                             <thead className="bg-gray-50">
                                 <tr>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Data / Hora</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tipo</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Responsável</th>
-                                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Status</th>
-                                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Detalhes</th>
+                                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Data / Hora</th>
+                                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Tipo</th>
+                                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Responsável</th>
+                                    <th className="px-6 py-4 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">Status</th>
+                                    <th className="px-6 py-4 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Ações</th>
                                 </tr>
                             </thead>
-                            <tbody className="bg-white divide-y divide-gray-200">
+                            <tbody className="bg-white divide-y divide-gray-100">
                                 {checklistLogs.length === 0 && (
                                     <tr>
-                                        <td colSpan={5} className="px-6 py-8 text-center text-gray-500 italic">Nenhum checklist registrado.</td>
+                                        <td colSpan={5} className="px-6 py-12 text-center text-gray-500">
+                                            <div className="flex flex-col items-center justify-center">
+                                                <ClipboardList size={48} className="text-gray-300 mb-4" />
+                                                <p className="font-medium">Nenhum checklist registrado.</p>
+                                                <p className="text-sm mt-1">Os checklists finalizados aparecerão aqui.</p>
+                                            </div>
+                                        </td>
                                     </tr>
                                 )}
                                 {checklistLogs.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).map(log => (
-                                    <tr key={log.id} className="hover:bg-gray-50">
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                            {new Date(log.timestamp).toLocaleDateString()} {new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                    <tr key={log.id} className="hover:bg-gray-50 transition-colors duration-150 group">
+                                        <td className="px-6 py-4 whitespace-nowrap">
+                                            <div className="text-sm font-medium text-gray-900">{new Date(log.timestamp).toLocaleDateString()}</div>
+                                            <div className="text-xs text-gray-500">{new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                            {log.type === 'VEICULO' ? 'Veículo Diário' : 'Equipamentos'}
-                                            {log.stage && <span className="block text-xs text-gray-400">{log.stage === 'INICIO' ? 'Início' : 'Término'}</span>}
+                                        <td className="px-6 py-4 whitespace-nowrap">
+                                            <div className="flex items-center">
+                                                <span className={`p-2 rounded-lg mr-3 ${log.type === 'VEICULO' ? 'bg-blue-100 text-blue-600' : 'bg-orange-100 text-orange-600'}`}>
+                                                    {log.type === 'VEICULO' ? <ClipboardList size={16} /> : <Settings size={16} />}
+                                                </span>
+                                                <div>
+                                                    <div className="text-sm font-medium text-gray-900">{log.type === 'VEICULO' ? 'Veículo Diário' : 'Equipamentos'}</div>
+                                                    {log.stage && <div className="text-xs text-gray-500">{log.stage === 'INICIO' ? 'Início do Curso' : 'Término do Curso'}</div>}
+                                                </div>
+                                            </div>
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                            {log.userName}
+                                        <td className="px-6 py-4 whitespace-nowrap">
+                                            <div className="flex items-center">
+                                                <div className="h-8 w-8 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 font-bold text-xs mr-3">
+                                                    {log.userName.charAt(0)}
+                                                </div>
+                                                <div className="text-sm text-gray-900">{log.userName}</div>
+                                            </div>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-center">
-                                            <span className={`px-2 py-1 rounded-full text-xs font-bold ${log.isCompliant ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                                                {log.isCompliant ? 'Conforme' : 'Não Conforme'}
+                                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${log.isCompliant ? 'bg-green-100 text-green-800 border border-green-200' : 'bg-red-100 text-red-800 border border-red-200'}`}>
+                                                {log.isCompliant ? (
+                                                    <><CheckCircle size={12} className="mr-1" /> Conforme</>
+                                                ) : (
+                                                    <><AlertTriangle size={12} className="mr-1" /> Não Conforme</>
+                                                )}
                                             </span>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                             <button
                                                 onClick={() => alert('Feature: Modal de detalhes do checklist (em desenvolvimento)')}
-                                                className="text-primary-600 hover:text-primary-900"
+                                                className="text-gray-400 hover:text-primary-600 transition-colors p-2 rounded-full hover:bg-primary-50"
+                                                title="Ver Detalhes"
                                             >
-                                                <Eye size={18} />
+                                                <Eye size={20} />
                                             </button>
                                         </td>
                                     </tr>
@@ -432,76 +456,135 @@ export const ChecklistsPage: React.FC = () => {
 
             {/* --- MANAGE TAB --- */}
             {activeTab === 'manage' && isManager && (
-                <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-6">
-                    <div className="flex gap-4 mb-6">
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 animate-fade-in">
+                    <div className="flex flex-col sm:flex-row gap-4 mb-8">
                         <button
                             onClick={() => setManageType('VEICULO')}
-                            className={`px-4 py-2 rounded-md text-sm font-medium ${manageType === 'VEICULO' ? 'bg-primary-100 text-primary-800' : 'bg-gray-100 text-gray-600'}`}
+                            className={`flex-1 py-3 px-4 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2 ${manageType === 'VEICULO' ? 'bg-primary-50 text-primary-700 border-2 border-primary-200 shadow-sm' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'}`}
                         >
+                            <Truck size={20} />
                             Veículo / Caminhão
                         </button>
                         <button
                             onClick={() => setManageType('EQUIPAMENTOS')}
-                            className={`px-4 py-2 rounded-md text-sm font-medium ${manageType === 'EQUIPAMENTOS' ? 'bg-primary-100 text-primary-800' : 'bg-gray-100 text-gray-600'}`}
+                            className={`flex-1 py-3 px-4 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2 ${manageType === 'EQUIPAMENTOS' ? 'bg-primary-50 text-primary-700 border-2 border-primary-200 shadow-sm' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'}`}
                         >
+                            <Settings size={20} />
                             Materiais / Equipamentos
                         </button>
                     </div>
 
-                    <div className="space-y-4">
-                        <div className="flex gap-2 items-end bg-gray-50 p-4 rounded-lg">
-                            <div className="flex-1">
-                                <label className="block text-xs font-medium text-gray-500 mb-1">Novo Item</label>
-                                <input
-                                    className={inputClass}
-                                    placeholder="Descrição do item..."
-                                    value={newItemText}
-                                    onChange={e => setNewItemText(e.target.value)}
-                                />
-                            </div>
-                            <div className="w-1/3">
-                                <label className="block text-xs font-medium text-gray-500 mb-1">Categoria</label>
-                                <input
-                                    className={inputClass}
-                                    placeholder="Ex: Cabine, EPIs..."
-                                    value={newItemCategory}
-                                    onChange={e => setNewItemCategory(e.target.value)}
-                                />
-                            </div>
-                            {manageType === 'EQUIPAMENTOS' && (
-                                <div className="w-24">
-                                    <label className="block text-xs font-medium text-gray-500 mb-1">Qtd.</label>
-                                    <input
-                                        type="number"
-                                        min="1"
-                                        className={inputClass}
-                                        placeholder="0"
-                                        value={newItemQuantity}
-                                        onChange={e => setNewItemQuantity(e.target.value === '' ? '' : Number(e.target.value))}
-                                    />
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                        {/* Add Item Form */}
+                        <div className="lg:col-span-1">
+                            <div className="bg-gray-50 rounded-xl p-6 border border-gray-200 sticky top-6">
+                                <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                                    <PlusCircle size={20} className="text-primary-600" />
+                                    Adicionar Novo Item
+                                </h3>
+                                <div className="space-y-4">
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Descrição do Item</label>
+                                        <input
+                                            type="text"
+                                            className="w-full px-4 py-2 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-shadow"
+                                            placeholder="Ex: Verificar pressão dos pneus"
+                                            value={newItemText}
+                                            onChange={e => setNewItemText(e.target.value)}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Categoria</label>
+                                        <input
+                                            type="text"
+                                            className="w-full px-4 py-2 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-shadow"
+                                            placeholder="Ex: Pneus, Motor, Cabine..."
+                                            value={newItemCategory}
+                                            onChange={e => setNewItemCategory(e.target.value)}
+                                            list="categories-list"
+                                        />
+                                        <datalist id="categories-list">
+                                            {Array.from(new Set(activeTemplate?.items.map(i => i.category))).map(cat => (
+                                                <option key={cat} value={cat} />
+                                            ))}
+                                        </datalist>
+                                    </div>
+                                    {manageType === 'EQUIPAMENTOS' && (
+                                        <div>
+                                            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Quantidade (Opcional)</label>
+                                            <input
+                                                type="number"
+                                                className="w-full px-4 py-2 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-shadow"
+                                                placeholder="Ex: 1"
+                                                value={newItemQuantity}
+                                                onChange={e => setNewItemQuantity(Number(e.target.value))}
+                                                min={1}
+                                            />
+                                        </div>
+                                    )}
+                                    <button
+                                        onClick={handleAddItem}
+                                        disabled={!newItemText}
+                                        className="w-full btn-premium bg-primary-600 hover:bg-primary-700 text-white py-3 rounded-lg font-bold shadow-md disabled:opacity-50 disabled:cursor-not-allowed transition-all mt-2"
+                                    >
+                                        Adicionar Item
+                                    </button>
                                 </div>
-                            )}
-                            <button
-                                onClick={handleAddItem}
-                                className="bg-green-600 text-white p-2 rounded-md hover:bg-green-700 h-[38px] w-[38px] flex items-center justify-center"
-                            >
-                                <Plus size={20} />
-                            </button>
+                            </div>
                         </div>
 
-                        <ul className="divide-y divide-gray-200 border border-gray-200 rounded-lg">
-                            {manageTemplate?.items.map(item => (
-                                <li key={item.id} className="p-4 flex justify-between items-center hover:bg-gray-50">
-                                    <div>
-                                        <span className="text-xs font-bold text-gray-400 uppercase mr-2">{item.category}</span>
-                                        <span className="text-gray-900 font-medium">{item.text}</span>
+                        {/* Items List */}
+                        <div className="lg:col-span-2 space-y-6">
+                            {activeTemplate?.items.length === 0 ? (
+                                <div className="text-center py-12 bg-gray-50 rounded-xl border-2 border-dashed border-gray-200">
+                                    <ClipboardList size={48} className="mx-auto text-gray-300 mb-4" />
+                                    <p className="text-gray-500 font-medium">Nenhum item cadastrado neste checklist.</p>
+                                    <p className="text-sm text-gray-400 mt-1">Use o formulário ao lado para começar.</p>
+                                </div>
+                            ) : (
+                                Object.entries(
+                                    activeTemplate?.items.reduce((acc, item) => {
+                                        const cat = item.category || 'Geral';
+                                        if (!acc[cat]) acc[cat] = [];
+                                        acc[cat].push(item);
+                                        return acc;
+                                    }, {} as Record<string, typeof activeTemplate.items>) || {}
+                                ).map(([category, items]) => (
+                                    <div key={category} className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
+                                        <div className="bg-gray-50 px-4 py-3 border-b border-gray-200 flex justify-between items-center">
+                                            <h4 className="font-bold text-gray-800 flex items-center gap-2">
+                                                <div className="w-1.5 h-4 bg-primary-500 rounded-full"></div>
+                                                {category}
+                                            </h4>
+                                            <span className="text-xs font-medium text-gray-500 bg-white px-2 py-1 rounded border border-gray-200">
+                                                {items.length} itens
+                                            </span>
+                                        </div>
+                                        <div className="divide-y divide-gray-100">
+                                            {items.map(item => (
+                                                <div key={item.id} className="p-4 flex items-center justify-between hover:bg-gray-50 transition-colors group">
+                                                    <div>
+                                                        <p className="text-sm font-medium text-gray-900">{item.text}</p>
+                                                        {item.quantity && (
+                                                            <span className="text-xs text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100 mt-1 inline-block">
+                                                                Qtd: {item.quantity}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    <button
+                                                        onClick={() => handleDeleteItem(item.id)}
+                                                        className="text-gray-400 hover:text-red-600 p-2 rounded-full hover:bg-red-50 transition-colors opacity-0 group-hover:opacity-100"
+                                                        title="Remover Item"
+                                                    >
+                                                        <Trash2 size={18} />
+                                                    </button>
+                                                </div>
+                                            ))}
+                                        </div>
                                     </div>
-                                    <button onClick={() => handleDeleteItem(item.id)} className="text-red-400 hover:text-red-600">
-                                        <Trash2 size={18} />
-                                    </button>
-                                </li>
-                            ))}
-                        </ul>
+                                ))
+                            )}
+                        </div>
                     </div>
                 </div>
             )}
