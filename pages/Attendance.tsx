@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { useStore } from '../context/AppStore';
 import { AttendanceLog, AttendanceStatus, EnrollmentStatus, ClassScheduleItem } from '../types';
 import { Calendar, Check, Clock, X, ChevronRight, User as UserIcon, Save, Grid, List, Download, FileText } from 'lucide-react';
-import { getCurrentDateString } from '../utils/dateUtils';
+import { getCurrentDateString, formatDate } from '../utils/dateUtils';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
@@ -485,7 +485,7 @@ export const AttendancePage: React.FC = () => {
                                         return (
                                             <tr key={log.id} className="hover:bg-gray-50">
                                                 <td className="px-6 py-4 whitespace-nowrap">
-                                                    <div className="text-sm font-medium text-gray-900">{new Date(log.date).toLocaleDateString()}</div>
+                                                    <div className="text-sm font-medium text-gray-900">{formatDate(log.date)}</div>
                                                     <div className="text-xs text-gray-500">{log.time}</div>
                                                 </td>
                                                 <td className="px-6 py-4 whitespace-nowrap">

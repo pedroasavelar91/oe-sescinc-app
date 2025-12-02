@@ -122,15 +122,10 @@ export const SetupTeardownPage: React.FC = () => {
     return (
         <div className="space-y-8 animate-fade-in">
             {/* Header */}
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-                <div className="flex items-center gap-4">
-                    <div className="p-3 bg-primary-100 rounded-xl">
-                        <Wrench className="text-primary-600" size={32} />
-                    </div>
-                    <div>
-                        <h1 className="text-3xl font-bold text-gray-900">Montagem e Desmontagem</h1>
-                        <p className="text-gray-500 mt-1">Gerencie as atribuições de logística e pagamentos</p>
-                    </div>
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 animate-slide-down">
+                <div>
+                    <h1 className="text-3xl font-bold text-gray-900">Montagem e Desmontagem</h1>
+                    <p className="text-gray-500 mt-1">Gerencie as atribuições de logística e pagamentos</p>
                 </div>
                 <div className="flex gap-3">
                     <button
@@ -364,7 +359,7 @@ export const SetupTeardownPage: React.FC = () => {
             {/* Modal */}
             {modalOpen && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-backdrop backdrop-blur-sm bg-gray-900/50">
-                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg animate-scale-in">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg animate-scale-in max-h-[90vh] flex flex-col">
                         <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50 rounded-t-2xl">
                             <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
                                 {editingId ? <Edit2 size={20} className="text-primary-600" /> : <Plus size={20} className="text-primary-600" />}
@@ -378,7 +373,7 @@ export const SetupTeardownPage: React.FC = () => {
                             </button>
                         </div>
 
-                        <div className="p-6 space-y-5">
+                        <div className="p-6 space-y-5 overflow-y-auto">
                             <div>
                                 <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Turma</label>
                                 <select
