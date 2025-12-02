@@ -4,6 +4,7 @@ import { useStore } from '../context/AppStore';
 import { UserRole, CourseType } from '../types';
 import { HOURLY_RATES } from '../constants';
 import { BookOpen, DollarSign, TrendingUp, AlertCircle, CheckCircle, Clock, Calendar } from 'lucide-react';
+import { formatDate, getCurrentDateString } from '../utils/dateUtils';
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from 'recharts';
@@ -19,8 +20,8 @@ export const Dashboard: React.FC = () => {
     if (!isManager) {
         const myNextClasses = classes
             .flatMap(c => c.schedule.map(s => ({ ...s, className: c.name })))
-            .filter(s => s.instructorIds.includes(currentUser.id) && new Date(s.date) >= new Date())
-            .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+            .filter(s => s.instructorIds.includes(currentUser.id) && s.date >= getCurrentDateString())
+            .sort((a, b) => a.date.localeCompare(b.date))
             .slice(0, 5);
 
         const myPendingTasks = tasks.filter(t => t.assigneeId === currentUser.id && t.status !== 'Concluída');
@@ -46,7 +47,7 @@ export const Dashboard: React.FC = () => {
                                 {myNextClasses.map(item => (
                                     <div key={item.id} className="flex justify-between items-center p-3 bg-gradient-gray rounded-lg border border-gray-200 hover:shadow-md hover:border-primary-200 transition-all duration-200 cursor-pointer">
                                         <div>
-                                            <p className="font-semibold text-gray-800">{new Date(item.date).toLocaleDateString()}</p>
+                                            <p className="font-semibold text-gray-800">{formatDate(item.date)}</p>
                                             <p className="text-xs text-gray-500">{item.startTime} - {item.endTime}</p>
                                         </div>
                                         <div className="text-right">
