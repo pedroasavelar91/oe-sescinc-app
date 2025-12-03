@@ -34,8 +34,9 @@ export const FinancePage: React.FC = () => {
     const [instructorFilter, setInstructorFilter] = useState('');
     const [statusFilter, setStatusFilter] = useState('');
     const [classFilter, setClassFilter] = useState('');
-    const [monthFilter, setMonthFilter] = useState(new Date().getMonth().toString()); // Default current month? No, lets default empty for all
-    const [yearFilter, setYearFilter] = useState(new Date().getFullYear().toString());
+    const [monthFilter, setMonthFilter] = useState(''); // Default to ALL to match Dashboard
+    const [yearFilter, setYearFilter] = useState('');   // Default to ALL to match Dashboard
+    const [showSetupTeardown, setShowSetupTeardown] = useState(true); // Toggle for Setup/Teardown
 
     if (!currentUser) return null;
 
@@ -94,7 +95,8 @@ export const FinancePage: React.FC = () => {
             if (isInstructor && assignment.instructorId !== currentUser.id) return;
 
             const instructorUser = users.find(u => u.id === assignment.instructorId);
-            const paymentRecord = payments.find(p => p.scheduleItemId === assignment.id && p.instructorId === assignment.instructorId);
+            // Check both scheduleItemId and referenceId for compatibility
+            const paymentRecord = payments.find(p => (p.scheduleItemId === assignment.id || (p as any).referenceId === assignment.id) && p.instructorId === assignment.instructorId);
             const isPaid = !!paymentRecord;
 
             items.push({
@@ -136,9 +138,12 @@ export const FinancePage: React.FC = () => {
             if (yearFilter && itemYear !== yearFilter) return false;
             if (monthFilter && itemMonth !== monthFilter) return false;
 
+            // Toggle Setup/Teardown
+            if (!showSetupTeardown && (item.type === 'Montagem' || item.type === 'Desmontagem')) return false;
+
             return true;
         });
-    }, [rawFinancialItems, instructorFilter, statusFilter, classFilter, yearFilter, monthFilter]);
+    }, [rawFinancialItems, instructorFilter, statusFilter, classFilter, yearFilter, monthFilter, showSetupTeardown]);
 
     // --- 3. Summary Stats (Based on Filtered Data) ---
     const summary = useMemo(() => {
@@ -458,6 +463,19 @@ export const FinancePage: React.FC = () => {
                             <option value="Pago">Pago</option>
                             <option value="Pendente">Pendente</option>
                         </select>
+                    </div>
+                    {/* Toggle Setup/Teardown Button */}
+                    <div className="lg:col-span-5 flex justify-end mt-2">
+                        <button
+                            onClick={() => setShowSetupTeardown(!showSetupTeardown)}
+                            className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${showSetupTeardown
+                                    ? 'bg-indigo-100 text-indigo-700 border border-indigo-200'
+                                    : 'bg-gray-100 text-gray-600 border border-gray-200 hover:bg-gray-200'
+                                }`}
+                        >
+                            <Wrench size={16} />
+                            {showSetupTeardown ? 'Ocultar Montagem/Desmontagem' : 'Mostrar Montagem/Desmontagem'}
+                        </button>
                     </div>
                 </div>
 

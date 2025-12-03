@@ -237,6 +237,8 @@ const mapDocumentToDB = (doc: DocumentFile) => ({
     uploaded_at: doc.uploadedAt
 });
 
+
+
 const mapNotificationFromDB = (db: any): Notification => ({
     id: db.id,
     userId: db.user_id,
@@ -953,6 +955,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                 setDocuments(documents.filter(d => d.id !== id));
                 await syncWithSupabase('documents', 'DELETE', null, id);
             },
+
+
 
             // Setup/Teardown
             addSetupTeardownAssignment: async (assignment: SetupTeardownAssignment) => {

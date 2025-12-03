@@ -5,9 +5,7 @@ import { UserRole, CourseType } from '../types';
 import { HOURLY_RATES } from '../constants';
 import { BookOpen, DollarSign, TrendingUp, AlertCircle, CheckCircle, Clock, Calendar } from 'lucide-react';
 import { formatDate, getCurrentDateString } from '../utils/dateUtils';
-import {
-    BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
-} from 'recharts';
+import { StudentGradesChart, InstructorPerformanceChart, GraduatedStudentsChart, FirefighterStatusChart, SubjectAveragesChart } from '../components/DashboardCharts';
 
 export const Dashboard: React.FC = () => {
     const { classes, students, tasks, currentUser, payments, notifications, firefighters, setupTeardownAssignments, courses } = useStore();
@@ -141,27 +139,6 @@ export const Dashboard: React.FC = () => {
         return acc + pastItems.reduce((sAcc, item) => sAcc + item.duration, 0);
     }, 0);
 
-    // 3. Charts Data: Graduated Students per Course Type
-    const graduatedPerCourse = [
-        { name: 'CBA-2', value: 0 },
-        { name: 'CBA-2 Comp', value: 0 },
-        { name: 'CBA-AT', value: 0 },
-        { name: 'CBA-CE', value: 0 }
-    ];
-
-    // Re-implementation using the actual store data structure
-    // const { courses } = useStore(); // Removed duplicate declaration
-
-    courses.forEach(c => {
-        const classIds = classes.filter(cls => cls.courseId === c.id).map(cls => cls.id);
-        const approvedCount = students.filter(s => s.classId && classIds.includes(s.classId) && s.enrollmentStatus === 'Aprovado').length;
-
-        if (c.type === CourseType.CBA_2) graduatedPerCourse[0].value += approvedCount;
-        else if (c.type === CourseType.CBA_2_COMP) graduatedPerCourse[1].value += approvedCount;
-        else if (c.type === CourseType.CBA_AT) graduatedPerCourse[2].value += approvedCount;
-        else if (c.type === CourseType.CBA_CE) graduatedPerCourse[3].value += approvedCount;
-    });
-
     return (
         <div className="space-y-8">
             <div className="flex justify-between items-end animate-slide-down">
@@ -175,8 +152,9 @@ export const Dashboard: React.FC = () => {
             </div>
 
             {/* KPI Cards Row 1 - Financials & Hours */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {/* Cards will have stagger animation */}
+            {/* KPI Cards Row - Financials */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Card 1: Total Paid */}
                 <div className="stagger-item bg-gradient-to-br from-green-500 to-green-600 rounded-xl shadow-lg p-6 text-white hover:shadow-2xl hover:scale-105 transition-all duration-300 cursor-pointer relative overflow-hidden">
                     <div className="absolute top-0 right-0 w-32 h-32 bg-white opacity-5 rounded-full -mr-16 -mt-16"></div>
                     <div className="flex justify-between items-start">
@@ -193,59 +171,7 @@ export const Dashboard: React.FC = () => {
                     </div>
                 </div>
 
-                <div className="stagger-item bg-gradient-to-br from-yellow-500 to-yellow-600 rounded-xl shadow-lg p-6 text-white hover:shadow-2xl hover:scale-105 transition-all duration-300 cursor-pointer relative overflow-hidden">
-                    <div className="absolute top-0 right-0 w-32 h-32 bg-white opacity-5 rounded-full -mr-16 -mt-16"></div>
-                    <div className="flex justify-between items-start">
-                        <div>
-                            <p className="text-yellow-100 font-medium mb-1">Atualização a Vencer</p>
-                            <h3 className="text-3xl font-bold">{(() => {
-                                const today = new Date();
-                                const in90Days = new Date(today.getTime() + 90 * 24 * 60 * 60 * 1000);
-                                return firefighters.filter(ff => {
-                                    if (!ff.lastUpdateDate) return false;
-                                    const updateDate = new Date(ff.lastUpdateDate);
-                                    const nextUpdate = new Date(updateDate.getTime() + 365 * 24 * 60 * 60 * 1000);
-                                    return nextUpdate >= today && nextUpdate <= in90Days;
-                                }).length;
-                            })()}</h3>
-                        </div>
-                        <div className="p-2 bg-white bg-opacity-20 rounded-lg">
-                            <AlertCircle size={24} className="text-white" />
-                        </div>
-                    </div>
-                    <div className="mt-4 flex items-center text-sm text-yellow-100">
-                        <Clock size={14} className="mr-1" /> Próximos 90 dias
-                    </div>
-                </div>
-
-                <div className="stagger-item bg-gradient-to-br from-red-500 to-red-600 rounded-xl shadow-lg p-6 text-white hover:shadow-2xl hover:scale-105 transition-all duration-300 cursor-pointer relative overflow-hidden">
-                    <div className="absolute top-0 right-0 w-32 h-32 bg-white opacity-5 rounded-full -mr-16 -mt-16"></div>
-                    <div className="flex justify-between items-start">
-                        <div>
-                            <p className="text-red-100 font-medium mb-1">Exercício com Fogo a Vencer</p>
-                            <h3 className="text-3xl font-bold">{(() => {
-                                const today = new Date();
-                                const in90Days = new Date(today.getTime() + 90 * 24 * 60 * 60 * 1000);
-                                return firefighters.filter(ff => {
-                                    if (!ff.lastFireExerciseDate) return false;
-                                    const exerciseDate = new Date(ff.lastFireExerciseDate);
-                                    const nextExercise = new Date(exerciseDate.getTime() + 365 * 24 * 60 * 60 * 1000);
-                                    return nextExercise >= today && nextExercise <= in90Days;
-                                }).length;
-                            })()}</h3>
-                        </div>
-                        <div className="p-2 bg-white bg-opacity-20 rounded-lg">
-                            <AlertCircle size={24} className="text-white" />
-                        </div>
-                    </div>
-                    <div className="mt-4 flex items-center text-sm text-red-100">
-                        <Clock size={14} className="mr-1" /> Próximos 90 dias
-                    </div>
-                </div>
-            </div>
-
-            {/* KPI Cards Row 2 - Values to Pay */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {/* Card 2: Values to Pay */}
                 <div className="stagger-item bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl shadow-lg p-6 text-white hover:shadow-2xl hover:scale-105 transition-all duration-300 cursor-pointer relative overflow-hidden">
                     <div className="absolute top-0 right-0 w-32 h-32 bg-white opacity-5 rounded-full -mr-16 -mt-16"></div>
                     <div className="flex justify-between items-start">
@@ -263,20 +189,13 @@ export const Dashboard: React.FC = () => {
                 </div>
             </div>
 
-            {/* Chart Row */}
-            <div className="card-premium animate-slide-up p-6">
-                <h3 className="text-lg font-bold text-gray-900 mb-6">Alunos Formados por Curso</h3>
-                <div className="h-80 w-full">
-                    <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={graduatedPerCourse} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-                            <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                            <XAxis dataKey="name" />
-                            <YAxis allowDecimals={false} />
-                            <Tooltip cursor={{ fill: '#f3f4f6' }} />
-                            <Bar dataKey="value" name="Formados" fill="#f97316" radius={[4, 4, 0, 0]} barSize={60} />
-                        </BarChart>
-                    </ResponsiveContainer>
-                </div>
+            {/* Charts Row */}
+            <div className="grid grid-cols-1 gap-6">
+                <FirefighterStatusChart />
+                <GraduatedStudentsChart />
+                <StudentGradesChart />
+                <SubjectAveragesChart />
+                <InstructorPerformanceChart />
             </div>
 
             {/* Lower Section: Recent Activity */}

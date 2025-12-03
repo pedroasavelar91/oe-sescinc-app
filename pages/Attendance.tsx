@@ -267,7 +267,7 @@ export const AttendancePage: React.FC = () => {
         // Headers
         const dateHeaders = matrixColumns.map(col => {
             const [y, m, d] = col.date.split('-');
-            return `${d}/${m}`;
+            return `${d}/${m}\n${col.time}`;
         });
         const headers = ['Aluno', '%', ...dateHeaders];
 

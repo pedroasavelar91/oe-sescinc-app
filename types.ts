@@ -290,6 +290,8 @@ export interface DocumentFile {
   uploadedAt: string;
 }
 
+
+
 // Firefighters Management
 export type Region = 'Norte' | 'Sul' | 'Sudeste' | 'Nordeste' | 'Centro-Oeste';
 export type AirportClass = 'I' | 'II' | 'III' | 'IV';

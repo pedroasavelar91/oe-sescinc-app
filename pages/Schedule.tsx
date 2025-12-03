@@ -139,23 +139,23 @@ export const SchedulePage: React.FC = () => {
                 <div className="flex gap-2">
                     <button
                         onClick={exportToCSV}
-                        className="btn-secondary flex items-center gap-2"
+                        className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 font-medium transition-colors shadow-sm"
                         title="Exportar CSV"
                     >
-                        <FileText size={20} />
+                        <FileText size={18} className="text-gray-500" />
                         CSV
                     </button>
                     <button
                         onClick={exportToPDF}
-                        className="btn-secondary flex items-center gap-2"
+                        className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 font-medium transition-colors shadow-sm"
                         title="Exportar PDF"
                     >
-                        <Download size={20} />
+                        <Download size={18} className="text-gray-500" />
                         PDF
                     </button>
                     <button
                         onClick={() => handleOpenModal()}
-                        className="btn-primary bg-gradient-to-r from-primary-600 to-primary-500 hover:from-primary-700 hover:to-primary-600 text-white shadow-md hover:shadow-lg transition-all duration-200 flex items-center gap-2"
+                        className="flex items-center gap-2 px-4 py-2 bg-[#F97316] hover:bg-[#EA580C] text-white rounded-lg font-medium transition-colors shadow-sm"
                     >
                         <Plus size={20} />
                         Inserir
@@ -295,8 +295,8 @@ export const SchedulePage: React.FC = () => {
                             <h2 className="text-xl font-bold text-gray-900">
                                 {editingSchedule ? 'Editar Agendamento' : 'Novo Agendamento'}
                             </h2>
-                            <button onClick={handleCloseModal} className="text-gray-400 hover:text-gray-600">
-                                &times;
+                            <button onClick={handleCloseModal} className="text-gray-400 hover:text-gray-600 transition-colors">
+                                <span className="text-3xl">&times;</span>
                             </button>
                         </div>
 
@@ -558,17 +558,7 @@ export const SchedulePage: React.FC = () => {
                                 <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
                                     <MapPin size={16} /> Localização
                                 </h3>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">Localidade Alunos</label>
-                                        <input
-                                            type="text"
-                                            required
-                                            className={inputClass}
-                                            value={formData.studentLocality || ''}
-                                            onChange={e => setFormData({ ...formData, studentLocality: e.target.value })}
-                                        />
-                                    </div>
+                                <div className="grid grid-cols-1 gap-4">
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700 mb-1">Local do Treinamento</label>
                                         <input

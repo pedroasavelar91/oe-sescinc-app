@@ -190,7 +190,18 @@ export const DocumentsPage: React.FC = () => {
                             )}
                         </div>
                         <h3 className="font-medium text-gray-900 truncate">{folder.name}</h3>
-                        <p className="text-xs text-gray-500">{new Date(folder.createdAt).toLocaleDateString()}</p>
+                        <div className="flex justify-between items-center mt-2">
+                            <p className="text-xs text-gray-500">{new Date(folder.createdAt).toLocaleDateString()}</p>
+                            {folder.allowedRoles && folder.allowedRoles.length > 0 ? (
+                                <span className="text-[10px] bg-red-100 text-red-700 px-1.5 py-0.5 rounded border border-red-200" title={`Restrito a: ${folder.allowedRoles.join(', ')}`}>
+                                    Restrito
+                                </span>
+                            ) : (
+                                <span className="text-[10px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded border border-green-200">
+                                    Público
+                                </span>
+                            )}
+                        </div>
                     </div>
                 ))}
 
