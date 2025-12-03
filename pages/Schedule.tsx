@@ -7,8 +7,9 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
 export const SchedulePage: React.FC = () => {
-    const { currentUser, trainingSchedules, addTrainingSchedule, updateTrainingSchedule, deleteTrainingSchedule } = useStore();
+    const { currentUser, trainingSchedules, addTrainingSchedule, updateTrainingSchedule, deleteTrainingSchedule, bases } = useStore();
     const [searchTerm, setSearchTerm] = useState('');
+    const [selectedBase, setSelectedBase] = useState('');
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingSchedule, setEditingSchedule] = useState<TrainingSchedule | null>(null);
     const [viewMode, setViewMode] = useState<'list' | 'timeline'>('list');
@@ -29,12 +30,19 @@ export const SchedulePage: React.FC = () => {
         );
     }
 
-    const filteredSchedules = trainingSchedules.filter(s =>
-        s.className.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        s.location.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        s.origin.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        s.destination.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    const filteredSchedules = trainingSchedules
+        .filter(s =>
+            (s.className.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                s.location.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                s.origin.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                s.destination.toLowerCase().includes(searchTerm.toLowerCase())) &&
+            (selectedBase ? s.location === selectedBase : true)
+        )
+        .sort((a, b) => {
+            if (!a.medtruckDisplacementStart) return 1;
+            if (!b.medtruckDisplacementStart) return -1;
+            return a.medtruckDisplacementStart.localeCompare(b.medtruckDisplacementStart);
+        });
 
     const handleOpenModal = (schedule?: TrainingSchedule) => {
         if (schedule) {
@@ -272,6 +280,18 @@ export const SchedulePage: React.FC = () => {
                         onChange={(e) => setSearchTerm(e.target.value)}
                     />
                 </div>
+                <div className="w-64">
+                    <select
+                        className="input-field w-full"
+                        value={selectedBase}
+                        onChange={(e) => setSelectedBase(e.target.value)}
+                    >
+                        <option value="">Todas as Bases</option>
+                        {bases.map(base => (
+                            <option key={base.id} value={base.name}>{base.name}</option>
+                        ))}
+                    </select>
+                </div>
                 <button className="btn-secondary flex items-center gap-2">
                     <Filter size={20} />
                     Filtros
@@ -445,7 +465,6 @@ export const SchedulePage: React.FC = () => {
                                         <label className="block text-sm font-medium text-gray-700 mb-1">Início</label>
                                         <input
                                             type="date"
-                                            required
                                             className={inputClass}
                                             value={formData.medtruckDisplacementStart ? formData.medtruckDisplacementStart.split('T')[0] : ''}
                                             onChange={e => setFormData({ ...formData, medtruckDisplacementStart: e.target.value })}
@@ -455,7 +474,6 @@ export const SchedulePage: React.FC = () => {
                                         <label className="block text-sm font-medium text-gray-700 mb-1">Término</label>
                                         <input
                                             type="date"
-                                            required
                                             className={inputClass}
                                             value={formData.medtruckDisplacementEnd ? formData.medtruckDisplacementEnd.split('T')[0] : ''}
                                             onChange={e => setFormData({ ...formData, medtruckDisplacementEnd: e.target.value })}
@@ -473,7 +491,6 @@ export const SchedulePage: React.FC = () => {
                                         <label className="block text-sm font-medium text-gray-700 mb-1">Data Montagem</label>
                                         <input
                                             type="date"
-                                            required
                                             className={inputClass}
                                             value={formData.setupDate || ''}
                                             onChange={e => setFormData({ ...formData, setupDate: e.target.value })}
@@ -483,7 +500,6 @@ export const SchedulePage: React.FC = () => {
                                         <label className="block text-sm font-medium text-gray-700 mb-1">Data Desmontagem</label>
                                         <input
                                             type="date"
-                                            required
                                             className={inputClass}
                                             value={formData.teardownDate || ''}
                                             onChange={e => setFormData({ ...formData, teardownDate: e.target.value })}
@@ -498,12 +514,15 @@ export const SchedulePage: React.FC = () => {
                                 </h3>
                                 <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 mb-4">
                                     <div className="flex gap-2 mb-2">
-                                        <input
-                                            type="text"
-                                            placeholder="Nome da Base"
+                                        <select
                                             className={`${inputClass} flex-1`}
                                             id="baseInput"
-                                        />
+                                        >
+                                            <option value="">Selecione a Base</option>
+                                            {bases.map(base => (
+                                                <option key={base.id} value={base.name}>{base.name}</option>
+                                            ))}
+                                        </select>
                                         <input
                                             type="number"
                                             placeholder="Qtd"
@@ -513,7 +532,7 @@ export const SchedulePage: React.FC = () => {
                                         <button
                                             type="button"
                                             onClick={() => {
-                                                const baseInput = document.getElementById('baseInput') as HTMLInputElement;
+                                                const baseInput = document.getElementById('baseInput') as HTMLSelectElement;
                                                 const countInput = document.getElementById('countInput') as HTMLInputElement;
                                                 const base = baseInput.value;
                                                 const count = parseInt(countInput.value);
@@ -532,7 +551,6 @@ export const SchedulePage: React.FC = () => {
 
                                                     baseInput.value = '';
                                                     countInput.value = '';
-                                                    baseInput.focus();
                                                 }
                                             }}
                                             className="btn-secondary"
@@ -553,6 +571,31 @@ export const SchedulePage: React.FC = () => {
                                                         <button
                                                             type="button"
                                                             onClick={() => {
+                                                                const baseInput = document.getElementById('baseInput') as HTMLSelectElement;
+                                                                const countInput = document.getElementById('countInput') as HTMLInputElement;
+
+                                                                // Populate inputs for editing
+                                                                baseInput.value = item.base;
+                                                                countInput.value = item.count.toString();
+
+                                                                // Remove from list
+                                                                const newBreakdown = formData.studentBreakdown!.filter((_, i) => i !== index);
+                                                                const total = newBreakdown.reduce((sum, item) => sum + item.count, 0);
+                                                                setFormData({
+                                                                    ...formData,
+                                                                    studentBreakdown: newBreakdown,
+                                                                    theoryStudentCount: total,
+                                                                    practiceStudentCount: total
+                                                                });
+                                                            }}
+                                                            className="text-blue-500 hover:text-blue-700"
+                                                            title="Editar"
+                                                        >
+                                                            <Edit2 size={14} />
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => {
                                                                 const newBreakdown = formData.studentBreakdown!.filter((_, i) => i !== index);
                                                                 const total = newBreakdown.reduce((sum, item) => sum + item.count, 0);
                                                                 setFormData({
@@ -563,6 +606,7 @@ export const SchedulePage: React.FC = () => {
                                                                 });
                                                             }}
                                                             className="text-red-500 hover:text-red-700"
+                                                            title="Remover"
                                                         >
                                                             <Trash2 size={14} />
                                                         </button>
@@ -588,7 +632,6 @@ export const SchedulePage: React.FC = () => {
                                         <label className="block text-sm font-medium text-gray-700 mb-1">Início</label>
                                         <input
                                             type="date"
-                                            required
                                             className={inputClass}
                                             value={formData.theoryStart ? formData.theoryStart.split('T')[0] : ''}
                                             onChange={e => setFormData({ ...formData, theoryStart: e.target.value })}
@@ -598,7 +641,6 @@ export const SchedulePage: React.FC = () => {
                                         <label className="block text-sm font-medium text-gray-700 mb-1">Término</label>
                                         <input
                                             type="date"
-                                            required
                                             className={inputClass}
                                             value={formData.theoryEnd ? formData.theoryEnd.split('T')[0] : ''}
                                             onChange={e => setFormData({ ...formData, theoryEnd: e.target.value })}
@@ -626,7 +668,6 @@ export const SchedulePage: React.FC = () => {
                                         <label className="block text-sm font-medium text-gray-700 mb-1">Início</label>
                                         <input
                                             type="date"
-                                            required
                                             className={inputClass}
                                             value={formData.practiceStart ? formData.practiceStart.split('T')[0] : ''}
                                             onChange={e => setFormData({ ...formData, practiceStart: e.target.value })}
@@ -636,7 +677,6 @@ export const SchedulePage: React.FC = () => {
                                         <label className="block text-sm font-medium text-gray-700 mb-1">Final</label>
                                         <input
                                             type="date"
-                                            required
                                             className={inputClass}
                                             value={formData.practiceEnd ? formData.practiceEnd.split('T')[0] : ''}
                                             onChange={e => setFormData({ ...formData, practiceEnd: e.target.value })}
