@@ -66,7 +66,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
   const showCourses = isManagerOrCoord || isInstructorOrAux;
   const showClasses = isManagerOrCoord || isInstructorOrAux;
   const showStudents = isManagerOrCoord;
-  const showAttendance = isManagerOrCoord || isInstructorOrAux;
+  const showAttendance = isManagerOrCoord || isInstructorOrAux; // Explicitly includes Coordenador and Auxiliar
   const showEvaluations = isManagerOrCoord || isInstructorOrAux;
   const showCertificates = isManagerOrCoord || isAmbassador;
   const showSetupTeardown = isManagerOrCoord;

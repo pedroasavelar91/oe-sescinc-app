@@ -48,35 +48,10 @@ export const FirefighterStatusChart: React.FC = () => {
 
     const data = useMemo(() => {
         // Use real data if available, otherwise use rich mock data
-        const hasData = firefighters.some(f => f.lastUpdateDate || f.lastFireExerciseDate);
 
-        if (!hasData) {
-            // RICH MOCK DATA
-            if (viewMode === 'month') {
-                return [
-                    { name: 'Jan', updates: 2, exercises: 5 },
-                    { name: 'Fev', updates: 1, exercises: 3 },
-                    { name: 'Mar', updates: 4, exercises: 6 },
-                    { name: 'Abr', updates: 0, exercises: 2 },
-                    { name: 'Mai', updates: 3, exercises: 4 },
-                    { name: 'Jun', updates: 2, exercises: 5 },
-                    { name: 'Jul', updates: 5, exercises: 8 },
-                    { name: 'Ago', updates: 1, exercises: 3 },
-                    { name: 'Set', updates: 0, exercises: 2 },
-                    { name: 'Out', updates: 2, exercises: 4 },
-                    { name: 'Nov', updates: 3, exercises: 6 },
-                    { name: 'Dez', updates: 1, exercises: 2 },
-                ];
-            } else {
-                return [
-                    { name: 'SBGR', updates: 15, exercises: 20 },
-                    { name: 'SBSP', updates: 10, exercises: 12 },
-                    { name: 'SBRJ', updates: 8, exercises: 15 },
-                    { name: 'SBBR', updates: 5, exercises: 8 },
-                    { name: 'SBGL', updates: 12, exercises: 10 },
-                ];
-            }
-        }
+
+
+
 
         let filteredFirefighters = firefighters;
         if (baseFilter !== 'all') {
@@ -210,16 +185,9 @@ export const GraduatedStudentsChart: React.FC = () => {
     const [yearFilter, setYearFilter] = useState<string>(new Date().getFullYear().toString());
 
     const data = useMemo(() => {
-        const hasData = students.some(s => s.enrollmentStatus);
-        if (!hasData) {
-            // RICH MOCK DATA
-            return [
-                { name: 'CBA-2', Aprovado: 25, Reprovado: 3, Desligado: 1 },
-                { name: 'CBA-CE', Aprovado: 18, Reprovado: 1, Desligado: 0 },
-                { name: 'CBA-AT', Aprovado: 12, Reprovado: 2, Desligado: 1 },
-                { name: 'Outro', Aprovado: 5, Reprovado: 0, Desligado: 0 },
-            ];
-        }
+
+
+
 
         const classesInYear = classes.filter(c =>
             new Date(c.startDate).getFullYear().toString() === yearFilter ||
@@ -289,16 +257,9 @@ export const StudentGradesChart: React.FC = () => {
     const [classFilter, setClassFilter] = useState<string>('all');
 
     const data = useMemo(() => {
-        const hasData = students.some(s => s.finalGrade > 0);
-        if (!hasData) {
-            // RICH MOCK DATA
-            return [
-                { name: 'CBA-2 Alpha', 'Média Final': 8.5, 'Média Teórica': 8.2, 'Média Prática': 8.8 },
-                { name: 'CBA-2 Bravo', 'Média Final': 7.9, 'Média Teórica': 7.5, 'Média Prática': 8.3 },
-                { name: 'CBA-CE Charlie', 'Média Final': 9.2, 'Média Teórica': 9.0, 'Média Prática': 9.4 },
-                { name: 'CBA-AT Delta', 'Média Final': 8.8, 'Média Teórica': 8.5, 'Média Prática': 9.1 },
-            ];
-        }
+
+
+
 
         // Filter classes by Year
         let relevantClasses = classes.filter(c =>
@@ -387,18 +348,9 @@ export const SubjectAveragesChart: React.FC = () => {
     const [courseFilter, setCourseFilter] = useState<string>(Object.values(CourseType)[0]);
 
     const data = useMemo(() => {
-        const hasData = students.some(s => s.grades && Object.keys(s.grades).length > 0);
-        if (!hasData) {
-            // RICH MOCK DATA
-            return [
-                { name: 'Teoria do Fogo', average: 8.8 },
-                { name: 'APH', average: 9.2 },
-                { name: 'Salvamento', average: 8.5 },
-                { name: 'Legislação', average: 7.9 },
-                { name: 'Liderança', average: 9.5 },
-                { name: 'Equipamentos', average: 8.2 },
-            ].sort((a, b) => b.average - a.average);
-        }
+
+
+
 
         // Filter students by Year and Course
         const classesInYear = classes.filter(c =>
@@ -493,22 +445,9 @@ export const InstructorPerformanceChart: React.FC = () => {
     const [periodFilter, setPeriodFilter] = useState<string>('all');
 
     const data = useMemo(() => {
-        const hasData = classes.some(c => c.schedule.length > 0);
-        if (!hasData) {
-            // RICH MOCK DATA
-            return [
-                { name: 'Sgt. Silva', hours: 120, classCount: 15 },
-                { name: 'Cb. Oliveira', hours: 110, classCount: 14 },
-                { name: 'Sd. Souza', hours: 95, classCount: 12 },
-                { name: 'Sub. Costa', hours: 90, classCount: 10 },
-                { name: 'Sgt. Pereira', hours: 85, classCount: 9 },
-                { name: 'Cb. Lima', hours: 80, classCount: 8 },
-                { name: 'Sd. Gomes', hours: 75, classCount: 8 },
-                { name: 'Sgt. Alves', hours: 60, classCount: 6 },
-                { name: 'Cb. Rocha', hours: 50, classCount: 5 },
-                { name: 'Sub. Martins', hours: 40, classCount: 4 },
-            ];
-        }
+
+
+
 
         const instructorStats = new Map<string, { name: string; hours: number; classCount: number }>();
 

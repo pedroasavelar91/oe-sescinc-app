@@ -2,7 +2,7 @@
 import React, { useState, useMemo } from 'react';
 import { useStore } from '../context/AppStore';
 import { Student, CourseType, EnrollmentStatus } from '../types';
-import { Plus, Pencil, X, Trash2, Download, FileText } from 'lucide-react';
+import { Plus, Pencil, X, Trash2, Download, FileText, ChevronLeft, ChevronRight } from 'lucide-react';
 import { formatCPF } from '../utils/formatters';
 import { formatDate } from '../utils/dateUtils';
 import jsPDF from 'jspdf';
@@ -13,6 +13,8 @@ export const StudentsPage: React.FC = () => {
     const [showModal, setShowModal] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedClassFilter, setSelectedClassFilter] = useState('');
+    const [currentPage, setCurrentPage] = useState(1);
+    const itemsPerPage = 10;
 
     const [editingId, setEditingId] = useState<string | null>(null);
     const [studentForm, setStudentForm] = useState<Partial<Student>>({
@@ -208,6 +210,23 @@ export const StudentsPage: React.FC = () => {
         return matchesSearch && matchesClass && matchesYear;
     });
 
+    // Pagination Logic
+    const totalPages = Math.ceil(filtered.length / itemsPerPage);
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    const currentStudents = filtered.slice(startIndex, endIndex);
+
+    // Reset to page 1 when filters change
+    React.useEffect(() => {
+        setCurrentPage(1);
+    }, [searchTerm, selectedClassFilter, selectedYearFilter]);
+
+    const handlePageChange = (newPage: number) => {
+        if (newPage >= 1 && newPage <= totalPages) {
+            setCurrentPage(newPage);
+        }
+    };
+
     const handleExportCSV = () => {
         const headers = ['Matricula', 'Nome', 'Turma', 'Status', 'CPF', 'Registro', 'CAP-BA', 'Final Teorica', 'Final Pratica', 'Nota Final'];
         const csvContent = [
@@ -356,7 +375,7 @@ export const StudentsPage: React.FC = () => {
                             </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
-                            {filtered.map(s => {
+                            {currentStudents.map(s => {
                                 let statusColor = 'bg-gray-100 text-gray-800';
                                 if (s.enrollmentStatus === 'Matriculado') statusColor = 'bg-blue-100 text-blue-800';
                                 else if (s.enrollmentStatus === 'Aprovado') statusColor = 'bg-green-100 text-green-800';
@@ -402,6 +421,32 @@ export const StudentsPage: React.FC = () => {
                             })}
                         </tbody>
                     </table>
+                </div>
+
+                {/* Pagination Controls */}
+                <div className="px-6 py-4 border-t border-gray-100 flex items-center justify-between bg-gray-50">
+                    <div className="text-sm text-gray-500">
+                        Mostrando <span className="font-medium">{startIndex + 1}</span> até <span className="font-medium">{Math.min(endIndex, filtered.length)}</span> de <span className="font-medium">{filtered.length}</span> alunos
+                    </div>
+                    <div className="flex items-center space-x-2">
+                        <button
+                            onClick={() => handlePageChange(currentPage - 1)}
+                            disabled={currentPage === 1}
+                            className={`p-2 rounded-md border ${currentPage === 1 ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'}`}
+                        >
+                            <ChevronLeft size={16} />
+                        </button>
+                        <span className="text-sm text-gray-700 font-medium px-2">
+                            Página {currentPage} de {totalPages}
+                        </span>
+                        <button
+                            onClick={() => handlePageChange(currentPage + 1)}
+                            disabled={currentPage === totalPages || totalPages === 0}
+                            className={`p-2 rounded-md border ${currentPage === totalPages || totalPages === 0 ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'}`}
+                        >
+                            <ChevronRight size={16} />
+                        </button>
+                    </div>
                 </div>
             </div>
 
