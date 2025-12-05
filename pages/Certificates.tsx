@@ -99,6 +99,7 @@ export const CertificatesPage: React.FC = () => {
 
                 let capBa = s.capCode || '-';
                 if (course.type !== CourseType.CBA_CE && !s.capCode) {
+                    const seqCap = baseCap + index;
                     const formattedSeqCap = seqCap.toString().padStart(4, '0');
                     capBa = `08/C${formattedSeqCap}/${year}`;
                 }
