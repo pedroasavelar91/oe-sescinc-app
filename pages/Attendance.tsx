@@ -34,7 +34,7 @@ export const AttendancePage: React.FC = () => {
         if (!selectedClassId || !selectedClass) return [];
 
         const filteredStudents = students
-            .filter(s => s.classId === selectedClassId && (s.enrollmentStatus === 'Matriculado' || s.enrollmentStatus === 'Pendente'))
+            .filter(s => s.classId === selectedClassId)
             .sort((a, b) => a.name.localeCompare(b.name));
 
         const course = courses.find(c => c.id === selectedClass.courseId);
