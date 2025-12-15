@@ -1,8 +1,7 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { useStore } from '../context/AppStore';
 import { ClassGroup, UserRole, ClassScheduleItem, Course, Subject, CourseType, User } from '../types';
-import { Plus, Calendar as CalendarIcon, Clock, ChevronRight, FileText, Download, Save, Trash2, X, ChevronDown, Check, RefreshCw, Edit } from 'lucide-react';
+import { Plus, Calendar as CalendarIcon, Clock, ChevronRight, FileText, Download, Save, Trash2, X, ChevronDown, Check, RefreshCw, Edit, MapPin, Hash, ArrowUp, ArrowDown } from 'lucide-react';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import { formatDate } from '../utils/dateUtils';
@@ -65,7 +64,7 @@ const MultiSelect: React.FC<MultiSelectProps> = ({ options, selectedIds, onChang
                             className="flex items-center px-4 py-2 hover:bg-gray-100 cursor-pointer"
                             onClick={() => toggleSelection(option.id)}
                         >
-                            <div className={`flex-shrink-0 mr-2 w-4 h-4 border rounded flex items-center justify-center ${selectedIds.includes(option.id) ? 'bg-primary-600 border-primary-600' : 'border-gray-300'}`}>
+                            <div className={`flex-shrink-0 mr-2 w-4 h-4 border rounded flex items-center justify-center ${selectedIds.includes(option.id) ? 'bg-blue-600 border-blue-600' : 'border-gray-300'}`}>
                                 {selectedIds.includes(option.id) && <Check size={12} className="text-white" />}
                             </div>
                             <span className="block truncate font-medium text-gray-900">
@@ -106,7 +105,8 @@ export const ClassesPage: React.FC = () => {
         theoryStartDate: '',
         practiceStartDate: '',
         registrationNumber: '',
-        capBa: ''
+        capBa: '',
+        location: ''
     });
 
     const [classNumber, setClassNumber] = useState('');
@@ -116,7 +116,11 @@ export const ClassesPage: React.FC = () => {
 
     // Filters
     const [selectedCourseFilter, setSelectedCourseFilter] = useState('');
-    const [selectedYearFilter, setSelectedYearFilter] = useState('');
+    const [selectedYearFilter, setSelectedYearFilter] = useState<string>('');
+
+    // Pagination
+    const [currentPage, setCurrentPage] = useState(1);
+    const ITEMS_PER_PAGE = 9;
 
     const [previewSchedule, setPreviewSchedule] = useState<ClassScheduleItem[]>([]);
 
@@ -125,7 +129,7 @@ export const ClassesPage: React.FC = () => {
         u.role === UserRole.AUXILIAR_INSTRUCAO ||
         u.role === UserRole.COORDENADOR ||
         u.role === UserRole.GESTOR
-    );
+    ).sort((a, b) => a.name.localeCompare(b.name));
 
     const inputClass = "appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm bg-white text-gray-900";
 
@@ -350,7 +354,8 @@ export const ClassesPage: React.FC = () => {
             theoryStartDate: cls.theoryStartDate,
             practiceStartDate: cls.practiceStartDate,
             registrationNumber: cls.registrationNumber,
-            capBa: cls.capBa
+            capBa: cls.capBa,
+            location: cls.location || ''
         });
 
         // Parse name for number/year (Assuming format "Name Number/Year")
@@ -401,6 +406,7 @@ export const ClassesPage: React.FC = () => {
             practiceStartDate: newClass.practiceStartDate,
             registrationNumber: newClass.registrationNumber,
             capBa: newClass.capBa,
+            location: newClass.location,
             schedule: previewSchedule
         };
 
@@ -423,7 +429,8 @@ export const ClassesPage: React.FC = () => {
             theoryStartDate: '',
             practiceStartDate: '',
             registrationNumber: '',
-            capBa: ''
+            capBa: '',
+            location: ''
         });
         setClassNumber('');
         setPreviewSchedule([]);
@@ -480,6 +487,8 @@ export const ClassesPage: React.FC = () => {
         doc.text(`Curso: ${course?.name}`, 14, 22);
         doc.text(`Registro: ${cls.registrationNumber || 'N/A'}`, 14, 28);
         if (cls.capBa) doc.text(`CAP-BA: ${cls.capBa}`, 100, 28);
+        if (cls.location) doc.text(`Localidade: ${cls.location}`, 14, 34);
+
 
         const tableData = cls.schedule.map(item => {
             const subject = course?.subjects.find(s => s.id === item.subjectId);
@@ -502,7 +511,7 @@ export const ClassesPage: React.FC = () => {
         });
 
         doc.autoTable({
-            startY: 35,
+            startY: cls.location ? 40 : 35, // Adjust startY if location is present
             head: [['Data', 'Horário', 'Módulo', 'Disciplina', 'Tempos', 'Instrutor(es)']],
             body: tableData,
             theme: 'grid',
@@ -543,6 +552,25 @@ export const ClassesPage: React.FC = () => {
         const courseId = readOnly ? selectedClass?.courseId : newClass.courseId;
         const course = courses.find(c => c.id === courseId);
 
+        const moveScheduleItem = (index: number, direction: 'up' | 'down') => {
+            if (!onUpdate) return;
+            const newSchedule = [...schedule];
+
+            if (direction === 'up') {
+                if (index === 0) return;
+                const temp = newSchedule[index];
+                newSchedule[index] = newSchedule[index - 1];
+                newSchedule[index - 1] = temp;
+            } else {
+                if (index === newSchedule.length - 1) return;
+                const temp = newSchedule[index];
+                newSchedule[index] = newSchedule[index + 1];
+                newSchedule[index + 1] = temp;
+            }
+
+            setPreviewSchedule(newSchedule);
+        };
+
         if (schedule.length === 0) return <div className="text-center py-8 text-gray-500 italic">Preencha as datas para gerar o cronograma.</div>;
 
         return (
@@ -551,6 +579,7 @@ export const ClassesPage: React.FC = () => {
                     <table className="min-w-full divide-y divide-gray-200 border-collapse">
                         <thead>
                             <tr className="bg-green-100 text-green-900">
+                                {!readOnly && <th className="px-2 py-3 text-center text-xs font-bold uppercase border border-green-200 w-16">Ordem</th>}
                                 <th className="px-4 py-3 text-center text-xs font-bold uppercase border border-green-200">DATA</th>
                                 <th className="px-4 py-3 text-center text-xs font-bold uppercase border border-green-200">Horário</th>
                                 <th className="px-4 py-3 text-center text-xs font-bold uppercase border border-green-200 min-w-[150px]">Módulo</th>
@@ -574,6 +603,28 @@ export const ClassesPage: React.FC = () => {
 
                                 return (
                                     <tr key={item.id} className="hover:bg-gray-50">
+                                        {!readOnly && (
+                                            <td className="px-2 py-2 border border-gray-300 text-center bg-white">
+                                                <div className="flex flex-col items-center gap-1">
+                                                    <button
+                                                        onClick={() => moveScheduleItem(index, 'up')}
+                                                        disabled={index === 0}
+                                                        className={`p-1 rounded hover:bg-gray-100 transition ${index === 0 ? 'opacity-30 cursor-not-allowed' : 'text-gray-600 hover:text-blue-600'}`}
+                                                        title="Mover para cima"
+                                                    >
+                                                        <ArrowUp size={14} />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => moveScheduleItem(index, 'down')}
+                                                        disabled={index === schedule.length - 1}
+                                                        className={`p-1 rounded hover:bg-gray-100 transition ${index === schedule.length - 1 ? 'opacity-30 cursor-not-allowed' : 'text-gray-600 hover:text-blue-600'}`}
+                                                        title="Mover para baixo"
+                                                    >
+                                                        <ArrowDown size={14} />
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        )}
                                         {showDate && (
                                             <td rowSpan={dateSpan} className="px-4 py-2 whitespace-nowrap text-sm font-bold text-gray-900 bg-green-50 border border-gray-300 text-center align-middle">
                                                 {readOnly ? dateObj.toLocaleDateString('pt-BR') : (
@@ -710,6 +761,15 @@ export const ClassesPage: React.FC = () => {
                             <div className="space-y-4">
                                 <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider border-b pb-1">Datas de Início</h3>
                                 <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Localidade</label>
+                                    <input
+                                        type="text"
+                                        className={inputClass}
+                                        value={newClass.location || ''}
+                                        onChange={e => setNewClass({ ...newClass, location: e.target.value })}
+                                    />
+                                </div>
+                                <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Início Aulas Teóricas</label>
                                     <input type="date" className={inputClass} value={newClass.theoryStartDate || ''} onChange={e => setNewClass({ ...newClass, theoryStartDate: e.target.value })} />
                                 </div>
@@ -811,6 +871,12 @@ export const ClassesPage: React.FC = () => {
                                     <span>CAP-BA: {selectedClass.capBa}</span>
                                 </>
                             )}
+                            {selectedClass.location && (
+                                <>
+                                    <span className="text-gray-300">|</span>
+                                    <span>Local: {selectedClass.location}</span>
+                                </>
+                            )}
                         </div>
                     </div>
                     <button onClick={() => exportToPDF(selectedClass)} className="flex items-center space-x-2 bg-red-600 text-white px-4 py-2 rounded shadow hover:bg-red-700 transition">
@@ -865,7 +931,14 @@ export const ClassesPage: React.FC = () => {
         const matchesCourse = selectedCourseFilter ? cls.courseId === selectedCourseFilter : true;
         const matchesYear = selectedYearFilter ? new Date(cls.startDate).getFullYear().toString() === selectedYearFilter : true;
         return matchesCourse && matchesYear;
+    }).sort((a, b) => {
+        const dateA = new Date(a.theoryStartDate || a.startDate).getTime();
+        const dateB = new Date(b.theoryStartDate || b.startDate).getTime();
+        return dateB - dateA; // Descending (Newest first)
     });
+
+    const totalPages = Math.ceil(filteredClasses.length / ITEMS_PER_PAGE);
+    const displayedClasses = filteredClasses.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
 
     // List View
     return (
@@ -880,7 +953,7 @@ export const ClassesPage: React.FC = () => {
                     <select
                         className="input-premium px-3 py-2 rounded-lg border border-gray-300 bg-white text-sm"
                         value={selectedCourseFilter}
-                        onChange={e => setSelectedCourseFilter(e.target.value)}
+                        onChange={e => { setSelectedCourseFilter(e.target.value); setCurrentPage(1); }}
                     >
                         <option value="">Todos os Cursos</option>
                         {courses.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -889,7 +962,7 @@ export const ClassesPage: React.FC = () => {
                     <select
                         className="input-premium px-3 py-2 rounded-lg border border-gray-300 bg-white text-sm"
                         value={selectedYearFilter}
-                        onChange={e => setSelectedYearFilter(e.target.value)}
+                        onChange={e => { setSelectedYearFilter(e.target.value); setCurrentPage(1); }}
                     >
                         <option value="">Todos os Anos</option>
                         {availableYears.map(year => <option key={year} value={year}>{year}</option>)}
@@ -908,12 +981,12 @@ export const ClassesPage: React.FC = () => {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {filteredClasses.length === 0 && (
+                {displayedClasses.length === 0 && (
                     <div className="col-span-full text-center py-12 bg-white rounded-lg border border-dashed border-gray-300">
                         <p className="text-gray-500">Nenhuma turma encontrada com os filtros selecionados.</p>
                     </div>
                 )}
-                {filteredClasses.map(cls => {
+                {displayedClasses.map(cls => {
                     const course = courses.find(c => c.id === cls.courseId);
                     const status = getStatus(cls);
 
@@ -944,6 +1017,18 @@ export const ClassesPage: React.FC = () => {
                                         {cls.schedule.length} Blocos de Aula
                                     </div>
                                 </div>
+                                {cls.registrationNumber && (
+                                    <div className="flex items-center text-xs text-gray-500 mt-1">
+                                        <Hash size={14} className="mr-1" />
+                                        Registro: {cls.registrationNumber}
+                                    </div>
+                                )}
+                                {cls.location && (
+                                    <div className="flex items-center text-xs text-gray-500 mt-1">
+                                        <MapPin size={14} className="mr-1" />
+                                        Local: {cls.location}
+                                    </div>
+                                )}
                             </div>
                             <div className="bg-gray-50 px-6 py-3 border-t border-gray-100 flex justify-between items-center">
                                 <span className={`text-xs font-medium px-2 py-1 rounded-full ${status.color}`}>
@@ -986,6 +1071,29 @@ export const ClassesPage: React.FC = () => {
                     )
                 })}
             </div>
+
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+                <div className="flex justify-center space-x-2 mt-6">
+                    <button
+                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                        disabled={currentPage === 1}
+                        className={`px-4 py-2 rounded-md ${currentPage === 1 ? 'bg-gray-200 text-gray-400' : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-300'}`}
+                    >
+                        Anterior
+                    </button>
+                    <span className="px-4 py-2 text-gray-700">
+                        Página {currentPage} de {totalPages}
+                    </span>
+                    <button
+                        onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                        disabled={currentPage === totalPages}
+                        className={`px-4 py-2 rounded-md ${currentPage === totalPages ? 'bg-gray-200 text-gray-400' : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-300'}`}
+                    >
+                        Próxima
+                    </button>
+                </div>
+            )}
         </div>
     );
 };

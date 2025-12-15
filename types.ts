@@ -87,6 +87,7 @@ export interface ClassGroup {
   practiceStartDate?: string;
   registrationNumber?: string;
   capBa?: string;
+  location?: string;
   schedule: ClassScheduleItem[];
 
   // Setup/Teardown Fields

@@ -124,6 +124,7 @@ const mapClassFromDB = (dbClass: any): ClassGroup => {
         practiceStartDate: dbClass.practice_start_date,
         registrationNumber: dbClass.registration_number,
         capBa: dbClass.cap_ba,
+        location: dbClass.location, // Re-enabled
         schedule: dbClass.schedule || [], // Correct: DB column is 'schedule', maps to 'schedule' in types
         setupInstructor1Id: dbClass.setup_instructor_1_id,
         setupInstructor1Days: dbClass.setup_instructor_1_days,
@@ -155,6 +156,7 @@ const mapClassToDB = (cls: ClassGroup) => {
         practice_start_date: cls.practiceStartDate,
         registration_number: cls.registrationNumber,
         cap_ba: cls.capBa,
+        location: cls.location,
         schedule: cls.schedule || [], // Correct column name is 'schedule', not 'subjects'
         setup_instructor_1_id: cls.setupInstructor1Id || null,
         setup_instructor_1_days: cls.setupInstructor1Days || 0,
@@ -324,12 +326,16 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
                 // Helper to safe fetch WITHOUT fallback to mock data (Exclusive Persistence)
                 const safeFetch = async (table: string, setter: any, mapper?: (data: any) => any) => {
+                    console.log(`📡 Fetching ${table}...`);
                     const { data, error } = await supabase.from(table).select('*');
-                    if (!error && data) {
+                    if (error) {
+                        console.error(`❌ Supabase Error fetching ${table}:`, error);
+                        setter([]);
+                    } else if (data) {
+                        console.log(`✅ Fetched ${table}:`, data.length, 'records');
                         setter(mapper ? data.map(mapper) : data);
                     } else {
-                        console.warn(`Supabase: Error fetching ${table} or empty.`, error);
-                        // NO FALLBACK to mock data. If DB is empty, app is empty.
+                        console.warn(`⚠️ Fetched ${table} but data is null`);
                         setter([]);
                     }
                 };

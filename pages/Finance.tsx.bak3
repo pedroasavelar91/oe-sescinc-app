@@ -50,30 +50,11 @@ export const FinancePage: React.FC = () => {
         // Add class schedule items
         classes.forEach(cls => {
             const course = courses.find(c => c.id === cls.courseId);
-
-            // Debug for missing courses
-            if (course?.name.toUpperCase().includes('CBA-2')) {
-                console.log('💰 Finance Debug: Processing CBA-2 Class:', cls.name, '| ID:', cls.id);
-            }
-
             cls.schedule.forEach(item => {
-                // If no instructors, process as 'unassigned' to show in list
-                const instructorIdsToProcess = (item.instructorIds && item.instructorIds.length > 0)
-                    ? item.instructorIds
-                    : ['unassigned'];
+                if (!item.instructorIds || item.instructorIds.length === 0) return;
 
-                let subject = course?.subjects.find(s => s.id === item.subjectId);
-
-                // Fallback if subject not found (prevents rows from disappearing)
-                if (!subject) {
-                    subject = {
-                        id: 'unknown',
-                        name: 'Matéria não encontrada',
-                        module: item.moduleId || 'Módulo Desconhecido',
-                        hours: item.duration,
-                        modality: 'Teórica' // Default to Theory to generate some value
-                    };
-                }
+                const subject = course?.subjects.find(s => s.id === item.subjectId);
+                if (!subject) return;
 
                 const isExempt = /Prova|Revisão/i.test(subject.name);
 
@@ -85,18 +66,17 @@ export const FinancePage: React.FC = () => {
                 }
 
                 // Auxiliar de Instrução Rate for Practical
-                if (instructorIdsToProcess[0] !== 'unassigned' && (currentUser?.role === UserRole.AUXILIAR_INSTRUCAO || (users.find(u => u.id === instructorIdsToProcess[0])?.role === UserRole.AUXILIAR_INSTRUCAO))) {
+                if (currentUser?.role === UserRole.AUXILIAR_INSTRUCAO || (users.find(u => u.id === item.instructorIds[0])?.role === UserRole.AUXILIAR_INSTRUCAO)) {
                     // We need to check the specific instructor inside the loop below, but here we can define base rate logic
                 }
 
                 const valuePerInstructor = item.duration * rate;
 
-                instructorIdsToProcess.forEach(instId => {
+                item.instructorIds.forEach(instId => {
                     // Security: If current user is instructor, strictly filter early
-                    // Allow 'unassigned' to pass through for Admins, but likely hide for Instructors (optional, currently hiding)
                     if (isInstructor && instId !== currentUser.id) return;
 
-                    const instructorUser = instId === 'unassigned' ? null : users.find(u => u.id === instId);
+                    const instructorUser = users.find(u => u.id === instId);
 
                     // Logic for specific instructor rate
                     let effectiveRate = rate;
@@ -109,7 +89,7 @@ export const FinancePage: React.FC = () => {
 
                     const effectiveValue = item.duration * effectiveRate;
 
-                    const paymentRecord = instId === 'unassigned' ? undefined : payments.find(p => p.scheduleItemId === item.id && p.instructorId === instId);
+                    const paymentRecord = payments.find(p => p.scheduleItemId === item.id && p.instructorId === instId);
                     const isPaid = !!paymentRecord;
 
                     items.push({
@@ -117,7 +97,7 @@ export const FinancePage: React.FC = () => {
                         type: 'Aula',
                         scheduleId: item.id,
                         instructorId: instId,
-                        instructorName: instructorUser?.name || (instId === 'unassigned' ? 'Sem Instrutor' : 'Desconhecido'),
+                        instructorName: instructorUser?.name || 'Desconhecido',
                         instructorRole: instructorUser?.role || 'Instrutor',
                         classId: cls.id,
                         className: cls.name,
@@ -166,15 +146,8 @@ export const FinancePage: React.FC = () => {
             });
         });
 
-        // Sort by date desc (Newest to Oldest)
-        return items.sort((a, b) => {
-            const dateA = new Date(a.date).getTime();
-            const dateB = new Date(b.date).getTime();
-            // Handle invalid dates by treating them as old
-            const timeA = isNaN(dateA) ? 0 : dateA;
-            const timeB = isNaN(dateB) ? 0 : dateB;
-            return timeB - timeA;
-        });
+        // Sort by date desc
+        return items.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     }, [classes, courses, users, payments, currentUser, isInstructor, setupTeardownAssignments]);
 
     // --- 2. Filtered Data for Table ---

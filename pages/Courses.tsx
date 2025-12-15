@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useStore } from '../context/AppStore';
 import { Course, Subject, CourseType, UserRole } from '../types';
-import { Plus, Trash2, Pencil, X, Save, ChevronDown, ChevronUp } from 'lucide-react';
+import { Plus, Trash2, Pencil, X, Save, ChevronDown, ChevronUp, Copy, ArrowUp, ArrowDown } from 'lucide-react';
 
 export const CoursesPage: React.FC = () => {
     const { courses, addCourse, updateCourse, deleteCourse, currentUser } = useStore();
@@ -57,6 +57,24 @@ export const CoursesPage: React.FC = () => {
         if (editingSubjectId === id) {
             setEditingSubjectId(null);
         }
+    };
+
+    const moveSubject = (index: number, direction: 'up' | 'down') => {
+        if (!courseForm.subjects) return;
+        const newSubjects = [...courseForm.subjects];
+
+        if (direction === 'up') {
+            if (index === 0) return;
+            const temp = newSubjects[index];
+            newSubjects[index] = newSubjects[index - 1];
+            newSubjects[index - 1] = temp;
+        } else {
+            if (index === newSubjects.length - 1) return;
+            const temp = newSubjects[index];
+            newSubjects[index] = newSubjects[index + 1];
+            newSubjects[index + 1] = temp;
+        }
+        setCourseForm({ ...courseForm, subjects: newSubjects });
     };
 
     const handleEditSubject = (subject: Subject) => {
@@ -142,6 +160,19 @@ export const CoursesPage: React.FC = () => {
         if (window.confirm("Tem certeza que deseja excluir este curso?")) {
             deleteCourse(id);
         }
+    };
+
+    const handleCopyClick = (course: Course) => {
+        if (!window.confirm(`Deseja criar uma cópia do curso "${course.name}"?`)) return;
+
+        const newCourse: Course = {
+            ...course,
+            id: Math.random().toString(36).substr(2, 9),
+            name: `${course.name} (Cópia)`,
+            subjects: course.subjects.map(s => ({ ...s, id: Math.random().toString(36).substr(2, 5) }))
+        };
+
+        addCourse(newCourse);
     };
 
     const resetForm = () => {
@@ -300,6 +331,24 @@ export const CoursesPage: React.FC = () => {
                                                     >
                                                         <Pencil size={16} />
                                                     </button>
+                                                    <div className="flex flex-col">
+                                                        <button
+                                                            onClick={() => moveSubject(index, 'up')}
+                                                            disabled={index === 0}
+                                                            className={`text-gray-500 p-0.5 ${index === 0 ? 'opacity-30 cursor-not-allowed' : 'hover:text-gray-900'}`}
+                                                            title="Mover para cima"
+                                                        >
+                                                            <ArrowUp size={14} />
+                                                        </button>
+                                                        <button
+                                                            onClick={() => moveSubject(index, 'down')}
+                                                            disabled={index === (courseForm.subjects?.length || 0) - 1}
+                                                            className={`text-gray-500 p-0.5 ${index === (courseForm.subjects?.length || 0) - 1 ? 'opacity-30 cursor-not-allowed' : 'hover:text-gray-900'}`}
+                                                            title="Mover para baixo"
+                                                        >
+                                                            <ArrowDown size={14} />
+                                                        </button>
+                                                    </div>
                                                     <button
                                                         onClick={() => handleRemoveSubject(sub.id)}
                                                         className="text-red-500 hover:text-red-700 p-1"
@@ -353,6 +402,13 @@ export const CoursesPage: React.FC = () => {
                                     {canEdit && (
                                         <>
                                             <button
+                                                onClick={() => handleCopyClick(course)}
+                                                className="p-2 text-green-600 hover:bg-green-50 rounded-full transition-colors"
+                                                title="Copiar Curso"
+                                            >
+                                                <Copy size={18} />
+                                            </button>
+                                            <button
                                                 onClick={() => handleEditClick(course)}
                                                 className="p-2 text-blue-600 hover:bg-blue-50 rounded-full transition-colors"
                                                 title="Editar Curso"
@@ -400,8 +456,9 @@ export const CoursesPage: React.FC = () => {
                             </div>
                         )}
                     </div>
-                ))}
-            </div>
-        </div>
+                ))
+                }
+            </div >
+        </div >
     );
 };
