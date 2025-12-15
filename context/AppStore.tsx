@@ -327,7 +327,15 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                 // Helper to safe fetch WITHOUT fallback to mock data (Exclusive Persistence)
                 const safeFetch = async (table: string, setter: any, mapper?: (data: any) => any) => {
                     console.log(`📡 Fetching ${table}...`);
-                    const { data, error } = await supabase.from(table).select('*');
+
+                    // For payments, use range to get all records (Supabase default limit is 1000)
+                    let query = supabase.from(table).select('*');
+                    if (table === 'payments') {
+                        query = query.range(0, 9999); // Fetch up to 10,000 records
+                    }
+
+                    const { data, error } = await query;
+
                     if (error) {
                         console.error(`❌ Supabase Error fetching ${table}:`, error);
                         setter([]);
