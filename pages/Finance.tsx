@@ -279,25 +279,37 @@ export const FinancePage: React.FC = () => {
         }
     };
 
-    const handleRegisterPayment = () => {
+    const handleRegisterPayment = async () => {
         if (selectedLogs.length === 0) return;
         if (!window.confirm(`Confirma o pagamento de ${selectedLogs.length} aulas selecionadas?`)) return;
 
-        selectedLogs.forEach(compositeId => {
-            const item = rawFinancialItems.find(i => i.id === compositeId);
-            if (item && item.status === 'Pendente') {
-                const payment: PaymentRecord = {
-                    id: Math.random().toString(36).substr(2, 9),
-                    scheduleItemId: item.scheduleId,
-                    instructorId: item.instructorId,
-                    amount: item.value,
-                    datePaid: new Date().toISOString(),
-                    paidBy: currentUser.id
-                };
-                addPayment(payment);
+        console.log('🔄 Processing payments for:', selectedLogs.length, 'items');
+
+        try {
+            for (const compositeId of selectedLogs) {
+                const item = rawFinancialItems.find(i => i.id === compositeId);
+                console.log('📋 Processing item:', item);
+
+                if (item && item.status === 'Pendente') {
+                    const payment: PaymentRecord = {
+                        id: Math.random().toString(36).substr(2, 9),
+                        scheduleItemId: item.scheduleId,
+                        instructorId: item.instructorId,
+                        amount: item.value,
+                        datePaid: new Date().toISOString(),
+                        paidBy: currentUser.id
+                    };
+                    console.log('💰 Creating payment:', payment);
+                    await addPayment(payment);
+                    console.log('✅ Payment added successfully');
+                }
             }
-        });
-        setSelectedLogs([]);
+            setSelectedLogs([]);
+            console.log('✅ All payments processed successfully');
+        } catch (error) {
+            console.error('❌ Error processing payments:', error);
+            alert('Erro ao processar pagamentos. Verifique o console para mais detalhes.');
+        }
     };
 
     const handleTogglePaymentStatus = async (item: any) => {
