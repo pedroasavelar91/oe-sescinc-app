@@ -1030,16 +1030,10 @@ export const ClassesPage: React.FC = () => {
                                         {cls.schedule.length} Blocos de Aula
                                     </div>
                                 </div>
-                                {cls.registrationNumber && (
-                                    <div className="text-xs text-gray-500 mt-1 break-words">
-                                        <Hash size={14} className="inline mr-1" />
-                                        Registro: {cls.registrationNumber}
-                                    </div>
-                                )}
                                 {cls.location && (
                                     <div className="text-xs text-gray-500 mt-1 break-words">
                                         <MapPin size={14} className="inline mr-1" />
-                                        Local: {cls.location}
+                                        Local: {cls.location.toUpperCase()}
                                     </div>
                                 )}
                             </div>
