@@ -92,6 +92,10 @@ export const SetupTeardownPage: React.FC = () => {
             notes: formData.notes
         };
 
+        if (editingId) {
+            // Atualizar: remover o antigo e adicionar o novo
+            deleteSetupTeardownAssignment(editingId);
+        }
         addSetupTeardownAssignment(assignment);
         setModalOpen(false);
     };
@@ -403,26 +407,6 @@ export const SetupTeardownPage: React.FC = () => {
                                             </td>
                                             {canManage && (
                                                 <td className="px-6 py-4 whitespace-nowrap text-center text-sm flex justify-center gap-2">
-                                                    {!isPaid && (
-                                                        <button
-                                                            onClick={() => {
-                                                                if (confirm(`Confirmar pagamento de R$ ${assignment.totalValue.toFixed(2)} para ${assignment.instructorName}?`)) {
-                                                                    addPayment({
-                                                                        id: Math.random().toString(36).substr(2, 9),
-                                                                        scheduleItemId: assignment.id,
-                                                                        instructorId: assignment.instructorId,
-                                                                        amount: assignment.totalValue,
-                                                                        datePaid: new Date().toISOString(),
-                                                                        paidBy: currentUser?.id || 'unknown'
-                                                                    });
-                                                                }
-                                                            }}
-                                                            className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
-                                                            title="Registrar Pagamento"
-                                                        >
-                                                            <DollarSign size={18} />
-                                                        </button>
-                                                    )}
                                                     <button
                                                         onClick={() => handleOpenModal(assignment)}
                                                         className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
