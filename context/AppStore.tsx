@@ -464,23 +464,40 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
         try {
             console.log(`📤 Attempting ${action} on table: ${table}`);
+            console.log(`📦 Data being sent:`, JSON.stringify(data, null, 2));
 
             if (action === 'INSERT') {
-                const { error } = await supabase.from(table).insert(data);
-                if (error) throw error;
-                console.log(`✅ ${table} INSERT successful`);
+                const { data: result, error } = await supabase.from(table).insert(data).select();
+                if (error) {
+                    console.error(`❌ INSERT Error:`, error);
+                    throw error;
+                }
+                console.log(`✅ ${table} INSERT successful`, result);
             } else if (action === 'UPDATE') {
-                const { error } = await supabase.from(table).update(data).eq('id', data.id);
-                if (error) throw error;
-                console.log(`✅ ${table} UPDATE successful`);
+                const { data: result, error } = await supabase.from(table).update(data).eq('id', data.id).select();
+                if (error) {
+                    console.error(`❌ UPDATE Error:`, error);
+                    throw error;
+                }
+                console.log(`✅ ${table} UPDATE successful`, result);
             } else if (action === 'DELETE' && id) {
                 const { error } = await supabase.from(table).delete().eq('id', id);
-                if (error) throw error;
+                if (error) {
+                    console.error(`❌ DELETE Error:`, error);
+                    throw error;
+                }
                 console.log(`✅ ${table} DELETE successful`);
             }
         } catch (e: any) {
             console.error(`❌ Supabase Sync Error (${table}):`, e);
-            console.error('Error details:', e.message, e.details, e.hint);
+            console.error('Error message:', e.message);
+            console.error('Error details:', e.details);
+            console.error('Error hint:', e.hint);
+            console.error('Error code:', e.code);
+            console.error('Full error object:', JSON.stringify(e, null, 2));
+
+            // Show user-friendly alert for debugging
+            alert(`Erro ao salvar ${table}:\n${e.message}\n\nDetalhes: ${e.details || 'N/A'}\nDica: ${e.hint || 'N/A'}\n\nVerifique o console para mais informações.`);
         }
     };
 

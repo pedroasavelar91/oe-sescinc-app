@@ -732,28 +732,33 @@ export const ClassesPage: React.FC = () => {
                                     </div>
                                 </div>
 
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Registro</label>
-                                    <input
-                                        type="text"
-                                        maxLength={4}
-                                        className={inputClass}
-                                        value={newClass.registrationNumber}
-                                        onChange={e => setNewClass({ ...newClass, registrationNumber: e.target.value.toUpperCase() })}
-                                    />
-                                </div>
+                                {/* Only show Registration and CAP-BA for non-CBA-AT Módulo Resgate courses */}
+                                {selectedCourseType !== CourseType.CBA_AT && (
+                                    <>
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">Registro</label>
+                                            <input
+                                                type="text"
+                                                maxLength={4}
+                                                className={inputClass}
+                                                value={newClass.registrationNumber}
+                                                onChange={e => setNewClass({ ...newClass, registrationNumber: e.target.value.toUpperCase() })}
+                                            />
+                                        </div>
 
-                                {selectedCourseType !== CourseType.CBA_CE && (
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">CAP-BA</label>
-                                        <input
-                                            type="text"
-                                            maxLength={4}
-                                            className={inputClass}
-                                            value={newClass.capBa}
-                                            onChange={e => setNewClass({ ...newClass, capBa: e.target.value.toUpperCase() })}
-                                        />
-                                    </div>
+                                        {selectedCourseType !== CourseType.CBA_CE && (
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">CAP-BA</label>
+                                                <input
+                                                    type="text"
+                                                    maxLength={4}
+                                                    className={inputClass}
+                                                    value={newClass.capBa}
+                                                    onChange={e => setNewClass({ ...newClass, capBa: e.target.value.toUpperCase() })}
+                                                />
+                                            </div>
+                                        )}
+                                    </>
                                 )}
                             </div>
 
