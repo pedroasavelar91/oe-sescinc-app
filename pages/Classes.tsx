@@ -585,7 +585,7 @@ export const ClassesPage: React.FC = () => {
                                 <th className="px-4 py-3 text-center text-xs font-bold uppercase border border-green-200 min-w-[150px]">Módulo</th>
                                 <th className="px-4 py-3 text-left text-xs font-bold uppercase border border-green-200 min-w-[300px]">Disciplina</th>
                                 <th className="px-2 py-3 text-center text-xs font-bold uppercase border border-green-200">Tempos</th>
-                                <th className="px-4 py-3 text-center text-xs font-bold uppercase border border-green-200 min-w-[200px]">Instrutor(es)</th>
+                                <th className="px-4 py-3 text-center text-xs font-bold uppercase border border-green-200 min-w-[280px]">Instrutor(es)</th>
                                 {readOnly && currentUser?.role === UserRole.INSTRUTOR && <th className="px-4 py-3 text-center text-xs font-bold uppercase border border-green-200">Ações</th>}
                             </tr>
                         </thead>
