@@ -494,7 +494,7 @@ export const FinancePage: React.FC = () => {
                         <label className="text-xs font-medium text-gray-500 mb-1 block">Turma</label>
                         <select className={inputClass} value={classFilter} onChange={e => setClassFilter(e.target.value)}>
                             <option value="">Todas</option>
-                            {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                            {classes.sort((a, b) => a.name.localeCompare(b.name)).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                         </select>
                     </div>
                     {canManagePayments && (
