@@ -773,7 +773,7 @@ export const ClassesPage: React.FC = () => {
                                         type="text"
                                         className={inputClass}
                                         value={newClass.location || ''}
-                                        onChange={e => setNewClass({ ...newClass, location: e.target.value })}
+                                        onChange={e => setNewClass({ ...newClass, location: e.target.value.toUpperCase() })}
                                     />
                                 </div>
                                 {/* Hide theory start date for CBA-AT Módulo Resgate (no theoretical classes) */}
@@ -1031,14 +1031,14 @@ export const ClassesPage: React.FC = () => {
                                     </div>
                                 </div>
                                 {cls.registrationNumber && (
-                                    <div className="flex items-center text-xs text-gray-500 mt-1">
-                                        <Hash size={14} className="mr-1" />
+                                    <div className="text-xs text-gray-500 mt-1 break-words">
+                                        <Hash size={14} className="inline mr-1" />
                                         Registro: {cls.registrationNumber}
                                     </div>
                                 )}
                                 {cls.location && (
-                                    <div className="flex items-center text-xs text-gray-500 mt-1">
-                                        <MapPin size={14} className="mr-1" />
+                                    <div className="text-xs text-gray-500 mt-1 break-words">
+                                        <MapPin size={14} className="inline mr-1" />
                                         Local: {cls.location}
                                     </div>
                                 )}
