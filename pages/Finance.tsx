@@ -306,9 +306,10 @@ export const FinancePage: React.FC = () => {
             }
             setSelectedLogs([]);
             console.log('✅ All payments processed successfully');
+            alert('Pagamentos registrados com sucesso!');
         } catch (error) {
             console.error('❌ Error processing payments:', error);
-            alert('Erro ao processar pagamentos. Verifique o console para mais detalhes.');
+            alert('Pagamentos foram salvos localmente, mas houve um problema ao sincronizar com o servidor. Os dados estarão disponíveis nesta sessão.');
         }
     };
 

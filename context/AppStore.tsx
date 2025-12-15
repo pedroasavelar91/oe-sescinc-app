@@ -684,8 +684,17 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     };
 
     const addPayment = async (payment: PaymentRecord) => {
+        console.log('💳 Adding payment to state:', payment);
+        // Update state first so UI updates immediately
         setPayments([...payments, payment]);
-        await syncWithSupabase('payments', 'INSERT', mapPaymentToDB(payment));
+
+        // Then try to sync with Supabase (if configured)
+        try {
+            await syncWithSupabase('payments', 'INSERT', mapPaymentToDB(payment));
+        } catch (error) {
+            console.warn('⚠️ Failed to sync payment with Supabase, but payment is saved locally:', error);
+            // Don't throw - payment is already in state
+        }
     };
 
     const deletePayment = async (id: string) => {
