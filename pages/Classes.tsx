@@ -685,6 +685,8 @@ export const ClassesPage: React.FC = () => {
     };
 
     const selectedCourseType = courses.find(c => c.id === newClass.courseId)?.type;
+    const selectedCourseName = courses.find(c => c.id === newClass.courseId)?.name;
+    const isCBAATModuloResgate = selectedCourseName?.includes('Módulo Resgate');
 
     if (view === 'create') {
         return (
@@ -733,7 +735,7 @@ export const ClassesPage: React.FC = () => {
                                 </div>
 
                                 {/* Only show Registration and CAP-BA for non-CBA-AT Módulo Resgate courses */}
-                                {selectedCourseType !== CourseType.CBA_AT && (
+                                {!isCBAATModuloResgate && (
                                     <>
                                         <div>
                                             <label className="block text-sm font-medium text-gray-700 mb-1">Registro</label>
@@ -774,8 +776,8 @@ export const ClassesPage: React.FC = () => {
                                         onChange={e => setNewClass({ ...newClass, location: e.target.value })}
                                     />
                                 </div>
-                                {/* Hide theory start date for CBA-AT (no theoretical classes) */}
-                                {selectedCourseType !== CourseType.CBA_AT && (
+                                {/* Hide theory start date for CBA-AT Módulo Resgate (no theoretical classes) */}
+                                {!isCBAATModuloResgate && (
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700 mb-1">Início Aulas Teóricas</label>
                                         <input type="date" className={inputClass} value={newClass.theoryStartDate || ''} onChange={e => setNewClass({ ...newClass, theoryStartDate: e.target.value })} />
@@ -825,8 +827,8 @@ export const ClassesPage: React.FC = () => {
                                         </label>
                                     </div>
 
-                                    {/* Hide instructor field for CBA-AT (no assigned instructors) */}
-                                    {selectedCourseType !== CourseType.CBA_AT && (
+                                    {/* Hide instructor field for CBA-AT Módulo Resgate (no assigned instructors) */}
+                                    {!isCBAATModuloResgate && (
                                         <div className="mt-4 pt-4 border-t border-gray-200">
                                             <label className="block text-sm font-medium text-gray-700 mb-1">Instrutor Padrão (Prática)</label>
                                             <MultiSelect
