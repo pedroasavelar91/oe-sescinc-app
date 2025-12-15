@@ -333,6 +333,9 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                         setter([]);
                     } else if (data) {
                         console.log(`✅ Fetched ${table}:`, data.length, 'records');
+                        if (table === 'payments') {
+                            console.log('💳 Payment records:', data);
+                        }
                         setter(mapper ? data.map(mapper) : data);
                     } else {
                         console.warn(`⚠️ Fetched ${table} but data is null`);
