@@ -328,25 +328,45 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                 const safeFetch = async (table: string, setter: any, mapper?: (data: any) => any) => {
                     console.log(`📡 Fetching ${table}...`);
 
-                    // For payments, use range to get all records (Supabase default limit is 1000)
-                    let query = supabase.from(table).select('*');
-                    if (table === 'payments') {
-                        query = query.range(0, 9999); // Fetch up to 10,000 records
-                    }
+                    let allData: any[] = [];
+                    let page = 0;
+                    const pageSize = 1000;
+                    let hasMore = true;
 
-                    const { data, error } = await query;
+                    try {
+                        while (hasMore) {
+                            const from = page * pageSize;
+                            const to = from + pageSize - 1;
 
-                    if (error) {
-                        console.error(`❌ Supabase Error fetching ${table}:`, error);
-                        setter([]);
-                    } else if (data) {
-                        console.log(`✅ Fetched ${table}:`, data.length, 'records');
-                        if (table === 'payments') {
-                            console.log('💳 Payment records:', data);
+                            const { data, error } = await supabase
+                                .from(table)
+                                .select('*')
+                                .range(from, to);
+
+                            if (error) {
+                                console.error(`❌ Supabase Error fetching ${table} (page ${page}):`, error);
+                                hasMore = false; // Stop on error
+                            } else if (data) {
+                                allData = [...allData, ...data];
+                                if (data.length < pageSize) {
+                                    hasMore = false; // Reached end
+                                } else {
+                                    page++;
+                                }
+                            } else {
+                                hasMore = false;
+                            }
                         }
-                        setter(mapper ? data.map(mapper) : data);
-                    } else {
-                        console.warn(`⚠️ Fetched ${table} but data is null`);
+
+                        if (allData.length > 0) {
+                            console.log(`✅ Fetched ${table}:`, allData.length, 'records total');
+                            setter(mapper ? allData.map(mapper) : allData);
+                        } else {
+                            console.warn(`⚠️ Fetched ${table} but data is empty`);
+                            setter([]);
+                        }
+                    } catch (e) {
+                        console.error(`❌ Exception fetching ${table}:`, e);
                         setter([]);
                     }
                 };

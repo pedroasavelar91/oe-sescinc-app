@@ -8,7 +8,7 @@ import { formatDate, getCurrentDateString } from '../utils/dateUtils';
 import { StudentGradesChart, InstructorPerformanceChart, GraduatedStudentsChart, FirefighterStatusChart, SubjectAveragesChart } from '../components/DashboardCharts';
 
 export const Dashboard: React.FC = () => {
-    const { classes, students, tasks, currentUser, payments, notifications, firefighters, setupTeardownAssignments, courses } = useStore();
+    const { classes, students, tasks, currentUser, payments, notifications, firefighters, setupTeardownAssignments, courses, users } = useStore();
 
     if (!currentUser) return null;
 
@@ -89,48 +89,89 @@ export const Dashboard: React.FC = () => {
 
     // --- MANAGER DASHBOARD (KPIs) ---
 
-    // 1. Financial Stats
-    const totalPaid = payments.reduce((acc, p) => acc + p.amount, 0);
+    // --- MANAGER DASHBOARD (KPIs) ---
 
-    // 2. Calculate Real Pending Value (dynamic calculation)
-    // 2. Calculate Real Pending Value (dynamic calculation)
-    const realPendingValue = useMemo(() => {
+    // 1. Financial Stats (Unified Calculation to match Finance.tsx)
+    const financialStats = useMemo(() => {
+        let paid = 0;
         let pending = 0;
 
-        // Calculate unpaid schedule items (aulas)
+        // Calculate schedule items (aulas)
         classes.forEach(cls => {
             const course = courses.find(c => c.id === cls.courseId);
+
             cls.schedule.forEach(item => {
-                // Skip if no instructors assigned
-                if (!item.instructorIds || item.instructorIds.length === 0) return;
+                // Determine instructors to process (including unassigned)
+                const instructorIdsToProcess = (item.instructorIds && item.instructorIds.length > 0)
+                    ? item.instructorIds
+                    : ['unassigned'];
 
-                const subject = course?.subjects.find(s => s.id === item.subjectId);
-                if (!subject) return;
+                let subject = course?.subjects.find(s => s.id === item.subjectId);
 
-                const rate = subject.modality === 'Prática' ? HOURLY_RATES.PRACTICE : HOURLY_RATES.THEORY;
-                const valuePerInstructor = item.duration * rate;
+                // Fallback if subject not found
+                if (!subject) {
+                    subject = {
+                        id: 'unknown',
+                        name: 'Matéria não encontrada',
+                        module: item.moduleId || 'Módulo Desconhecido',
+                        hours: item.duration,
+                        modality: 'Teórica'
+                    };
+                }
 
-                item.instructorIds.forEach(instId => {
-                    const isPaid = payments.some(p => p.scheduleItemId === item.id && p.instructorId === instId);
-                    if (!isPaid) {
-                        pending += valuePerInstructor;
+                const isExempt = /Prova|Revisão/i.test(subject.name);
+
+                let rate = subject.modality === 'Prática' ? HOURLY_RATES.PRACTICE : HOURLY_RATES.THEORY;
+
+                // Exemption Rule: CBA-AT Módulo Resgate - Prática classes have no value
+                if (course?.name?.trim() === 'CBA-AT Módulo Resgate' && subject.modality === 'Prática') {
+                    rate = 0;
+                }
+
+                instructorIdsToProcess.forEach(instId => {
+                    const instructorUser = instId === 'unassigned' ? null : users.find(u => u.id === instId);
+
+                    // Logic for specific instructor rate
+                    let effectiveRate = rate;
+                    if (instructorUser?.role === UserRole.AUXILIAR_INSTRUCAO && subject.modality === 'Prática') {
+                        effectiveRate = 37.50;
+                    }
+                    if (isExempt) {
+                        effectiveRate = 0;
+                    }
+
+                    const effectiveValue = item.duration * effectiveRate;
+
+                    const paymentRecord = instId === 'unassigned' ? undefined : payments.find(p => p.scheduleItemId === item.id && p.instructorId === instId);
+                    const isPaid = !!paymentRecord;
+
+                    if (isPaid) {
+                        paid += effectiveValue;
+                    } else {
+                        pending += effectiveValue;
                     }
                 });
             });
         });
 
-        // Add unpaid setup/teardown assignments
+        // Add setup/teardown assignments
         setupTeardownAssignments.forEach(assignment => {
             // Check if paid (checking both scheduleItemId and referenceId for compatibility)
-            const isPaid = payments.some(p => (p.scheduleItemId === assignment.id || (p as any).referenceId === assignment.id) && p.instructorId === assignment.instructorId);
+            const paymentRecord = payments.find(p => (p.scheduleItemId === assignment.id || (p as any).referenceId === assignment.id) && p.instructorId === assignment.instructorId);
+            const isPaid = !!paymentRecord;
 
-            if (!isPaid) {
+            if (isPaid) {
+                paid += assignment.totalValue;
+            } else {
                 pending += assignment.totalValue;
             }
         });
 
-        return pending;
-    }, [classes, courses, payments, setupTeardownAssignments]);
+        return { paid, pending };
+    }, [classes, courses, payments, setupTeardownAssignments, users]);
+
+    const totalPaid = financialStats.paid;
+    const realPendingValue = financialStats.pending;
 
     // 2. Hours Stats
     const today = new Date();
