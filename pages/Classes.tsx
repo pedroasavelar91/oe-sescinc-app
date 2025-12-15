@@ -774,10 +774,13 @@ export const ClassesPage: React.FC = () => {
                                         onChange={e => setNewClass({ ...newClass, location: e.target.value })}
                                     />
                                 </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Início Aulas Teóricas</label>
-                                    <input type="date" className={inputClass} value={newClass.theoryStartDate || ''} onChange={e => setNewClass({ ...newClass, theoryStartDate: e.target.value })} />
-                                </div>
+                                {/* Hide theory start date for CBA-AT (no theoretical classes) */}
+                                {selectedCourseType !== CourseType.CBA_AT && (
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Início Aulas Teóricas</label>
+                                        <input type="date" className={inputClass} value={newClass.theoryStartDate || ''} onChange={e => setNewClass({ ...newClass, theoryStartDate: e.target.value })} />
+                                    </div>
+                                )}
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Início Aulas Práticas</label>
                                     <input type="date" className={inputClass} value={newClass.practiceStartDate || ''} onChange={e => setNewClass({ ...newClass, practiceStartDate: e.target.value })} />
@@ -822,15 +825,18 @@ export const ClassesPage: React.FC = () => {
                                         </label>
                                     </div>
 
-                                    <div className="mt-4 pt-4 border-t border-gray-200">
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">Instrutor Padrão (Prática)</label>
-                                        <MultiSelect
-                                            options={instructors}
-                                            selectedIds={defaultPracticeInstructors}
-                                            onChange={setDefaultPracticeInstructors}
-                                        />
-                                        <p className="text-xs text-gray-500 mt-1">Atribuído automaticamente às aulas práticas.</p>
-                                    </div>
+                                    {/* Hide instructor field for CBA-AT (no assigned instructors) */}
+                                    {selectedCourseType !== CourseType.CBA_AT && (
+                                        <div className="mt-4 pt-4 border-t border-gray-200">
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">Instrutor Padrão (Prática)</label>
+                                            <MultiSelect
+                                                options={instructors}
+                                                selectedIds={defaultPracticeInstructors}
+                                                onChange={setDefaultPracticeInstructors}
+                                            />
+                                            <p className="text-xs text-gray-500 mt-1">Atribuído automaticamente às aulas práticas.</p>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         </div>
