@@ -243,9 +243,17 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
               <p className="text-sm font-semibold text-gray-900">{currentUser.name}</p>
               <p className="text-xs text-gray-500">{currentUser.role}</p>
             </div>
-            <div className="h-9 w-9 rounded-full bg-primary-100 flex items-center justify-center text-primary-700 font-bold border-2 border-white shadow-sm ring-1 ring-gray-100">
-              {currentUser.name.charAt(0)}
-            </div>
+            {currentUser.photoUrl ? (
+              <img
+                src={currentUser.photoUrl}
+                alt={currentUser.name}
+                className="h-9 w-9 rounded-full object-cover border-2 border-white shadow-sm ring-1 ring-gray-100"
+              />
+            ) : (
+              <div className="h-9 w-9 rounded-full bg-primary-100 flex items-center justify-center text-primary-700 font-bold border-2 border-white shadow-sm ring-1 ring-gray-100">
+                {currentUser.name.charAt(0)}
+              </div>
+            )}
           </div>
         </header>
 

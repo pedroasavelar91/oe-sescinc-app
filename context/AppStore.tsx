@@ -85,6 +85,7 @@ interface StoreContextType {
 
     // Setup/Teardown
     addSetupTeardownAssignment: (assignment: SetupTeardownAssignment) => Promise<void>;
+    updateSetupTeardownAssignment: (assignment: SetupTeardownAssignment) => Promise<void>;
     deleteSetupTeardownAssignment: (id: string) => Promise<void>;
 
     // Question Bank
@@ -97,6 +98,7 @@ interface StoreContextType {
 
     // File Upload
     uploadDocument: (file: File, folderId: string | null) => Promise<string>;
+    getSignedDocumentUrl: (url: string) => Promise<string | null>;
     uploadProfilePhoto: (file: File, userId: string) => Promise<string>;
     deleteFile: (bucket: string, path: string) => Promise<void>;
     seedDatabase: () => Promise<void>;
@@ -1006,6 +1008,22 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                     notes: assignment.notes
                 });
             },
+            updateSetupTeardownAssignment: async (assignment: SetupTeardownAssignment) => {
+                setSetupTeardownAssignments(prev => prev.map(a => a.id === assignment.id ? assignment : a));
+                await syncWithSupabase('setup_teardown_assignments', 'UPDATE', {
+                    id: assignment.id,
+                    class_id: assignment.classId,
+                    class_name: assignment.className,
+                    type: assignment.type,
+                    instructor_id: assignment.instructorId,
+                    instructor_name: assignment.instructorName,
+                    days: assignment.days,
+                    rate: assignment.rate,
+                    total_value: assignment.totalValue,
+                    date: assignment.date,
+                    notes: assignment.notes
+                });
+            },
             deleteSetupTeardownAssignment: async (id: string) => {
                 setSetupTeardownAssignments(setupTeardownAssignments.filter(a => a.id !== id));
                 await syncWithSupabase('setup_teardown_assignments', 'DELETE', null, id);
@@ -1049,6 +1067,33 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                 } catch (error) {
                     console.error('Erro ao fazer upload:', error);
                     throw error;
+                }
+            },
+
+            getSignedDocumentUrl: async (url: string) => {
+                try {
+                    if (!url) return null;
+                    // Extract path from public URL
+                    // URL format: .../storage/v1/object/public/documents/PATH
+                    const parts = url.split('/documents/');
+                    if (parts.length < 2) return url; // Not a Supabase storage URL or unexpected format
+
+                    const filePath = parts[1]; // encoded path
+
+                    // Create signed URL (valid for 1 hour)
+                    const { data, error } = await supabase.storage
+                        .from('documents')
+                        .createSignedUrl(decodeURIComponent(filePath), 3600);
+
+                    if (error) {
+                        console.error('Error creating signed URL:', error);
+                        return url; // Fallback to public URL
+                    }
+
+                    return data.signedUrl;
+                } catch (error) {
+                    console.error('Error in getSignedDocumentUrl:', error);
+                    return url;
                 }
             },
 

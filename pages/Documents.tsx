@@ -5,7 +5,7 @@ import { Folder as FolderIcon, FileText, Plus, Trash2, Download, Search, Chevron
 import { FileUpload } from '../components/FileUpload';
 
 export const DocumentsPage: React.FC = () => {
-    const { currentUser, folders, documents, addFolder, deleteFolder, addDocument, deleteDocument, uploadDocument } = useStore();
+    const { currentUser, folders, documents, addFolder, deleteFolder, addDocument, deleteDocument, uploadDocument, getSignedDocumentUrl } = useStore();
     const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
     const [showFolderModal, setShowFolderModal] = useState(false);
@@ -117,6 +117,91 @@ export const DocumentsPage: React.FC = () => {
         }
     };
 
+    const handleOpenDocument = async (doc: DocumentFile) => {
+        try {
+            // 1. Obter URL assinada
+            const signedUrl = await getSignedDocumentUrl(doc.url);
+            const targetUrl = signedUrl || doc.url;
+
+            console.log('Tentando baixar:', targetUrl);
+
+            // 2. Baixar o arquivo via fetch para contornar bloqueios do visualizador
+            const response = await fetch(targetUrl);
+
+            if (!response.ok) {
+                throw new Error(`Erro ${response.status}: ${response.statusText}`);
+            }
+
+            const data = await response.blob();
+            // Força o tipo PDF, pois às vezes o Supabase retorna octet-stream
+            const blob = new Blob([data], { type: 'application/pdf' });
+            const blobUrl = window.URL.createObjectURL(blob);
+
+            // 3. Abrir o Blob (funciona melhor que link direto)
+            const newTab = window.open(blobUrl, '_blank');
+
+            // Fallback para download se popup bloquear
+            if (!newTab) {
+                const link = document.createElement('a');
+                link.href = blobUrl;
+                link.download = doc.name;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            }
+
+            // Limpar memória após 1 minuto
+            setTimeout(() => window.URL.revokeObjectURL(blobUrl), 60000);
+
+        } catch (e) {
+            console.error('Erro ao abrir documento:', e);
+            alert(`Não foi possível abrir o arquivo. \nErro: ${(e as Error).message}\n\nVerifique se a política de segurança foi salva corretamente no Supabase.`);
+        }
+    };
+
+    const handleDownload = async (doc: DocumentFile) => {
+        try {
+            const signedUrl = await getSignedDocumentUrl(doc.url);
+            const targetUrl = signedUrl || doc.url;
+            console.log('Baixando para salvar:', targetUrl);
+
+            const response = await fetch(targetUrl);
+            if (!response.ok) throw new Error(`Erro HTTP: ${response.status}`);
+
+            const arrayBuffer = await response.arrayBuffer();
+
+            // Verificação de Integridade (Magic Bytes)
+            if (doc.type === 'PDF') {
+                const header = new Uint8Array(arrayBuffer.slice(0, 5));
+                const headerString = String.fromCharCode(...header);
+                if (headerString !== '%PDF-') {
+                    // Se não começa com %PDF-, provavelmente é um erro XML/HTML do Supabase ou arquivo corrompido
+                    const textDecoder = new TextDecoder();
+                    const contentSample = textDecoder.decode(arrayBuffer.slice(0, 100)); // Lê o começo para debug
+                    console.error('Conteúdo inválido encontrado:', contentSample);
+                    alert(`O arquivo baixado NÃO é um PDF válido.\n\nTamanho: ${arrayBuffer.byteLength} bytes\n\nProvavelmente o Supabase retornou uma página de erro (XML/HTML) em vez do arquivo.\n\nConteúdo inicial: ${contentSample}`);
+                    return;
+                }
+            }
+
+            // Se passou na validação, baixa
+            const blob = new Blob([arrayBuffer], { type: 'application/pdf' });
+            const blobUrl = window.URL.createObjectURL(blob);
+
+            const link = document.createElement('a');
+            link.href = blobUrl;
+            link.download = doc.name;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            window.URL.revokeObjectURL(blobUrl);
+
+        } catch (e) {
+            console.error('Erro no download:', e);
+            alert('Falha ao baixar arquivo: ' + (e as Error).message);
+        }
+    };
+
     const inputClass = "appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm bg-white text-gray-900";
 
     return (
@@ -209,23 +294,24 @@ export const DocumentsPage: React.FC = () => {
                 {currentDocs.map(doc => (
                     <div
                         key={doc.id}
-                        className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition group relative"
+                        className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition cursor-pointer group relative"
+                        onClick={() => handleOpenDocument(doc)}
                     >
                         <div className="flex items-center justify-between mb-2">
                             <FileText className="text-blue-500" size={32} />
-                            <div className="flex gap-1">
-                                <a
-                                    href={doc.url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="text-gray-400 hover:text-primary-500 opacity-0 group-hover:opacity-100 transition"
+                            <div className="flex space-x-1">
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); handleDownload(doc); }}
+                                    className="text-gray-400 hover:text-blue-500 p-1 rounded-full hover:bg-blue-50 transition"
+                                    title="Baixar arquivo (Verificação de Integridade)"
                                 >
                                     <Download size={16} />
-                                </a>
-                                {canUploadDocuments && (
+                                </button>
+                                {(canManageFolders || doc.uploadedBy === currentUser.id) && (
                                     <button
-                                        onClick={() => deleteDocument(doc.id)}
-                                        className="text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition"
+                                        onClick={(e) => { e.stopPropagation(); deleteDocument(doc.id); }}
+                                        className="text-gray-400 hover:text-red-500 p-1 rounded-full hover:bg-red-50 transition"
+                                        title="Excluir arquivo"
                                     >
                                         <Trash2 size={16} />
                                     </button>
@@ -245,122 +331,126 @@ export const DocumentsPage: React.FC = () => {
             </div>
 
             {/* Create Folder Modal */}
-            {showFolderModal && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50 animate-backdrop">
-                    <div className="bg-white p-6 rounded-xl shadow-2xl w-full max-w-md animate-scale-in">
-                        <h3 className="text-lg font-bold mb-4 text-gray-900">Nova Pasta</h3>
+            {
+                showFolderModal && (
+                    <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50 animate-backdrop">
+                        <div className="bg-white p-6 rounded-xl shadow-2xl w-full max-w-md animate-scale-in">
+                            <h3 className="text-lg font-bold mb-4 text-gray-900">Nova Pasta</h3>
 
-                        <div className="space-y-4">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Nome da Pasta</label>
-                                <input
-                                    className={inputClass}
-                                    placeholder="Digite o nome da pasta"
-                                    value={newFolderName}
-                                    onChange={e => setNewFolderName(e.target.value)}
-                                    autoFocus
-                                />
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">Controle de Acesso</label>
-                                <p className="text-xs text-gray-500 mb-3">Selecione quem pode visualizar esta pasta. Se nenhum for selecionado, a pasta será pública.</p>
-
-                                <div className="grid grid-cols-2 gap-2">
-                                    {availableRoles.map(role => (
-                                        <label
-                                            key={role}
-                                            className={`flex items-center space-x-2 p-2 rounded-lg border-2 cursor-pointer transition-all ${selectedRoles.includes(role)
-                                                ? 'border-primary-500 bg-primary-50'
-                                                : 'border-gray-200 hover:border-gray-300 bg-white'
-                                                }`}
-                                        >
-                                            <input
-                                                type="checkbox"
-                                                checked={selectedRoles.includes(role)}
-                                                onChange={() => toggleRole(role)}
-                                                className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
-                                            />
-                                            <span className="text-sm font-medium text-gray-700">{role}</span>
-                                        </label>
-                                    ))}
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Nome da Pasta</label>
+                                    <input
+                                        className={inputClass}
+                                        placeholder="Digite o nome da pasta"
+                                        value={newFolderName}
+                                        onChange={e => setNewFolderName(e.target.value)}
+                                        autoFocus
+                                    />
                                 </div>
 
-                                {selectedRoles.length === 0 && (
-                                    <p className="text-xs text-green-600 mt-2 flex items-center">
-                                        <span className="mr-1">✓</span> Pasta pública (todos podem ver)
-                                    </p>
-                                )}
-                                {selectedRoles.length > 0 && (
-                                    <p className="text-xs text-primary-600 mt-2">
-                                        Acesso restrito a: {selectedRoles.join(', ')}
-                                    </p>
-                                )}
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">Controle de Acesso</label>
+                                    <p className="text-xs text-gray-500 mb-3">Selecione quem pode visualizar esta pasta. Se nenhum for selecionado, a pasta será pública.</p>
+
+                                    <div className="grid grid-cols-2 gap-2">
+                                        {availableRoles.map(role => (
+                                            <label
+                                                key={role}
+                                                className={`flex items-center space-x-2 p-2 rounded-lg border-2 cursor-pointer transition-all ${selectedRoles.includes(role)
+                                                    ? 'border-primary-500 bg-primary-50'
+                                                    : 'border-gray-200 hover:border-gray-300 bg-white'
+                                                    }`}
+                                            >
+                                                <input
+                                                    type="checkbox"
+                                                    checked={selectedRoles.includes(role)}
+                                                    onChange={() => toggleRole(role)}
+                                                    className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                                                />
+                                                <span className="text-sm font-medium text-gray-700">{role}</span>
+                                            </label>
+                                        ))}
+                                    </div>
+
+                                    {selectedRoles.length === 0 && (
+                                        <p className="text-xs text-green-600 mt-2 flex items-center">
+                                            <span className="mr-1">✓</span> Pasta pública (todos podem ver)
+                                        </p>
+                                    )}
+                                    {selectedRoles.length > 0 && (
+                                        <p className="text-xs text-primary-600 mt-2">
+                                            Acesso restrito a: {selectedRoles.join(', ')}
+                                        </p>
+                                    )}
+                                </div>
+                            </div>
+
+                            <div className="flex justify-end gap-2 mt-6">
+                                <button
+                                    onClick={() => { setShowFolderModal(false); setSelectedRoles([]); }}
+                                    className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 font-medium transition"
+                                >
+                                    Cancelar
+                                </button>
+                                <button
+                                    onClick={handleCreateFolder}
+                                    className="px-6 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 font-medium shadow-md transition"
+                                >
+                                    Criar Pasta
+                                </button>
                             </div>
                         </div>
-
-                        <div className="flex justify-end gap-2 mt-6">
-                            <button
-                                onClick={() => { setShowFolderModal(false); setSelectedRoles([]); }}
-                                className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 font-medium transition"
-                            >
-                                Cancelar
-                            </button>
-                            <button
-                                onClick={handleCreateFolder}
-                                className="px-6 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 font-medium shadow-md transition"
-                            >
-                                Criar Pasta
-                            </button>
-                        </div>
                     </div>
-                </div>
-            )}
+                )
+            }
 
             {/* Add Document Modal */}
-            {showDocModal && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50 animate-backdrop">
-                    <div className="bg-white p-6 rounded-xl shadow-xl w-96 animate-scale-in">
-                        <h3 className="text-lg font-bold mb-4">Novo Documento</h3>
-                        <div className="space-y-4">
-                            <div>
-                                <label className="block text-xs font-medium text-gray-700 mb-1">Nome</label>
-                                <input
-                                    className={inputClass}
-                                    value={newDocData.name}
-                                    onChange={e => setNewDocData({ ...newDocData, name: e.target.value })}
-                                    placeholder="Ex: Manual de Procedimentos"
-                                />
+            {
+                showDocModal && (
+                    <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50 animate-backdrop">
+                        <div className="bg-white p-6 rounded-xl shadow-xl w-96 animate-scale-in">
+                            <h3 className="text-lg font-bold mb-4">Novo Documento</h3>
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="block text-xs font-medium text-gray-700 mb-1">Nome</label>
+                                    <input
+                                        className={inputClass}
+                                        value={newDocData.name}
+                                        onChange={e => setNewDocData({ ...newDocData, name: e.target.value })}
+                                        placeholder="Ex: Manual de Procedimentos"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-medium text-gray-700 mb-1">Arquivo</label>
+                                    <FileUpload
+                                        onFileSelect={setUploadingFile}
+                                        accept="application/pdf,image/*"
+                                        maxSize={50}
+                                        label="Clique para selecionar arquivo"
+                                    />
+                                </div>
                             </div>
-                            <div>
-                                <label className="block text-xs font-medium text-gray-700 mb-1">Arquivo</label>
-                                <FileUpload
-                                    onFileSelect={setUploadingFile}
-                                    accept="application/pdf,image/*"
-                                    maxSize={50}
-                                    label="Clique para selecionar arquivo"
-                                />
+                            <div className="flex justify-end gap-2 mt-6">
+                                <button
+                                    onClick={() => setShowDocModal(false)}
+                                    className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded"
+                                    disabled={isUploading}
+                                >
+                                    Cancelar
+                                </button>
+                                <button
+                                    onClick={handleAddDocument}
+                                    className="px-4 py-2 bg-primary-600 text-white rounded hover:bg-primary-700 disabled:opacity-50"
+                                    disabled={isUploading}
+                                >
+                                    {isUploading ? 'Enviando...' : 'Adicionar'}
+                                </button>
                             </div>
-                        </div>
-                        <div className="flex justify-end gap-2 mt-6">
-                            <button
-                                onClick={() => setShowDocModal(false)}
-                                className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded"
-                                disabled={isUploading}
-                            >
-                                Cancelar
-                            </button>
-                            <button
-                                onClick={handleAddDocument}
-                                className="px-4 py-2 bg-primary-600 text-white rounded hover:bg-primary-700 disabled:opacity-50"
-                                disabled={isUploading}
-                            >
-                                {isUploading ? 'Enviando...' : 'Adicionar'}
-                            </button>
                         </div>
                     </div>
-                </div>
-            )}
-        </div>
+                )
+            }
+        </div >
     );
 };

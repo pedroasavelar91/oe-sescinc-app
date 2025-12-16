@@ -124,15 +124,28 @@ export const ProfilePage: React.FC = () => {
                                     </label>
                                 </div>
                                 <div className="flex-1">
-                                    <p className="text-xs text-gray-500 mb-2">Clique na foto para alterar. JPG, PNG ou WebP. Máx 5MB.</p>
-                                    {isUploading && <span className="text-xs text-primary-600 font-medium animate-pulse">Enviando...</span>}
-                                    <input
-                                        type="text"
-                                        className={inputClass}
-                                        value={formData.photoUrl || ''}
-                                        onChange={e => setFormData({ ...formData, photoUrl: e.target.value })}
-                                        placeholder="Ou cole uma URL aqui..."
-                                    />
+                                    <div className="flex flex-col gap-2">
+                                        <p className="text-xs text-gray-500">JPG, PNG ou WebP. Máx 5MB.</p>
+                                        <div className="flex gap-2">
+                                            {isUploading && <span className="text-xs text-primary-600 font-medium animate-pulse">Enviando...</span>}
+                                            {formData.photoUrl && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setFormData({ ...formData, photoUrl: '' })}
+                                                    className="text-xs text-red-600 hover:text-red-700 hover:underline"
+                                                >
+                                                    Remover Foto
+                                                </button>
+                                            )}
+                                        </div>
+                                        <input
+                                            type="text"
+                                            className={inputClass}
+                                            value={formData.photoUrl || ''}
+                                            onChange={e => setFormData({ ...formData, photoUrl: e.target.value })}
+                                            placeholder="Ou cole uma URL aqui..."
+                                        />
+                                    </div>
                                 </div>
                             </div>
                         </div>

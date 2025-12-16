@@ -5,12 +5,16 @@ import { Wrench, Plus, Trash2, Edit2, DollarSign, Calendar, User, Download, Arro
 import { formatDate, getCurrentDateString } from '../utils/dateUtils';
 
 export const SetupTeardownPage: React.FC = () => {
-    const { currentUser, classes, users, setupTeardownAssignments, addSetupTeardownAssignment, deleteSetupTeardownAssignment, payments, addPayment } = useStore();
+    const { currentUser, classes, users, setupTeardownAssignments, addSetupTeardownAssignment, updateSetupTeardownAssignment, deleteSetupTeardownAssignment, payments, addPayment } = useStore();
     const [modalOpen, setModalOpen] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
     const [filterClass, setFilterClass] = useState('');
     const [filterType, setFilterType] = useState<'' | 'Montagem' | 'Desmontagem'>('');
     const [selectedAssignments, setSelectedAssignments] = useState<string[]>([]); // Para pagamento em lote
+
+    // Pagination
+    const [currentPage, setCurrentPage] = useState(1);
+    const itemsPerPage = 10;
 
     // Form state
     const [formData, setFormData] = useState({
@@ -35,14 +39,23 @@ export const SetupTeardownPage: React.FC = () => {
     const filteredAssignments = useMemo(() => {
         return setupTeardownAssignments
             .filter(a => {
+                // Privacy Rule: Only Managers can see all. Instructors see only their own.
+                if (!canManage && a.instructorId !== currentUser.id) return false;
+
                 if (filterClass && a.classId !== filterClass) return false;
                 if (filterType && a.type !== filterType) return false;
                 return true;
             })
             .sort((a, b) => a.className.localeCompare(b.className)); // Ordenar por turma
-    }, [setupTeardownAssignments, filterClass, filterType]);
+    }, [setupTeardownAssignments, filterClass, filterType, canManage, currentUser]);
 
     const totalValue = filteredAssignments.reduce((sum, a) => sum + a.totalValue, 0);
+
+    // Pagination Logic
+    const indexOfLastItem = currentPage * itemsPerPage;
+    const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+    const currentItems = filteredAssignments.slice(indexOfFirstItem, indexOfLastItem);
+    const totalPages = Math.ceil(filteredAssignments.length / itemsPerPage);
 
     const handleOpenModal = (assignment?: SetupTeardownAssignment) => {
         if (assignment) {
@@ -93,10 +106,10 @@ export const SetupTeardownPage: React.FC = () => {
         };
 
         if (editingId) {
-            // Atualizar: remover o antigo e adicionar o novo
-            deleteSetupTeardownAssignment(editingId);
+            updateSetupTeardownAssignment(assignment);
+        } else {
+            addSetupTeardownAssignment(assignment);
         }
-        addSetupTeardownAssignment(assignment);
         setModalOpen(false);
     };
 
@@ -343,7 +356,7 @@ export const SetupTeardownPage: React.FC = () => {
                             </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
-                            {filteredAssignments.length === 0 ? (
+                            {currentItems.length === 0 ? (
                                 <tr>
                                     <td colSpan={canManage ? 9 : 7} className="px-6 py-12 text-center text-gray-500">
                                         <div className="flex flex-col items-center justify-center">
@@ -354,7 +367,7 @@ export const SetupTeardownPage: React.FC = () => {
                                     </td>
                                 </tr>
                             ) : (
-                                filteredAssignments.map(assignment => {
+                                currentItems.map(assignment => {
                                     const isPaid = payments.some(p => p.scheduleItemId === assignment.id);
                                     return (
                                         <tr key={assignment.id} className="hover:bg-gray-50">
@@ -430,6 +443,30 @@ export const SetupTeardownPage: React.FC = () => {
                         </tbody>
                     </table>
                 </div>
+                {/* Pagination Controls */}
+                {totalPages > 1 && (
+                    <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between bg-gray-50">
+                        <span className="text-sm text-gray-700">
+                            Mostrando <span className="font-medium">{indexOfFirstItem + 1}</span> a <span className="font-medium">{Math.min(indexOfLastItem, filteredAssignments.length)}</span> de <span className="font-medium">{filteredAssignments.length}</span> resultados
+                        </span>
+                        <div className="flex gap-2">
+                            <button
+                                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                                disabled={currentPage === 1}
+                                className="px-3 py-1 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                Anterior
+                            </button>
+                            <button
+                                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                                disabled={currentPage === totalPages}
+                                className="px-3 py-1 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                Próxima
+                            </button>
+                        </div>
+                    </div>
+                )}
             </div>
 
             {/* Modal */}
