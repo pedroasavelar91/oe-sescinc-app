@@ -37,7 +37,7 @@ export const FinancePage: React.FC = () => {
     const [monthFilter, setMonthFilter] = useState(''); // Default to ALL to match Dashboard
     const [yearFilter, setYearFilter] = useState('');   // Default to ALL to match Dashboard
     const [showSetupTeardown, setShowSetupTeardown] = useState(true); // Toggle for Setup/Teardown (Extract)
-    const [showPerformanceSetup, setShowPerformanceSetup] = useState(false); // Toggle for Setup/Teardown (Performance)
+    const [showPerformanceSetup, setShowPerformanceSetup] = useState(true); // Toggle for Setup/Teardown (Performance)
 
     if (!currentUser) return null;
 
@@ -273,7 +273,7 @@ export const FinancePage: React.FC = () => {
         });
 
         return Object.values(statsMap).sort((a, b) => b.totalValue - a.totalValue);
-    }, [rawFinancialItems, isInstructor]);
+    }, [rawFinancialItems, isInstructor, showPerformanceSetup]);
 
 
     // --- Actions ---
