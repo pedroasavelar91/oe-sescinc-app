@@ -51,14 +51,13 @@ export const Login: React.FC = () => {
 
       <div className="sm:mx-auto sm:w-full sm:max-w-md relative z-10 animate-slide-down flex flex-col items-center">
         <div className="text-center mb-8">
-          <div className="flex items-center justify-center gap-3 mb-2">
-            <Flame size={48} className="text-orange-500 animate-pulse" />
-            <h1 className="text-5xl font-extrabold tracking-tight text-white drop-shadow-lg">
-              SESCINC
+          <div className="flex flex-col items-center justify-center gap-1 mb-2">
+            <h1 className="text-6xl font-black tracking-tighter text-gray-900 drop-shadow-sm uppercase">
+              OE-SESCINC
             </h1>
           </div>
-          <p className="text-xl font-medium text-orange-200 uppercase tracking-widest">
-            Operações de Emergência
+          <p className="text-2xl font-bold text-orange-500 uppercase tracking-widest" style={{ color: '#FF6B35' }}>
+            Med+ Group
           </p>
         </div>
       </div>
