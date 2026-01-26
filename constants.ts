@@ -10,19 +10,19 @@ export const HOURLY_RATES = {
 export const EVALUATION_SCHEMAS = {
   [CourseType.CBA_2]: {
     theory: ['P1', 'P2', 'P3', 'Recuperação'],
-    practice: ['T1 TP/EPR', 'T2 TP/EPR', 'Nota TP/EPR', 'Emerg. Químicas', 'APH', 'Maneabilidade', 'Exerc. Fogo'],
+    practice: ['T1 TP/EPR', 'T2 TP/EPR', 'Erros', 'Nota TP/EPR', 'Emerg. Químicas', 'APH', 'Maneabilidade', 'Exerc. Fogo'],
     timeFields: ['T1 TP/EPR', 'T2 TP/EPR'], // Fields that are strings (mm:ss)
     avgPracticeFields: ['Nota TP/EPR', 'Emerg. Químicas', 'APH', 'Maneabilidade', 'Exerc. Fogo'] // Numeric fields to average
   },
   [CourseType.CBA_2_COMP]: {
     theory: ['P1', 'P2', 'P3', 'Recuperação'],
-    practice: ['T1 TP/EPR', 'T2 TP/EPR', 'Nota TP/EPR', 'Emerg. Químicas', 'APH', 'Maneabilidade', 'Exerc. Fogo'],
+    practice: ['T1 TP/EPR', 'T2 TP/EPR', 'Erros', 'Nota TP/EPR', 'Emerg. Químicas', 'APH', 'Maneabilidade', 'Exerc. Fogo'],
     timeFields: ['T1 TP/EPR', 'T2 TP/EPR'],
     avgPracticeFields: ['Nota TP/EPR', 'Emerg. Químicas', 'APH', 'Maneabilidade', 'Exerc. Fogo']
   },
   [CourseType.CBA_AT]: {
     theory: ['P1', 'Recuperação'],
-    practice: ['T1 TP/EPR', 'T2 TP/EPR', 'Nota TP/EPR', 'Emerg. Químicas', 'APH', 'Maneabilidade', 'Exerc. Fogo'],
+    practice: ['T1 TP/EPR', 'T2 TP/EPR', 'Erros', 'Nota TP/EPR', 'Emerg. Químicas', 'APH', 'Maneabilidade', 'Exerc. Fogo'],
     timeFields: ['T1 TP/EPR', 'T2 TP/EPR'],
     avgPracticeFields: ['Nota TP/EPR', 'Emerg. Químicas', 'APH', 'Maneabilidade', 'Exerc. Fogo']
   },

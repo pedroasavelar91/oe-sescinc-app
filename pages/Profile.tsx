@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useStore } from '../context/AppStore';
 import { UNIFORM_SIZES, SHOE_SIZES } from '../types';
 import { Save, Lock, User as UserIcon, Upload } from 'lucide-react';
-import { formatCPF } from '../utils/formatters';
+import { formatCPF, formatPhone } from '../utils/formatters';
 
 export const ProfilePage: React.FC = () => {
     const { currentUser, updateUser, uploadProfilePhoto } = useStore();
@@ -94,7 +94,7 @@ export const ProfilePage: React.FC = () => {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
                             <label className="block text-sm font-medium text-gray-700">Nome Completo</label>
-                            <input type="text" className={inputClass} value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} />
+                            <input type="text" className={inputClass} value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value.toUpperCase() })} />
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-gray-700">Foto de Perfil</label>
@@ -165,7 +165,7 @@ export const ProfilePage: React.FC = () => {
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-gray-700">Telefone</label>
-                            <input type="text" className={inputClass} value={formData.phone} onChange={e => setFormData({ ...formData, phone: e.target.value })} />
+                            <input type="text" className={inputClass} value={formatPhone(formData.phone || '')} onChange={e => setFormData({ ...formData, phone: formatPhone(e.target.value) })} maxLength={16} />
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-gray-700">Data de Nascimento</label>

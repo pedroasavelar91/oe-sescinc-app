@@ -7,6 +7,7 @@ import { useStore } from '../context/AppStore';
 import { CourseType, UserRole } from '../types';
 import { BookOpen, Users, Award, TrendingUp, Filter, AlertCircle, Calendar, MapPin, Clock } from 'lucide-react';
 import { EVALUATION_SCHEMAS } from '../constants';
+import { StandardSelect } from './StandardSelect';
 
 // --- Custom Tooltip Component ---
 
@@ -21,10 +22,10 @@ const CustomTooltip = ({ active, payload, label }: any) => {
                             className="w-3 h-3 rounded-full"
                             style={{ backgroundColor: entry.color || entry.fill || entry.stroke }}
                         />
-                        <span className="text-gray-600">{entry.name}:</span>
+                        <span className="text-gray-600 login-uppercase" style={{ fontSize: '0.75rem' }}>{entry.name}:</span>
                         <span className="font-bold text-gray-900">
                             {typeof entry.value === 'number'
-                                ? (['Aprovados', 'Reprovados', 'Desligados', 'Turmas', 'Atualização', 'Exercício Fogo', 'Horas Aula'].includes(entry.name)
+                                ? (['APROVADOS', 'REPROVADOS', 'DESLIGADOS', 'TURMAS', 'ATUALIZAÇÃO', 'EXERCÍCIO FOGO', 'HORAS AULA'].includes(entry.name)
                                     ? entry.value
                                     : entry.value.toFixed(2))
                                 : entry.value}
@@ -46,7 +47,7 @@ const CustomBarLabel = (props: any) => {
             y={y - 5}
             fill={fill}
             textAnchor="middle"
-            dominantBaseline="bottom"
+            dominantBaseline="auto"
             fontSize={12}
             fontWeight="bold"
         >
@@ -55,12 +56,45 @@ const CustomBarLabel = (props: any) => {
     );
 };
 
+// --- Reusable Firefighter Chart Visualization ---
+export const FirefighterChartViz: React.FC<{ data: any[]; activeSeries: 'AT' | 'FOGO' }> = ({ data, activeSeries }) => {
+    return (
+        <div className="h-80 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={data} margin={{ top: 20, right: 30, left: 0, bottom: 5 }}>
+                    <defs>
+                        <linearGradient id="colorUpdates" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#FF6B35" stopOpacity={0.9} />
+                            <stop offset="95%" stopColor="#FF6B35" stopOpacity={0.2} />
+                        </linearGradient>
+                        <linearGradient id="colorExercises" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#FF8C5A" stopOpacity={0.9} />
+                            <stop offset="95%" stopColor="#FF8C5A" stopOpacity={0.2} />
+                        </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
+                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#6b7280' }} angle={-45} textAnchor="end" height={60} style={{ textTransform: 'uppercase' }} />
+                    <YAxis axisLine={false} tickLine={false} tick={{ fill: '#6b7280' }} />
+                    <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(255, 255, 255, 0.1)' }} />
+                    {/* Removed Legend as requested, titles are self-explanatory via UI buttons */}
+                    {activeSeries === 'AT' && (
+                        <Bar dataKey="updates" name="ATUALIZAÇÃO" fill="url(#colorUpdates)" radius={[4, 4, 0, 0]} barSize={20} animationDuration={1500} />
+                    )}
+                    {activeSeries === 'FOGO' && (
+                        <Bar dataKey="exercises" name="EXERCÍCIO COM FOGO" fill="url(#colorExercises)" radius={[4, 4, 0, 0]} barSize={20} animationDuration={1500} />
+                    )}
+                </BarChart>
+            </ResponsiveContainer>
+        </div>
+    );
+};
+
 // --- Firefighter Status Chart ---
 export const FirefighterStatusChart: React.FC = () => {
     const { firefighters } = useStore();
     const [yearFilter, setYearFilter] = useState<string>(new Date().getFullYear().toString());
     const [baseFilter, setBaseFilter] = useState<string>('all');
-    const [viewMode, setViewMode] = useState<'month' | 'base'>('month');
+    const [activeSeries, setActiveSeries] = useState<'AT' | 'FOGO'>('AT');
 
     // Get unique bases for filter
     const bases = useMemo(() => {
@@ -69,134 +103,69 @@ export const FirefighterStatusChart: React.FC = () => {
     }, [firefighters]);
 
     const data = useMemo(() => {
-        // Use real data if available, otherwise use rich mock data
-
-
-
-
-
         let filteredFirefighters = firefighters;
         if (baseFilter !== 'all') {
             filteredFirefighters = firefighters.filter(f => f.base === baseFilter);
         }
 
-        if (viewMode === 'month') {
-            const months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
-            const stats = months.map(m => ({ name: m, updates: 0, exercises: 0 }));
+        // Always show by month view
+        const months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+        const stats = months.map(m => ({ name: m, updates: 0, exercises: 0 }));
 
-            filteredFirefighters.forEach(ff => {
-                if (ff.lastUpdateDate) {
-                    const date = new Date(ff.lastUpdateDate);
-                    const expDate = new Date(date.setFullYear(date.getFullYear() + 1));
-                    if (expDate.getFullYear().toString() === yearFilter) {
-                        stats[expDate.getMonth()].updates++;
-                    }
+        filteredFirefighters.forEach(ff => {
+            if (ff.lastUpdateDate) {
+                const date = new Date(ff.lastUpdateDate);
+                const expDate = new Date(date.setFullYear(date.getFullYear() + 1));
+                if (expDate.getFullYear().toString() === yearFilter) {
+                    stats[expDate.getMonth()].updates++;
                 }
-                if (ff.lastFireExerciseDate) {
-                    const date = new Date(ff.lastFireExerciseDate);
-                    const expDate = new Date(date.setFullYear(date.getFullYear() + 1));
-                    if (expDate.getFullYear().toString() === yearFilter) {
-                        stats[expDate.getMonth()].exercises++;
-                    }
+            }
+            if (ff.lastFireExerciseDate) {
+                const date = new Date(ff.lastFireExerciseDate);
+                const expDate = new Date(date.setFullYear(date.getFullYear() + 1));
+                if (expDate.getFullYear().toString() === yearFilter) {
+                    stats[expDate.getMonth()].exercises++;
                 }
-            });
-            return stats;
-        } else {
-            // Group by Base
-            const baseStats = new Map<string, { updates: number; exercises: number }>();
-
-            filteredFirefighters.forEach(ff => {
-                const base = ff.base || 'Sem Base';
-                if (!baseStats.has(base)) baseStats.set(base, { updates: 0, exercises: 0 });
-                const stats = baseStats.get(base)!;
-
-                if (ff.lastUpdateDate) {
-                    const date = new Date(ff.lastUpdateDate);
-                    const expDate = new Date(date.setFullYear(date.getFullYear() + 1));
-                    if (expDate.getFullYear().toString() === yearFilter) {
-                        stats.updates++;
-                    }
-                }
-                if (ff.lastFireExerciseDate) {
-                    const date = new Date(ff.lastFireExerciseDate);
-                    const expDate = new Date(date.setFullYear(date.getFullYear() + 1));
-                    if (expDate.getFullYear().toString() === yearFilter) {
-                        stats.exercises++;
-                    }
-                }
-            });
-
-            return Array.from(baseStats.entries()).map(([name, stats]) => ({
-                name,
-                updates: stats.updates,
-                exercises: stats.exercises
-            })).sort((a, b) => (b.updates + b.exercises) - (a.updates + a.exercises));
-        }
-    }, [firefighters, yearFilter, viewMode, baseFilter]);
+            }
+        });
+        return stats;
+    }, [firefighters, yearFilter, baseFilter]);
 
     return (
-        <div className="card-premium p-6 animate-slide-up">
+        <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1 relative">
             <div className="flex justify-between items-center mb-6 flex-wrap gap-4">
                 <div>
-                    <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-                        <AlertCircle className="text-orange-500" size={20} />
-                        Vencimentos Bombeiros
+                    <h3 className="text-lg font-bold flex items-center gap-2 login-uppercase" style={{ color: '#1F2937' }}>
+                        <AlertCircle style={{ color: '#FF6B35' }} size={22} />
+                        VENCIMENTOS BOMBEIROS
                     </h3>
-                    <p className="text-sm text-gray-500">Atualizações e Exercícios com Fogo a Vencer</p>
                 </div>
-                <div className="flex gap-2">
-                    <select
-                        value={yearFilter}
-                        onChange={(e) => setYearFilter(e.target.value)}
-                        className="input-field py-1.5 text-sm w-24"
-                    >
-                        <option value="2024">2024</option>
-                        <option value="2025">2025</option>
-                    </select>
-                    <select
-                        value={baseFilter}
-                        onChange={(e) => setBaseFilter(e.target.value)}
-                        className="input-field py-1.5 text-sm w-32"
-                    >
-                        <option value="all">Todas Bases</option>
-                        {bases.map(base => (
-                            <option key={base} value={base}>{base}</option>
-                        ))}
-                    </select>
-                    <select
-                        value={viewMode}
-                        onChange={(e) => setViewMode(e.target.value as any)}
-                        className="input-field py-1.5 text-sm w-32"
-                    >
-                        <option value="month">Por Mês</option>
-                        <option value="base">Por Base</option>
-                    </select>
+                <div className="mb-4 flex flex-col sm:flex-row gap-4 items-center justify-between">
+                    <div className="flex gap-2">
+                        <button onClick={() => setActiveSeries('AT')} className={`px-4 py-2 rounded-lg text-sm font-bold uppercase transition-all duration-200 ${activeSeries === 'AT' ? 'bg-[#FF6B35] text-white shadow-md' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}>ATUALIZAÇÃO</button>
+                        <button onClick={() => setActiveSeries('FOGO')} className={`px-4 py-2 rounded-lg text-sm font-bold uppercase transition-all duration-200 ${activeSeries === 'FOGO' ? 'bg-[#FF6B35] text-white shadow-md' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}>FOGO</button>
+                    </div>
+                    <div className="flex gap-2">
+                        <StandardSelect
+                            value={yearFilter}
+                            onChange={(e) => setYearFilter(e.target.value)}
+                            options={['2024', '2025', '2026', '2027'].map(y => ({ value: y, label: y }))}
+                            className="w-24"
+                        />
+                        <StandardSelect
+                            value={baseFilter}
+                            onChange={(e) => setBaseFilter(e.target.value)}
+                            options={[
+                                { value: 'all', label: 'TODAS BASES' },
+                                ...bases.map(base => ({ value: base, label: base.toUpperCase() }))
+                            ]}
+                            className="w-40"
+                        />
+                    </div>
                 </div>
             </div>
 
-            <div className="h-80 w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={data} margin={{ top: 20, right: 30, left: 0, bottom: 5 }}>
-                        <defs>
-                            <linearGradient id="colorUpdates" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="5%" stopColor="#fb923c" stopOpacity={0.8} />
-                                <stop offset="95%" stopColor="#fb923c" stopOpacity={0.1} />
-                            </linearGradient>
-                            <linearGradient id="colorExercises" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="5%" stopColor="#f97316" stopOpacity={0.8} />
-                                <stop offset="95%" stopColor="#f97316" stopOpacity={0.1} />
-                            </linearGradient>
-                        </defs>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
-                        <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#6b7280' }} />
-                        <YAxis axisLine={false} tickLine={false} tick={{ fill: '#6b7280' }} />
-                        <Tooltip content={<CustomTooltip />} cursor={{ fill: '#fff7ed' }} />
-                        <Legend />
-                        <Bar dataKey="updates" name="Atualização" fill="url(#colorUpdates)" radius={[4, 4, 0, 0]} barSize={20} animationDuration={1500} />
-                        <Bar dataKey="exercises" name="Exercício Fogo" fill="url(#colorExercises)" radius={[4, 4, 0, 0]} barSize={20} animationDuration={1500} />
-                    </BarChart>
-                </ResponsiveContainer>
-            </div>
+            <FirefighterChartViz data={data} activeSeries={activeSeries} />
         </div>
     );
 };
@@ -213,11 +182,16 @@ export const GraduatedStudentsChart: React.FC = () => {
     };
 
     const availableClasses = useMemo(() => {
-        return classes.filter(c =>
+        const classesInYear = classes.filter(c =>
             new Date(c.startDate).getFullYear().toString() === yearFilter ||
             new Date(c.endDate).getFullYear().toString() === yearFilter
         );
-    }, [classes, yearFilter]);
+        // Filter to show only classes that have students
+        return classesInYear.filter(cls => {
+            const hasStudents = students.some(s => s.classId === cls.id);
+            return hasStudents;
+        });
+    }, [classes, students, yearFilter]);
 
     const data = useMemo(() => {
         let relevantClasses = classes.filter(c =>
@@ -249,34 +223,30 @@ export const GraduatedStudentsChart: React.FC = () => {
     }, [classes, students, courses, yearFilter, classFilter]);
 
     return (
-        <div className="card-premium p-6 animate-slide-up">
+        <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1 relative">
             <div className="flex justify-between items-center mb-6 flex-wrap gap-4">
                 <div>
-                    <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-                        <Users className="text-orange-500" size={20} />
-                        Situação dos Alunos
+                    <h3 className="text-lg font-bold flex items-center gap-2 login-uppercase" style={{ color: '#1F2937' }}>
+                        <Users style={{ color: '#FF6B35' }} size={22} />
+                        SITUAÇÃO DOS ALUNOS
                     </h3>
-                    <p className="text-sm text-gray-500">Status por Curso</p>
                 </div>
                 <div className="flex gap-2">
-                    <select
+                    <StandardSelect
                         value={yearFilter}
                         onChange={handleYearChange}
-                        className="input-field py-1.5 text-sm w-24"
-                    >
-                        <option value="2024">2024</option>
-                        <option value="2025">2025</option>
-                    </select>
-                    <select
+                        options={['2024', '2025'].map(y => ({ value: y, label: y }))}
+                        className="w-24"
+                    />
+                    <StandardSelect
                         value={classFilter}
                         onChange={(e) => setClassFilter(e.target.value)}
-                        className="input-field py-1.5 text-sm w-40"
-                    >
-                        <option value="all">Todas as Turmas</option>
-                        {availableClasses.map(c => (
-                            <option key={c.id} value={c.id}>{c.name}</option>
-                        ))}
-                    </select>
+                        options={[
+                            { value: 'all', label: 'TODOS' },
+                            ...availableClasses.map(c => ({ value: c.id, label: c.name }))
+                        ]}
+                        className="w-40"
+                    />
                 </div>
             </div>
 
@@ -284,13 +254,13 @@ export const GraduatedStudentsChart: React.FC = () => {
                 <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={data} margin={{ top: 20, right: 30, left: 0, bottom: 5 }}>
                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
-                        <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#6b7280', fontSize: 12 }} />
+                        <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#6b7280', fontSize: 12 }} angle={-45} textAnchor="end" height={80} style={{ textTransform: 'uppercase' }} />
                         <YAxis axisLine={false} tickLine={false} tick={{ fill: '#6b7280' }} />
-                        <Tooltip content={<CustomTooltip />} cursor={{ fill: '#fff7ed' }} />
+                        <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(255, 255, 255, 0.1)' }} />
                         <Legend />
-                        <Bar dataKey="Aprovado" name="Aprovados" fill="#10b981" radius={[4, 4, 0, 0]} barSize={30} animationDuration={1500} />
-                        <Bar dataKey="Reprovado" name="Reprovados" fill="#ef4444" radius={[4, 4, 0, 0]} barSize={30} animationDuration={1500} />
-                        <Bar dataKey="Desligado" name="Desligados" fill="#9ca3af" radius={[4, 4, 0, 0]} barSize={30} animationDuration={1500} />
+                        <Bar dataKey="Aprovado" name="APROVADOS" fill="#10b981" radius={[4, 4, 0, 0]} barSize={30} animationDuration={1500} />
+                        <Bar dataKey="Reprovado" name="REPROVADOS" fill="#ef4444" radius={[4, 4, 0, 0]} barSize={30} animationDuration={1500} />
+                        <Bar dataKey="Desligado" name="DESLIGADOS" fill="#9ca3af" radius={[4, 4, 0, 0]} barSize={30} animationDuration={1500} />
                     </BarChart>
                 </ResponsiveContainer>
             </div>
@@ -385,50 +355,49 @@ export const StudentGradesChart: React.FC = () => {
                 return course?.type === courseTypeFilter;
             });
         }
-        return filtered;
-    }, [classes, courses, yearFilter, courseTypeFilter]);
+        // Filter to show only classes that have students
+        return filtered.filter(cls => {
+            const hasStudents = students.some(s => s.classId === cls.id);
+            return hasStudents;
+        });
+    }, [classes, courses, students, yearFilter, courseTypeFilter]);
 
     return (
-        <div className="card-premium p-6 animate-slide-up">
+        <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1 relative">
             <div className="flex justify-between items-center mb-6 flex-wrap gap-4">
                 <div>
-                    <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-                        <Award className="text-orange-500" size={20} />
-                        Desempenho Geral
+                    <h3 className="text-lg font-bold flex items-center gap-2 login-uppercase" style={{ color: '#1F2937' }}>
+                        <Award style={{ color: '#FF6B35' }} size={22} />
+                        DESEMPENHO GERAL
                     </h3>
-                    <p className="text-sm text-gray-500">Média de Notas (Teórica/Prática/Final)</p>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                    <select
+                    <StandardSelect
                         value={yearFilter}
                         onChange={handleYearChange}
-                        className="input-field py-1.5 text-sm w-24"
-                    >
-                        <option value="2024">2024</option>
-                        <option value="2025">2025</option>
-                    </select>
+                        options={['2024', '2025'].map(y => ({ value: y, label: y }))}
+                        className="w-24"
+                    />
 
-                    <select
+                    <StandardSelect
                         value={courseTypeFilter}
                         onChange={handleCourseTypeChange}
-                        className="input-field py-1.5 text-sm w-32"
-                    >
-                        <option value="all">Todos Cursos</option>
-                        {availableCourseTypes.map(t => (
-                            <option key={t} value={t}>{t}</option>
-                        ))}
-                    </select>
+                        options={[
+                            { value: 'all', label: 'TODOS CURSOS' },
+                            ...availableCourseTypes.map(t => ({ value: t, label: t }))
+                        ]}
+                        className="w-32"
+                    />
 
-                    <select
+                    <StandardSelect
                         value={classFilter}
                         onChange={(e) => setClassFilter(e.target.value)}
-                        className="input-field py-1.5 text-sm w-40"
-                    >
-                        <option value="all">Todas as Turmas</option>
-                        {availableClasses.map(c => (
-                            <option key={c.id} value={c.id}>{c.name}</option>
-                        ))}
-                    </select>
+                        options={[
+                            { value: 'all', label: 'TODOS' },
+                            ...availableClasses.map(c => ({ value: c.id, label: c.name }))
+                        ]}
+                        className="w-40"
+                    />
                 </div>
             </div>
 
@@ -438,11 +407,11 @@ export const StudentGradesChart: React.FC = () => {
                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
                         <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#6b7280', fontSize: 14, fontWeight: 'bold' }} />
                         <YAxis axisLine={false} tickLine={false} tick={{ fill: '#6b7280' }} domain={[0, 10]} />
-                        <Tooltip content={<CustomTooltip />} cursor={{ fill: '#fff7ed' }} />
+                        <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(255, 255, 255, 0.1)' }} />
                         <Legend />
-                        <Bar dataKey="Média Final" fill="#f97316" radius={[4, 4, 0, 0]} barSize={40} animationDuration={1500} label={<CustomBarLabel />} />
-                        <Bar dataKey="Média Teórica" fill="#fb923c" radius={[4, 4, 0, 0]} barSize={40} animationDuration={1500} label={<CustomBarLabel />} />
-                        <Bar dataKey="Média Prática" fill="#fdba74" radius={[4, 4, 0, 0]} barSize={40} animationDuration={1500} label={<CustomBarLabel />} />
+                        <Bar dataKey="Média Final" name="MÉDIA FINAL" fill="#FF6B35" radius={[4, 4, 0, 0]} barSize={40} animationDuration={1500} label={<CustomBarLabel />} />
+                        <Bar dataKey="Média Teórica" name="MÉDIA TEÓRICA" fill="#FF8C5A" radius={[4, 4, 0, 0]} barSize={40} animationDuration={1500} label={<CustomBarLabel />} />
+                        <Bar dataKey="Média Prática" name="MÉDIA PRÁTICA" fill="#FFB088" radius={[4, 4, 0, 0]} barSize={40} animationDuration={1500} label={<CustomBarLabel />} />
                     </BarChart>
                 </ResponsiveContainer>
             </div>
@@ -579,45 +548,44 @@ export const SubjectAveragesChart: React.FC = () => {
             const course = courses.find(course => course.id === c.courseId);
             return course?.type === courseTypeFilter;
         });
-        return filtered;
-    }, [classes, courses, yearFilter, courseTypeFilter]);
+        // Filter to show only classes that have students
+        return filtered.filter(cls => {
+            const hasStudents = students.some(s => s.classId === cls.id);
+            return hasStudents;
+        });
+    }, [classes, courses, students, yearFilter, courseTypeFilter]);
 
     return (
-        <div className="card-premium p-6 animate-slide-up">
+        <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1 relative">
             <div className="flex justify-between items-center mb-6 flex-wrap gap-4">
                 <div>
-                    <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-                        <BookOpen className="text-orange-500" size={20} />
-                        Médias por Matéria (Prática)
+                    <h3 className="text-lg font-bold flex items-center gap-2 login-uppercase" style={{ color: '#1F2937' }}>
+                        <BookOpen style={{ color: '#FF6B35' }} size={22} />
+                        MÉDIAS POR MATÉRIA - PRÁTICA
                     </h3>
-                    <p className="text-sm text-gray-500">Desempenho por Disciplina Prática</p>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                    <select
+                    <StandardSelect
                         value={yearFilter}
                         onChange={handleYearChange}
-                        className="input-field py-1.5 text-sm w-24"
-                    >
-                        <option value="2024">2024</option>
-                        <option value="2025">2025</option>
-                    </select>
-                    <select
+                        options={['2024', '2025'].map(y => ({ value: y, label: y }))}
+                        className="w-24"
+                    />
+                    <StandardSelect
                         value={courseTypeFilter}
                         onChange={handleCourseTypeChange}
-                        className="input-field py-1.5 text-sm w-32"
-                    >
-                        {Object.values(CourseType).map(t => <option key={t} value={t}>{t}</option>)}
-                    </select>
-                    <select
+                        options={Object.values(CourseType).map(t => ({ value: t, label: t }))}
+                        className="w-32"
+                    />
+                    <StandardSelect
                         value={classFilter}
                         onChange={(e) => setClassFilter(e.target.value)}
-                        className="input-field py-1.5 text-sm w-40"
-                    >
-                        <option value="all">Todas as Turmas</option>
-                        {availableClasses.map(c => (
-                            <option key={c.id} value={c.id}>{c.name}</option>
-                        ))}
-                    </select>
+                        options={[
+                            { value: 'all', label: 'TODOS' },
+                            ...availableClasses.map(c => ({ value: c.id, label: c.name }))
+                        ]}
+                        className="w-40"
+                    />
                 </div>
             </div>
 
@@ -626,8 +594,8 @@ export const SubjectAveragesChart: React.FC = () => {
                     <BarChart data={chartData} margin={{ top: 20, right: 30, left: 0, bottom: 50 }}>
                         <defs>
                             <linearGradient id="colorSubject" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="5%" stopColor="#f97316" stopOpacity={0.8} />
-                                <stop offset="95%" stopColor="#f97316" stopOpacity={0.1} />
+                                <stop offset="5%" stopColor="#FF6B35" stopOpacity={0.9} />
+                                <stop offset="95%" stopColor="#FF6B35" stopOpacity={0.2} />
                             </linearGradient>
                         </defs>
                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
@@ -640,14 +608,16 @@ export const SubjectAveragesChart: React.FC = () => {
                             angle={-45}
                             textAnchor="end"
                             height={60}
+                            tickFormatter={(value) => value.toUpperCase()}
                         />
                         <YAxis axisLine={false} tickLine={false} tick={{ fill: '#6b7280' }} domain={[0, 10]} />
-                        <Tooltip content={<CustomTooltip />} cursor={{ fill: '#fff7ed' }} />
-                        <Bar dataKey="average" name="Média" fill="url(#colorSubject)" radius={[4, 4, 0, 0]} barSize={30} animationDuration={1500} label={<CustomBarLabel />} />
+                        <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(255, 255, 255, 0.1)' }} />
+                        <Bar dataKey="average" name="MÉDIA" fill="url(#colorSubject)" radius={[4, 4, 0, 0]} barSize={30} animationDuration={1500} label={<CustomBarLabel />} />
                     </BarChart>
                 </ResponsiveContainer>
                 {chartData.length === 0 && timeAverages.length === 0 && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-white/50 backdrop-blur-sm">
+                    <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/50 backdrop-blur-sm">
+                        <AlertCircle size={48} className="text-gray-300 mb-2" />
                         <p className="text-gray-400 font-medium">Nenhum dado encontrado para os filtros selecionados.</p>
                     </div>
                 )}
@@ -659,10 +629,10 @@ export const SubjectAveragesChart: React.FC = () => {
                     <h4 className="text-xs font-semibold text-gray-500 uppercase mb-3 px-2 text-center">Médias de Tempo</h4>
                     <div className="flex flex-wrap gap-4 justify-center">
                         {timeAverages.map(item => (
-                            <div key={item.name} className="bg-orange-50 rounded-lg p-3 text-center border border-orange-100 min-w-[150px]">
-                                <p className="text-xs text-gray-900 font-bold mb-1 uppercase">{item.name}</p>
-                                <p className="text-lg font-black text-gray-900 flex items-center justify-center gap-1">
-                                    <Clock size={14} className="text-orange-500" />
+                            <div key={item.name} className="rounded-lg p-3 text-center border-2 min-w-[150px]" style={{ backgroundColor: '#FFFFFF', borderColor: '#E5E7EB' }}>
+                                <p className="text-xs font-bold mb-1 login-uppercase" style={{ color: '#1F2937' }}>{item.name}</p>
+                                <p className="text-lg font-black flex items-center justify-center gap-1" style={{ color: '#1F2937' }}>
+                                    <Clock size={14} style={{ color: '#FF6B35' }} />
                                     {item.value}
                                 </p>
                             </div>
@@ -677,7 +647,8 @@ export const SubjectAveragesChart: React.FC = () => {
 // --- Instructor Performance Chart ---
 export const InstructorPerformanceChart: React.FC = () => {
     const { classes, users } = useStore();
-    const [periodFilter, setPeriodFilter] = useState<string>('all');
+    const [yearFilter, setYearFilter] = useState<string>(new Date().getFullYear().toString());
+    const [monthFilter, setMonthFilter] = useState<string>('all');
 
     const data = useMemo(() => {
 
@@ -691,8 +662,8 @@ export const InstructorPerformanceChart: React.FC = () => {
         const now = new Date();
         const checkDate = (dateStr: string) => {
             const d = new Date(dateStr);
-            if (periodFilter === 'year') return d.getFullYear() === now.getFullYear();
-            if (periodFilter === 'month') return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+            if (d.getFullYear().toString() !== yearFilter) return false;
+            if (monthFilter !== 'all' && d.getMonth() !== parseInt(monthFilter)) return false;
             return true;
         };
 
@@ -723,27 +694,46 @@ export const InstructorPerformanceChart: React.FC = () => {
             // Filter logic is implicit: if they are in the map, they have data.
             // But we might want to sort.
             .sort((a, b) => b.hours - a.hours);
-    }, [classes, users, periodFilter]);
+    }, [classes, users, yearFilter, monthFilter]);
 
     return (
-        <div className="card-premium p-6 animate-slide-up">
+        <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1 relative">
             <div className="flex justify-between items-center mb-6 flex-wrap gap-4">
                 <div>
-                    <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-                        <TrendingUp className="text-orange-500" size={20} />
-                        Instrutores
+                    <h3 className="text-lg font-bold flex items-center gap-2 login-uppercase" style={{ color: '#1F2937' }}>
+                        <TrendingUp style={{ color: '#FF6B35' }} size={22} />
+                        INSTRUTORES
                     </h3>
-                    <p className="text-sm text-gray-500">Performance Geral</p>
                 </div>
-                <select
-                    value={periodFilter}
-                    onChange={(e) => setPeriodFilter(e.target.value)}
-                    className="input-field py-1.5 text-sm w-32"
-                >
-                    <option value="all">Todo Período</option>
-                    <option value="year">Este Ano</option>
-                    <option value="month">Este Mês</option>
-                </select>
+                <div className="flex gap-2">
+                    <StandardSelect
+                        value={yearFilter}
+                        onChange={(e) => setYearFilter(e.target.value)}
+                        options={['2024', '2025', '2026'].map(y => ({ value: y, label: y }))}
+                        className="w-24"
+                    />
+                    <StandardSelect
+                        value={monthFilter}
+                        onChange={(e) => setMonthFilter(e.target.value)}
+                        options={[
+                            { value: 'all', label: 'TODOS' },
+                            { value: '0', label: 'JANEIRO' },
+                            { value: '1', label: 'FEVEREIRO' },
+                            { value: '2', label: 'MARÇO' },
+                            { value: '3', label: 'ABRIL' },
+                            { value: '4', label: 'MAIO' },
+                            { value: '5', label: 'JUNHO' },
+                            { value: '6', label: 'JULHO' },
+                            { value: '7', label: 'AGOSTO' },
+                            { value: '8', label: 'SETEMBRO' },
+                            { value: '9', label: 'OUTUBRO' },
+                            { value: '10', label: 'NOVEMBRO' },
+                            { value: '11', label: 'DEZEMBRO' }
+                        ]}
+                        disableSort={true}
+                        className="w-32"
+                    />
+                </div>
             </div>
 
             <div className="h-80 w-full">
@@ -751,8 +741,8 @@ export const InstructorPerformanceChart: React.FC = () => {
                     <ComposedChart data={data} margin={{ top: 20, right: 30, left: 0, bottom: 40 }}>
                         <defs>
                             <linearGradient id="colorHours" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="5%" stopColor="#f97316" stopOpacity={0.8} />
-                                <stop offset="95%" stopColor="#f97316" stopOpacity={0.1} />
+                                <stop offset="5%" stopColor="#FF6B35" stopOpacity={0.9} />
+                                <stop offset="95%" stopColor="#FF6B35" stopOpacity={0.2} />
                             </linearGradient>
                         </defs>
                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
@@ -768,10 +758,10 @@ export const InstructorPerformanceChart: React.FC = () => {
                         />
                         <YAxis yAxisId="left" axisLine={false} tickLine={false} tick={{ fill: '#6b7280' }} />
                         <YAxis yAxisId="right" orientation="right" axisLine={false} tickLine={false} tick={{ fill: '#6b7280' }} />
-                        <Tooltip content={<CustomTooltip />} cursor={{ fill: '#fff7ed' }} />
+                        <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(255, 255, 255, 0.1)' }} />
                         <Legend />
-                        <Bar yAxisId="left" dataKey="hours" name="Horas Aula" fill="url(#colorHours)" radius={[4, 4, 0, 0]} barSize={20} animationDuration={1500} />
-                        <Line yAxisId="right" type="monotone" dataKey="classCount" name="Turmas" stroke="#db2777" strokeWidth={3} dot={{ r: 4, fill: '#db2777', strokeWidth: 2, stroke: '#fff' }} animationDuration={1500} />
+                        <Bar yAxisId="left" dataKey="hours" name="HORAS AULA" fill="url(#colorHours)" radius={[4, 4, 0, 0]} barSize={20} animationDuration={1500} />
+                        <Line yAxisId="right" type="monotone" dataKey="classCount" name="TURMAS" stroke="#FF6B35" strokeWidth={3} dot={{ r: 5, fill: '#FF6B35', strokeWidth: 2, stroke: '#fff' }} animationDuration={1500} />
                     </ComposedChart>
                 </ResponsiveContainer>
             </div>

@@ -11,6 +11,7 @@ export enum UserRole {
 export enum CourseType {
   CBA_2 = 'CBA-2',
   CBA_2_COMP = 'CBA-2 Complementar',
+  CBA_MC = 'CBA-MC',
   CBA_AT = 'CBA-AT',
   CBA_CE = 'CBA-CE',
   CUSTOM = 'Outro'
@@ -39,6 +40,7 @@ export interface User {
     boots: string;
   };
   photoUrl?: string;
+  isActive?: boolean;
   password?: string; // Simulating auth
 }
 
@@ -120,6 +122,9 @@ export interface Student {
   nationality: string;
   motherName: string;
   fatherName: string;
+  isEmployee?: boolean;
+  baseId?: string;
+  team?: 'A' | 'B' | 'C' | 'D' | 'E'; // New Team Field
 
   // Computed fields for display
   matricula?: string;
@@ -134,6 +139,19 @@ export interface Student {
   finalTheory: number;
   finalPractical: number;
   finalGrade: number;
+
+  // Documents
+  documents?: {
+    physicalAptitude?: string;
+    psychologicalAptitude?: string;
+    photoId?: string;
+    firefighterCertificate?: string;
+    aerodromeCertificate?: string; // New for CBA-AT
+    cnh?: string; // New for CBA-MC
+    emergencyDriverCertificate?: string; // New for CBA-MC
+    highSchoolCertificate?: string;
+    contract?: string;
+  };
 }
 
 export interface TaskLog {
@@ -199,7 +217,7 @@ export interface PaymentRecord {
 }
 
 // Checklist Types
-export type ChecklistType = 'VEICULO' | 'EQUIPAMENTOS';
+export type ChecklistType = 'VEICULO' | 'EQUIPAMENTOS' | 'CURSO';
 
 export interface ChecklistItemDefinition {
   id: string;
@@ -307,6 +325,7 @@ export interface Base {
 export interface Firefighter {
   id: string;
   name: string;
+  cpf: string;
   base: string;
   region: Region;
   airportClass: AirportClass;
@@ -344,6 +363,8 @@ export interface SetupTeardownAssignment {
   rate: number; // Always 350
   totalValue: number; // days * 350
   date: string;
+  startDate?: string;
+  endDate?: string;
   notes?: string;
 }
 
@@ -433,6 +454,7 @@ export interface Question {
   // Usage tracking
   timesUsed: number;
   lastUsedAt?: string;
+  validUntil?: string;
 }
 
 export interface QuestionReview {
@@ -477,4 +499,18 @@ export interface TrainingSchedule {
   studentLocality: string;
   location: string;
   studentBreakdown?: StudentBreakdownItem[];
+  glpRefillDate?: string;
+  instructorCount?: number;
+  courseId?: string;
+}
+
+export interface ClassPhoto {
+  id: string;
+  classId: string;
+  subjectId: string;
+  type: 'THEORY' | 'PRACTICAL';
+  photoUrl: string;
+  uploadedBy: string;
+  uploadedByName: string;
+  uploadedAt: string;
 }

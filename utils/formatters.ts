@@ -64,3 +64,23 @@ export const validateCPF = (cpf: string): boolean => {
 
     return true;
 };
+
+/**
+ * Formata um telefone para o padrão (xx) x xxxx-xxxx
+ * @param phone - Telefone com ou sem formatação
+ * @returns Telefone formatado
+ */
+export const formatPhone = (phone: string): string => {
+    const numbers = phone.replace(/\D/g, '');
+    const limited = numbers.slice(0, 11);
+
+    if (limited.length <= 2) {
+        return limited;
+    } else if (limited.length <= 3) {
+        return `(${limited.slice(0, 2)}) ${limited.slice(2)}`;
+    } else if (limited.length <= 7) {
+        return `(${limited.slice(0, 2)}) ${limited.slice(2, 3)} ${limited.slice(3)}`;
+    } else {
+        return `(${limited.slice(0, 2)}) ${limited.slice(2, 3)} ${limited.slice(3, 7)}-${limited.slice(7)}`;
+    }
+};

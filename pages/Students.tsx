@@ -2,23 +2,28 @@
 import React, { useState, useMemo } from 'react';
 import { useStore } from '../context/AppStore';
 import { Student, CourseType, EnrollmentStatus } from '../types';
-import { Plus, Pencil, X, Trash2, Download, FileText, ChevronLeft, ChevronRight, Upload } from 'lucide-react';
+import { Plus, Pencil, X, Trash2, Download, FileText, ChevronLeft, ChevronRight, Upload, MessageCircle, CheckSquare } from 'lucide-react';
 import { formatCPF } from '../utils/formatters';
 import { formatDate } from '../utils/dateUtils';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
+import { generateStandardPDF } from '../utils/pdf';
+import { StandardModal, StandardModalHeader, StandardModalBody, StandardModalFooter, inputClass, labelClass } from '../components/StandardModal';
 
 export const StudentsPage: React.FC = () => {
-    const { students, classes, addStudent, updateStudent, deleteStudent, courses } = useStore();
+    const { students, classes, addStudent, updateStudent, deleteStudent, courses, bases, currentUser, firefighters, updateFirefighter } = useStore();
     const [showModal, setShowModal] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedClassFilter, setSelectedClassFilter] = useState('');
+    const [selectedYearFilter, setSelectedYearFilter] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
+
+    // Modal Hierarchical Filter States
+    const [modalYear, setModalYear] = useState('');
+    const [modalCourseId, setModalCourseId] = useState('');
     const itemsPerPage = 10;
 
     const [editingId, setEditingId] = useState<string | null>(null);
     const [studentForm, setStudentForm] = useState<Partial<Student>>({
-        enrollmentStatus: 'Matriculado'
+        enrollmentStatus: 'Pendente'
     });
 
     // Helper to get Course Letter code
@@ -38,16 +43,13 @@ export const StudentsPage: React.FC = () => {
 
     // Helper to extract numeric part of Class Name "Curso 20/2025" -> 20 and Year
     const getClassDetails = (clsName: string) => {
-        // Expected format: "Name Num/Year"
         const parts = clsName.split(' ');
-        const suffix = parts[parts.length - 1]; // "20/2025"
+        const suffix = parts[parts.length - 1];
         const [num, year] = suffix.split('/');
         return { num, year };
     };
 
-    // --- Core Logic: Calculate Codes Dynamically ---
     const computedStudents = useMemo(() => {
-        // Group by Class First
         const studentsByClass: { [key: string]: Student[] } = {};
         const unassignedStudents: Student[] = [];
 
@@ -62,12 +64,10 @@ export const StudentsPage: React.FC = () => {
 
         let allComputed: any[] = [];
 
-        // Process Unassigned
         unassignedStudents.forEach(s => {
             allComputed.push({ ...s, matricula: '-', registro: '-', capCode: '-', className: 'Sem Turma' });
         });
 
-        // Process Assigned Classes
         Object.keys(studentsByClass).forEach(classId => {
             const cls = classes.find(c => c.id === classId);
             if (!cls) return;
@@ -85,16 +85,12 @@ export const StudentsPage: React.FC = () => {
                 }
             }
 
-            // Sort Alphabetically
             const sortedStudents = [...studentsByClass[classId]].sort((a, b) => a.name.localeCompare(b.name));
 
             let validStudentCounter = 0;
 
             sortedStudents.forEach((s, index) => {
-                const listIndex = index + 1; // 1 to 40
-
-                // 1. Matrícula: xx (2 digits) / Nome do Curso / Nº Turma - Ano
-                // Ex: 35/CBA-AT/Nº20-2025
+                const listIndex = index + 1;
                 const formattedIndex = listIndex.toString().padStart(2, '0');
                 const matricula = `${formattedIndex}/${course?.name.split(' ')[0] || 'CURSO'}/Nº${num}-${year}`;
 
@@ -102,20 +98,16 @@ export const StudentsPage: React.FC = () => {
                 let capCode = '-';
 
                 if (s.enrollmentStatus !== 'Cancelado' && s.enrollmentStatus !== 'Desligado') {
-                    validStudentCounter++; // Increment only for valid students
-
-                    // 2. Registro: 08/Letra + (Base + Sequencia - 1) / Ano
-                    // Usar base + counter - 1 para começar no número indicado
+                    validStudentCounter++;
                     const baseReg = parseInt(cls.registrationNumber || '0');
                     const seqReg = baseReg + validStudentCounter - 1;
-                    const formattedSeqReg = seqReg.toString().padStart(4, '0'); // 4 dígitos
+                    const formattedSeqReg = seqReg.toString().padStart(4, '0');
                     registro = `08/${courseLetter}${formattedSeqReg}/${year}`;
 
-                    // 3. CAP-BA: 08/C + (Base + Sequencia - 1) / Ano (Skip for CBA-CE)
                     if (course?.type !== CourseType.CBA_CE) {
                         const baseCap = parseInt(cls.capBa || '0');
                         const seqCap = baseCap + validStudentCounter - 1;
-                        const formattedSeqCap = seqCap.toString().padStart(4, '0'); // 4 dígitos
+                        const formattedSeqCap = seqCap.toString().padStart(4, '0');
                         capCode = `08/C${formattedSeqCap}/${year}`;
                     }
                 }
@@ -140,7 +132,7 @@ export const StudentsPage: React.FC = () => {
             id: editingId || Math.random().toString(36).substr(2, 9),
             name: studentForm.name || '',
             cpf: studentForm.cpf || '',
-            classId: studentForm.classId || undefined, // Ensure undefined if empty string
+            classId: studentForm.classId || undefined,
             enrollmentStatus: studentForm.enrollmentStatus as EnrollmentStatus,
             rg: studentForm.rg || '',
             rgIssuer: studentForm.rgIssuer || '',
@@ -164,6 +156,30 @@ export const StudentsPage: React.FC = () => {
             addStudent(studentData);
         }
 
+        // Automatic Firefighter Validity Update Logic
+        // IF: Student is Employee AND Approved AND Course is CBA-AT
+        if (studentData.isEmployee && studentData.enrollmentStatus === 'Aprovado' && studentData.classId) {
+            const cls = classes.find(c => c.id === studentData.classId);
+            const course = courses.find(c => c.id === cls?.courseId);
+
+            if (course?.type === CourseType.CBA_AT && studentData.cpf) {
+                // Find Firefighter by clean CPF
+                const cleanCPF = studentData.cpf.replace(/\D/g, '');
+                const firefighter = firefighters.find(f => f.cpf.replace(/\D/g, '') === cleanCPF);
+
+                if (firefighter && cls?.endDate) {
+                    // Update Validity
+                    updateFirefighter({
+                        ...firefighter,
+                        lastUpdateDate: cls.endDate,
+                        isNotUpdated: false // Ensure flag is cleared
+                    });
+                    // Optional: Notify user or log? User didn't ask for explicit notification, but it's good practice.
+                    // For now, silent update as per "automatic" request.
+                }
+            }
+        }
+
         handleCloseModal();
     };
 
@@ -176,7 +192,9 @@ export const StudentsPage: React.FC = () => {
     const handleCloseModal = () => {
         setShowModal(false);
         setEditingId(null);
-        setStudentForm({ enrollmentStatus: 'Matriculado' });
+        setStudentForm({ enrollmentStatus: 'Pendente' });
+        setModalYear('');
+        setModalCourseId('');
     };
 
     const handleDelete = async (id: string) => {
@@ -185,10 +203,12 @@ export const StudentsPage: React.FC = () => {
         }
     };
 
-    const [selectedYearFilter, setSelectedYearFilter] = useState('');
-
-    // Derived Data for Filters
     const availableYears = Array.from(new Set(classes.map(c => new Date(c.startDate).getFullYear()))).sort((a, b) => b - a);
+
+    const activeClasses = useMemo(() => {
+        const classIdsWithStudents = new Set(students.map(s => s.classId).filter(Boolean));
+        return classes.filter(c => classIdsWithStudents.has(c.id)).sort((a, b) => a.name.localeCompare(b.name));
+    }, [classes, students]);
 
     const filtered = computedStudents.filter(s => {
         const matchesSearch = s.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -203,20 +223,18 @@ export const StudentsPage: React.FC = () => {
             if (studentClass) {
                 matchesYear = new Date(studentClass.startDate).getFullYear().toString() === selectedYearFilter;
             } else {
-                matchesYear = false; // Unassigned students don't match a specific year filter
+                matchesYear = false;
             }
         }
 
         return matchesSearch && matchesClass && matchesYear;
     });
 
-    // Pagination Logic
     const totalPages = Math.ceil(filtered.length / itemsPerPage);
     const startIndex = (currentPage - 1) * itemsPerPage;
     const endIndex = startIndex + itemsPerPage;
     const currentStudents = filtered.slice(startIndex, endIndex);
 
-    // Reset to page 1 when filters change
     React.useEffect(() => {
         setCurrentPage(1);
     }, [searchTerm, selectedClassFilter, selectedYearFilter]);
@@ -253,13 +271,6 @@ export const StudentsPage: React.FC = () => {
     };
 
     const handleExportPDF = () => {
-        const doc = new jsPDF('l', 'mm', 'a4'); // landscape
-
-        doc.setFontSize(16);
-        doc.text('Lista de Alunos', 14, 15);
-        doc.setFontSize(10);
-        doc.text(`Gerado em: ${new Date().toLocaleDateString('pt-BR')}`, 14, 22);
-
         const tableData = filtered.map(s => [
             s.matricula,
             s.name,
@@ -273,235 +284,303 @@ export const StudentsPage: React.FC = () => {
             s.finalGrade?.toFixed(2) || '-'
         ]);
 
-        autoTable(doc, {
-            head: [['Matrícula', 'Nome', 'Turma', 'Status', 'CPF', 'Registro', 'CAP-BA', 'Teórica', 'Prática', 'Final']],
-            body: tableData,
-            startY: 28,
-            styles: { fontSize: 8, cellPadding: 2 },
-            headStyles: { fillColor: [234, 88, 12], textColor: 255, fontStyle: 'bold' },
-            alternateRowStyles: { fillColor: [245, 245, 245] },
-            margin: { left: 14, right: 14 }
+        generateStandardPDF({
+            title: 'LISTA DE ALUNOS',
+            filename: 'lista_alunos',
+            table: {
+                headers: ['MATRÍCULA', 'NOME', 'TURMA', 'STATUS', 'CPF', 'REGISTRO', 'CAP-BA', 'TEÓRICA', 'PRÁTICA', 'FINAL'],
+                data: tableData
+            },
+            user: null // Or existing user context if available, but component didn't use it before
         });
-
-        doc.save('alunos.pdf');
     };
 
-    const inputClass = "appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm bg-white text-gray-900";
-
     return (
-        <div className="space-y-6 animate-fade-in">
-            <div className="flex justify-between items-center animate-slide-down">
-                <div>
-                    <h1 className="text-3xl font-bold text-gray-900">Alunos</h1>
-                    <p className="text-gray-500 mt-1">Gerencie os alunos e suas matrículas</p>
-                </div>
-                <button
-                    onClick={handleExportCSV}
-                    className="btn-premium flex items-center space-x-2 bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 px-4 py-3 rounded-lg shadow-sm transition-all duration-200 mr-2"
-                >
-                    <Download size={20} />
-                    <span className="font-semibold">CSV</span>
-                </button>
-                <button
-                    onClick={handleExportPDF}
-                    className="btn-premium flex items-center space-x-2 bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 px-4 py-3 rounded-lg shadow-sm transition-all duration-200 mr-2"
-                >
-                    <FileText size={20} />
-                    <span className="font-semibold">PDF</span>
-                </button>
-                <button
-                    onClick={() => setShowModal(true)}
-                    className="btn-premium flex items-center space-x-2 bg-gradient-to-r from-primary-600 to-primary-500 hover:from-primary-700 hover:to-primary-600 text-white px-6 py-3 rounded-lg shadow-md transition-all duration-200"
-                >
-                    <Plus size={20} />
-                    <span className="font-semibold">Novo Aluno</span>
-                </button>
-            </div>
-
-            <div className="card-premium overflow-hidden animate-slide-up">
-                <div className="p-4 border-b border-gray-100 flex flex-col md:flex-row gap-4 justify-between">
-                    <div className="relative flex-1 max-w-md">
-                        <input
-                            type="text"
-                            placeholder="Buscar por nome, CPF ou Matrícula..."
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            className="input-premium appearance-none block w-full px-3 py-2 rounded-md shadow-sm placeholder-gray-400 sm:text-sm bg-white text-gray-900"
-                        />
-                    </div>
-
-                    <div className="flex gap-2 w-full md:w-auto">
-                        <select
-                            className={`${inputClass} w-32`}
-                            value={selectedYearFilter}
-                            onChange={(e) => setSelectedYearFilter(e.target.value)}
-                        >
-                            <option value="">Todos os Anos</option>
-                            {availableYears.map(year => (
-                                <option key={year} value={year}>{year}</option>
-                            ))}
-                        </select>
-
-                        <select
-                            className={`${inputClass} w-48`}
-                            value={selectedClassFilter}
-                            onChange={(e) => setSelectedClassFilter(e.target.value)}
-                        >
-                            <option value="">Todas as Turmas</option>
-                            {classes.sort((a, b) => a.name.localeCompare(b.name)).map(c => (
-                                <option key={c.id} value={c.id}>{c.name}</option>
-                            ))}
-                        </select>
-                    </div>
-                </div>
-                <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200">
-                        <thead className="bg-orange-100 text-orange-900">
-                            <tr>
-                                <th className="px-6 py-3 text-left text-xs font-medium uppercase whitespace-nowrap">Matrícula</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium uppercase whitespace-nowrap">Nome</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium uppercase whitespace-nowrap">Turma</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium uppercase whitespace-nowrap">Status</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium uppercase whitespace-nowrap">CPF</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium uppercase whitespace-nowrap">Registro</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium uppercase whitespace-nowrap">CAP-BA</th>
-
-                                {/* Grade Columns */}
-                                <th className="px-4 py-3 text-center text-xs font-bold uppercase">Final Teórica</th>
-                                <th className="px-4 py-3 text-center text-xs font-bold uppercase">Final Prática</th>
-                                <th className="px-4 py-3 text-center text-xs font-bold uppercase">Nota Final</th>
-
-                                <th className="px-6 py-3 text-right text-xs font-medium uppercase whitespace-nowrap">Ações</th>
-                            </tr>
-                        </thead>
-                        <tbody className="bg-white divide-y divide-gray-200">
-                            {currentStudents.map(s => {
-                                let statusColor = 'bg-gray-100 text-gray-800';
-                                if (s.enrollmentStatus === 'Matriculado') statusColor = 'bg-blue-100 text-blue-800';
-                                else if (s.enrollmentStatus === 'Aprovado') statusColor = 'bg-green-100 text-green-800';
-                                else if (s.enrollmentStatus === 'Reprovado') statusColor = 'bg-red-100 text-red-800';
-                                else if (s.enrollmentStatus === 'Cancelado' || s.enrollmentStatus === 'Desligado') statusColor = 'bg-gray-200 text-gray-600';
-                                else if (s.enrollmentStatus === 'Pendente') statusColor = 'bg-yellow-100 text-yellow-800';
-
-                                return (
-                                    <tr key={s.id} className="hover:bg-orange-50 transition-colors group">
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{s.matricula}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{s.name}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{s.className}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <span className={`badge px-2 inline-flex text-xs leading-5 font-semibold rounded-full transition-transform group-hover:scale-110 ${statusColor}`}>
-                                                {s.enrollmentStatus}
-                                            </span>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{formatCPF(s.cpf)}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 font-mono">{s.registro}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 font-mono">{s.capCode}</td>
-
-                                        {/* Read-only Grade Data */}
-                                        <td className="px-4 py-4 whitespace-nowrap text-sm text-center font-bold text-blue-800 bg-blue-50">
-                                            {s.finalTheory ? s.finalTheory.toFixed(2) : '-'}
-                                        </td>
-                                        <td className="px-4 py-4 whitespace-nowrap text-sm text-center font-bold text-purple-800 bg-purple-50">
-                                            {s.finalPractical ? s.finalPractical.toFixed(2) : '-'}
-                                        </td>
-                                        <td className="px-4 py-4 whitespace-nowrap text-sm text-center font-bold text-gray-900 bg-gray-100">
-                                            {s.finalGrade ? s.finalGrade.toFixed(2) : '-'}
-                                        </td>
-
-                                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                            <button onClick={() => handleEdit(s)} className="text-primary-600 hover:text-primary-900 hover:scale-110 transition-all duration-200 mr-2">
-                                                <Pencil size={18} />
-                                            </button>
-                                            <button onClick={() => handleDelete(s.id)} className="text-red-600 hover:text-red-900 hover:scale-110 transition-all duration-200">
-                                                <Trash2 size={18} />
-                                            </button>
-                                        </td>
-                                    </tr>
-                                );
-                            })}
-                        </tbody>
-                    </table>
-                </div>
-
-                {/* Pagination Controls */}
-                <div className="px-6 py-4 border-t border-gray-100 flex items-center justify-between bg-gray-50">
-                    <div className="text-sm text-gray-500">
-                        Mostrando <span className="font-medium">{startIndex + 1}</span> até <span className="font-medium">{Math.min(endIndex, filtered.length)}</span> de <span className="font-medium">{filtered.length}</span> alunos
-                    </div>
-                    <div className="flex items-center space-x-2">
-                        <button
-                            onClick={() => handlePageChange(currentPage - 1)}
-                            disabled={currentPage === 1}
-                            className={`p-2 rounded-md border ${currentPage === 1 ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'}`}
-                        >
-                            <ChevronLeft size={16} />
-                        </button>
-                        <span className="text-sm text-gray-700 font-medium px-2">
-                            Página {currentPage} de {totalPages}
-                        </span>
-                        <button
-                            onClick={() => handlePageChange(currentPage + 1)}
-                            disabled={currentPage === totalPages || totalPages === 0}
-                            className={`p-2 rounded-md border ${currentPage === totalPages || totalPages === 0 ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'}`}
-                        >
-                            <ChevronRight size={16} />
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            {showModal && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
-                    <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto animate-scale-in">
-                        <div className="p-6 border-b border-gray-100 flex justify-between items-center">
-                            <h3 className="text-lg font-bold text-gray-900">{editingId ? 'Editar Aluno' : 'Cadastro de Aluno'}</h3>
-                            <button onClick={handleCloseModal} className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 p-2 rounded-full transition-all"><X size={24} /></button>
+        <>
+            {/* Filters & Actions Header */}
+            <div className="space-y-6">
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                    <div className="flex flex-wrap gap-2 w-full md:w-auto items-center">
+                        <div className="relative flex-1 min-w-[300px]">
+                            <input
+                                type="text"
+                                placeholder="BUSCAR POR NOME, CPF OU MATRÍCULA..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                className={`${inputClass} uppercase`}
+                            />
                         </div>
-                        <form onSubmit={handleSave} className="p-6">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                                <div className="col-span-2 bg-orange-50 p-4 rounded-md border border-orange-100 mb-2">
-                                    <h4 className="text-sm font-bold text-orange-900 mb-3">Matrícula e Turma</h4>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-1">Turma</label>
-                                            <select
-                                                className={inputClass}
-                                                value={studentForm.classId || ''}
-                                                onChange={e => setStudentForm({ ...studentForm, classId: e.target.value })}
+
+                        {/* Filters */}
+                        <div className="w-full md:w-48">
+                            <select
+                                className={inputClass}
+                                value={selectedYearFilter}
+                                onChange={(e) => setSelectedYearFilter(e.target.value)}
+                            >
+                                <option value="">TODOS OS ANOS</option>
+                                {availableYears.map(year => (
+                                    <option key={year} value={year}>{year}</option>
+                                ))}
+                            </select>
+                        </div>
+
+                        <div className="w-full md:w-64">
+                            <select
+                                className={inputClass}
+                                value={selectedClassFilter}
+                                onChange={(e) => setSelectedClassFilter(e.target.value)}
+                            >
+                                <option value="">TODAS AS TURMAS</option>
+                                {activeClasses.map(c => (
+                                    <option key={c.id} value={c.id}>{c.name}</option>
+                                ))}
+                            </select>
+                        </div>
+                    </div>
+
+                    <div className="flex gap-2 w-full md:w-auto justify-end">
+                        <button
+                            onClick={handleExportCSV}
+                            className="btn-base btn-edit flex items-center justify-center px-6 py-3 text-sm font-bold"
+                            title="Exportar CSV"
+                        >
+                            CSV
+                        </button>
+                        <button
+                            onClick={handleExportPDF}
+                            className="btn-base btn-edit flex items-center justify-center px-6 py-3 text-sm font-bold"
+                            title="Exportar PDF"
+                        >
+                            PDF
+                        </button>
+                        <button
+                            onClick={() => setShowModal(true)}
+                            className="btn-base btn-insert flex items-center justify-center px-8 py-3 text-sm font-bold"
+                        >
+                            INSERIR
+                        </button>
+                    </div>
+                </div>
+
+                <div className="card-premium overflow-hidden animate-slide-up">
+                    <div className="overflow-x-auto">
+                        <table className="min-w-full divide-y divide-gray-200 border-collapse">
+                            <thead className="bg-white text-gray-700">
+                                <tr>
+                                    <th className="px-3 py-3 text-center text-xs font-bold uppercase border border-gray-200 whitespace-nowrap">Matrícula</th>
+                                    <th className="px-3 py-3 text-center text-xs font-bold uppercase border border-gray-200">Nome</th>
+                                    <th className="px-3 py-3 text-center text-xs font-bold uppercase border border-gray-200">Turma</th>
+                                    <th className="px-3 py-3 text-center text-xs font-bold uppercase border border-gray-200 whitespace-nowrap">Status</th>
+                                    <th className="px-3 py-3 text-center text-xs font-bold uppercase border border-gray-200 whitespace-nowrap">Registro</th>
+                                    <th className="px-3 py-3 text-center text-xs font-bold uppercase border border-gray-200 whitespace-nowrap">CAP-BA</th>
+
+                                    {/* Grade Columns - Expanded */}
+                                    <th className="px-4 py-3 text-center text-xs font-bold uppercase border border-gray-200">Final Teórica</th>
+                                    <th className="px-4 py-3 text-center text-xs font-bold uppercase border border-gray-200">Final Prática</th>
+                                    <th className="px-4 py-3 text-center text-xs font-bold uppercase border border-gray-200">Nota Final</th>
+
+                                    <th className="px-4 py-3 text-center text-xs font-medium uppercase border border-gray-200 min-w-[150px]">Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody className="bg-white divide-y divide-gray-200">
+                                {currentStudents.map(s => {
+                                    const isManagerOrCoord = currentUser?.role === 'Gestor' || currentUser?.role === 'Coordenador';
+                                    let statusColor = 'bg-gray-100 text-gray-800';
+                                    if (s.enrollmentStatus === 'Matriculado') statusColor = 'bg-blue-100 text-blue-800';
+                                    else if (s.enrollmentStatus === 'Aprovado') statusColor = 'bg-green-100 text-green-800';
+                                    else if (s.enrollmentStatus === 'Reprovado') statusColor = 'bg-red-100 text-red-800';
+                                    else if (s.enrollmentStatus === 'Cancelado' || s.enrollmentStatus === 'Desligado') statusColor = 'bg-gray-200 text-gray-600';
+                                    else if (s.enrollmentStatus === 'Pendente') statusColor = 'bg-yellow-100 text-yellow-800';
+
+                                    // Phone Formatting
+                                    const rawPhone = s.phone?.replace(/\D/g, '') || '';
+                                    const formattedPhone = rawPhone.length >= 10
+                                        ? `+55 ${rawPhone.replace(/^(\d{2})(\d{5})(\d{4}).*/, '($1) $2-$3')}`
+                                        : s.phone || '-';
+                                    const whatsappLink = rawPhone ? `https://wa.me/55${rawPhone}` : '#';
+
+                                    return (
+                                        <tr key={s.id} className="hover:bg-gray-50 transition-colors group">
+                                            <td className="px-3 py-2 text-xs font-medium text-gray-900 border border-gray-200 whitespace-nowrap">{s.matricula}</td>
+                                            <td
+                                                className="px-3 py-2 text-xs text-gray-900 border border-gray-200 font-bold uppercase cursor-pointer hover:text-blue-600 hover:underline"
+                                                onClick={() => handleEdit(s)}
                                             >
-                                                <option value="">Selecione uma turma...</option>
-                                                {classes.sort((a, b) => a.name.localeCompare(b.name)).map(c => (
-                                                    <option key={c.id} value={c.id}>{c.name}</option>
-                                                ))}
-                                            </select>
-                                        </div>
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-1">Status da Matrícula</label>
-                                            <select
-                                                className={inputClass}
-                                                value={studentForm.enrollmentStatus}
-                                                onChange={e => setStudentForm({ ...studentForm, enrollmentStatus: e.target.value as EnrollmentStatus })}
-                                            >
-                                                <option value="Pendente">Pendente</option>
-                                                <option value="Matriculado">Matriculado</option>
-                                                <option value="Aprovado">Aprovado</option>
-                                                <option value="Reprovado">Reprovado</option>
-                                                <option value="Cancelado">Cancelado</option>
-                                                <option value="Desligado">Desligado</option>
-                                            </select>
-                                        </div>
+                                                {s.name}
+                                            </td>
+                                            <td className="px-3 py-2 text-xs text-gray-500 border border-gray-200">{s.className}</td>
+                                            <td className="px-3 py-2 border border-gray-200 text-center">
+                                                <span className={`badge px-2 inline-flex text-[10px] leading-4 font-semibold rounded-full ${statusColor}`}>
+                                                    {s.enrollmentStatus.toUpperCase()}
+                                                </span>
+                                            </td>
+                                            <td className="px-3 py-2 text-xs text-gray-500 font-mono border border-gray-200 whitespace-nowrap">{s.registro}</td>
+                                            <td className="px-3 py-2 text-xs text-gray-500 font-mono border border-gray-200 whitespace-nowrap">{s.capCode}</td>
+
+                                            {/* Read-only Grade Data */}
+                                            <td className="px-4 py-4 whitespace-nowrap text-sm text-center font-bold text-blue-800 bg-blue-50 border border-gray-200">
+                                                {s.finalTheory ? s.finalTheory.toFixed(2) : '-'}
+                                            </td>
+                                            <td className="px-4 py-4 whitespace-nowrap text-sm text-center font-bold text-purple-800 bg-purple-50 border border-gray-200">
+                                                {s.finalPractical ? s.finalPractical.toFixed(2) : '-'}
+                                            </td>
+                                            <td className="px-4 py-4 whitespace-nowrap text-sm text-center font-bold text-gray-900 bg-gray-100 border border-gray-200">
+                                                {s.finalGrade ? s.finalGrade.toFixed(2) : '-'}
+                                            </td>
+
+                                            <td className="px-4 py-2 text-right text-xs font-medium border border-gray-200 whitespace-nowrap">
+                                                <div className="flex justify-end gap-2">
+                                                    {isManagerOrCoord && (
+                                                        <>
+                                                            <button
+                                                                onClick={() => handleEdit(s)}
+                                                                className="btn-base btn-edit px-3 py-1 text-xs"
+                                                                title="Editar"
+                                                            >
+                                                                EDITAR
+                                                            </button>
+                                                            <button
+                                                                onClick={() => handleDelete(s.id)}
+                                                                className="btn-base btn-delete px-3 py-1 text-xs"
+                                                                title="Excluir"
+                                                            >
+                                                                EXCLUIR
+                                                            </button>
+                                                        </>
+                                                    )}
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    {/* Pagination Controls */}
+                    {totalPages > 1 && (
+                        <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between bg-gray-50">
+                            <span className="text-sm text-gray-700 uppercase">
+                                Mostrando <span className="font-medium">{(startIndex) + 1}</span> a <span className="font-medium">{Math.min(endIndex, filtered.length)}</span> de <span className="font-medium">{filtered.length}</span> resultados
+                            </span>
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={() => handlePageChange(currentPage - 1)}
+                                    disabled={currentPage === 1}
+                                    className={`btn-base btn-pagination px-4 py-2 text-xs ${currentPage === 1 ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                >
+                                    ANTERIOR
+                                </button>
+                                <button
+                                    onClick={() => handlePageChange(currentPage + 1)}
+                                    disabled={currentPage === totalPages}
+                                    className={`btn-base btn-pagination px-4 py-2 text-xs ${currentPage === totalPages ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                >
+                                    PRÓXIMO
+                                </button>
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+            </div>
+
+            <StandardModal isOpen={showModal} onClose={handleCloseModal}>
+                <StandardModalHeader onClose={handleCloseModal} title="" />
+
+                <StandardModalBody>
+                    <form id="student-form" onSubmit={handleSave}>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
+                            {/* Section 1: Matricula & Turma */}
+                            <div className="col-span-2 p-4 rounded-lg border border-gray-200 mb-2 bg-gray-50">
+                                <h4 className="text-sm font-bold text-gray-700 mb-4 uppercase">Matrícula e Turma</h4>
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                                    <div>
+                                        <label className={labelClass}>SELECIONE O ANO</label>
+                                        <select
+                                            className={inputClass}
+                                            value={modalYear}
+                                            onChange={e => {
+                                                setModalYear(e.target.value);
+                                                setStudentForm({ ...studentForm, classId: '' }); // Reset class
+                                            }}
+                                        >
+                                            <option value="">TODOS</option>
+                                            {availableYears.map(y => <option key={y} value={y}>{y}</option>)}
+                                        </select>
                                     </div>
-                                    <p className="text-xs text-orange-600 mt-2">
-                                        * O número de Matrícula, Registro e CAP-BA serão gerados automaticamente com base na ordem alfabética da turma e no status do aluno.
-                                    </p>
+                                    <div className="col-span-2">
+                                        <label className={labelClass}>SELECIONE O CURSO</label>
+                                        <select
+                                            className={inputClass}
+                                            value={modalCourseId}
+                                            onChange={e => {
+                                                setModalCourseId(e.target.value);
+                                                setStudentForm({ ...studentForm, classId: '' }); // Reset class
+                                            }}
+                                        >
+                                            <option value="">TODOS</option>
+                                            {courses.sort((a, b) => a.name.localeCompare(b.name)).map(c => (
+                                                <option key={c.id} value={c.id}>{c.name}</option>
+                                            ))}
+                                        </select>
+                                    </div>
                                 </div>
 
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label className={labelClass}>Turma</label>
+                                        <select
+                                            className={inputClass}
+                                            value={studentForm.classId || ''}
+                                            onChange={e => setStudentForm({ ...studentForm, classId: e.target.value })}
+                                        >
+                                            <option value="">SELECIONE UMA TURMA</option>
+                                            {classes
+                                                .filter(c => {
+                                                    const today = new Date().toISOString().split('T')[0];
+                                                    // Filter logic: Year Match AND Course Match AND (EndDate >= Today)
+                                                    if (modalYear && new Date(c.startDate).getFullYear().toString() !== modalYear) return false;
+                                                    if (modalCourseId && c.courseId !== modalCourseId) return false;
+                                                    if (c.endDate && c.endDate < today) return false; // Filter out finished classes
+                                                    return true;
+                                                })
+                                                .sort((a, b) => a.name.localeCompare(b.name))
+                                                .map(c => (
+                                                    <option key={c.id} value={c.id}>{c.name}</option>
+                                                ))}
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className={labelClass}>Status da Matrícula</label>
+                                        <select
+                                            className={inputClass}
+                                            value={studentForm.enrollmentStatus}
+                                            onChange={e => setStudentForm({ ...studentForm, enrollmentStatus: e.target.value as EnrollmentStatus })}
+                                        >
+                                            <option value="Pendente">PENDENTE</option>
+                                            <option value="Matriculado">MATRICULADO</option>
+                                            <option value="Aprovado">APROVADO</option>
+                                            <option value="Reprovado">REPROVADO</option>
+                                            <option value="Cancelado">CANCELADO</option>
+                                            <option value="Desligado">DESLIGADO</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <p className="text-xs text-gray-500 mt-2 italic">
+                                    * O número de Matrícula, Registro e CAP-BA serão gerados automaticamente.
+                                </p>
+                            </div>
+
+                            {/* Section 2: Personal Info */}
+                            <div className="col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700">Nome Completo</label>
+                                    <label className={labelClass}>Nome Completo</label>
                                     <input required className={inputClass} value={studentForm.name || ''} onChange={e => setStudentForm({ ...studentForm, name: e.target.value.toUpperCase() })} />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700">CPF</label>
+                                    <label className={labelClass}>CPF</label>
                                     <input
                                         required
                                         className={inputClass}
@@ -512,83 +591,271 @@ export const StudentsPage: React.FC = () => {
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700">RG</label>
+                                    <label className={labelClass}>RG</label>
                                     <input className={inputClass} value={studentForm.rg || ''} onChange={e => setStudentForm({ ...studentForm, rg: e.target.value.toUpperCase() })} />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700">Orgão Emissor</label>
+                                    <label className={labelClass}>Orgão Emissor</label>
                                     <input className={inputClass} value={studentForm.rgIssuer || ''} onChange={e => setStudentForm({ ...studentForm, rgIssuer: e.target.value.toUpperCase() })} />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700">Data Nascimento</label>
+                                    <label className={labelClass}>Data Nascimento</label>
                                     <input type="date" className={inputClass} value={studentForm.birthDate || ''} onChange={e => setStudentForm({ ...studentForm, birthDate: e.target.value })} />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700">Telefone</label>
-                                    <input className={inputClass} value={studentForm.phone || ''} onChange={e => setStudentForm({ ...studentForm, phone: e.target.value })} />
+                                    <label className={labelClass}>Telefone</label>
+                                    <div className="flex items-center gap-2">
+                                        <input
+                                            className={inputClass}
+                                            value={studentForm.phone || ''}
+                                            onChange={e => {
+                                                let value = e.target.value.replace(/\D/g, '');
+                                                if (value.length > 11) value = value.slice(0, 11);
+
+                                                if (value.length > 2) {
+                                                    value = `(${value.slice(0, 2)}) ${value.slice(2)}`;
+                                                }
+                                                if (value.length > 7) {
+                                                    value = `${value.slice(0, 9)}-${value.slice(9)}`; // (XX) XXXXX-XXXX (Adjusted correctly for length including parens/spaces)
+                                                    // Re-calculate to be safe: 
+                                                    // (XX) XXXXX-XXXX
+                                                    //  012345678901234
+                                                    // raw: 11
+                                                }
+                                                // Simpler formatter for strict (XX) XXXXX-XXXX
+                                                const raw = e.target.value.replace(/\D/g, '').slice(0, 11);
+                                                let formatted = raw;
+                                                if (raw.length > 0) {
+                                                    formatted = raw.replace(/^(\d{2})(\d)/g, '($1) $2');
+                                                    formatted = formatted.replace(/(\d)(\d{4})$/, '$1-$2');
+                                                }
+                                                setStudentForm({ ...studentForm, phone: formatted });
+                                            }}
+                                            placeholder="(XX) XXXXX-XXXX"
+                                            maxLength={15}
+                                        />
+                                        {studentForm.phone && (
+                                            <a
+                                                href={`https://wa.me/55${studentForm.phone.replace(/\D/g, '')}`}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="p-2 bg-green-100 text-green-600 rounded-md hover:bg-green-200 transition-colors"
+                                                title="Conversar no WhatsApp"
+                                            >
+                                                <MessageCircle size={20} />
+                                            </a>
+                                        )}
+                                    </div>
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700">Email</label>
+                                    <label className={labelClass}>Email</label>
                                     <input type="email" className={inputClass} value={studentForm.email || ''} onChange={e => setStudentForm({ ...studentForm, email: e.target.value })} />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700">Naturalidade</label>
+                                    <label className={labelClass}>Naturalidade</label>
                                     <input className={inputClass} value={studentForm.origin || ''} onChange={e => setStudentForm({ ...studentForm, origin: e.target.value.toUpperCase() })} />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700">Endereço</label>
+                                    <label className={labelClass}>Endereço</label>
                                     <input className={inputClass} value={studentForm.address || ''} onChange={e => setStudentForm({ ...studentForm, address: e.target.value.toUpperCase() })} />
                                 </div>
+
+                                {/* Employee Box */}
+                                <div className="p-4 border border-gray-200 rounded-lg bg-gray-50 flex flex-col gap-4">
+                                    <div className="flex items-center gap-2">
+                                        <input
+                                            type="checkbox"
+                                            id="isEmployee"
+                                            className="w-4 h-4 text-[#FF6B35] border-gray-300 rounded focus:ring-[#FF6B35]"
+                                            checked={studentForm.isEmployee || false}
+                                            onChange={e => {
+                                                const isChecked = e.target.checked;
+                                                setStudentForm({
+                                                    ...studentForm,
+                                                    isEmployee: isChecked,
+                                                    baseId: isChecked ? studentForm.baseId : undefined // Clear base if unchecked
+                                                });
+                                            }}
+                                        />
+                                        <label htmlFor="isEmployee" className="text-sm font-semibold text-gray-700 select-none cursor-pointer">
+                                            FUNCIONÁRIO
+                                        </label>
+                                    </div>
+
+                                    {studentForm.isEmployee && (
+                                        <div className="animate-fade-in">
+                                            <label className={labelClass}>Base Cadastrada</label>
+                                            <select
+                                                className={inputClass}
+                                                value={studentForm.baseId || ''}
+                                                onChange={e => setStudentForm({ ...studentForm, baseId: e.target.value })}
+                                            >
+                                                <option value="">Selecione a Base</option>
+                                                {bases.map(base => (
+                                                    <option key={base.id} value={base.id}>
+                                                        {base.name}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    )}
+                                </div>
+
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700">Nacionalidade</label>
+                                    <label className={labelClass}>Nacionalidade</label>
                                     <input className={inputClass} value={studentForm.nationality || ''} onChange={e => setStudentForm({ ...studentForm, nationality: e.target.value.toUpperCase() })} />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700">Nome da Mãe</label>
+                                    <label className={labelClass}>Nome da Mãe</label>
                                     <input className={inputClass} value={studentForm.motherName || ''} onChange={e => setStudentForm({ ...studentForm, motherName: e.target.value.toUpperCase() })} />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700">Nome do Pai</label>
+                                    <label className={labelClass}>Nome do Pai</label>
                                     <input className={inputClass} value={studentForm.fatherName || ''} onChange={e => setStudentForm({ ...studentForm, fatherName: e.target.value.toUpperCase() })} />
                                 </div>
                             </div>
 
                             {/* Documents Section */}
-                            <div className="bg-orange-50 p-4 rounded-md border border-orange-100 mb-6">
-                                <h4 className="text-sm font-bold text-orange-900 mb-3 flex items-center">
-                                    <FileText size={16} className="mr-2" />
-                                    Documentos
-                                </h4>
-                                <div className="border-2 border-dashed border-orange-200 rounded-lg p-6 text-center bg-white">
-                                    <div className="flex flex-col items-center justify-center">
-                                        <div className="p-3 bg-orange-100 rounded-full mb-3">
-                                            <Upload className="text-orange-600" size={24} />
-                                        </div>
-                                        <p className="text-sm text-gray-600 mb-2">
-                                            Arraste e solte arquivos aqui ou clique para selecionar
-                                        </p>
-                                        <p className="text-xs text-gray-400 mb-4">
-                                            (Máximo: 10 arquivos)
-                                        </p>
-                                        <button
-                                            type="button"
-                                            onClick={() => alert('Funcionalidade ainda não implementada.')}
-                                            className="px-4 py-2 bg-white border border-gray-300 rounded text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500"
-                                        >
-                                            Adicionar Documento
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
+                            {/* Documents Section - Only for CBA-2 */}
+                            {(() => {
+                                const selectedClass = classes.find(c => c.id === studentForm.classId);
+                                const selectedCourse = courses.find(c => c.id === selectedClass?.courseId);
+                                const isCBA2 = selectedCourse?.type === CourseType.CBA_2 || selectedCourse?.type === CourseType.CBA_2_COMP;
+                                const isCBA_AT = selectedCourse?.type === CourseType.CBA_AT;
+                                const isCBA_MC = selectedCourse?.type === CourseType.CBA_MC;
+                                const isCBA_CE = selectedCourse?.type === CourseType.CBA_CE;
+                                const isManagerOrCoord = currentUser?.role === 'Gestor' || currentUser?.role === 'Coordenador';
 
-                            <div className="flex justify-end mt-6 pt-4 border-t border-gray-100 space-x-3">
-                                <button type="button" onClick={handleCloseModal} className="px-6 py-2.5 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 font-medium transition-colors">Cancelar</button>
-                                <button type="submit" className="btn-premium bg-gradient-to-r from-primary-600 to-primary-500 hover:from-primary-700 hover:to-primary-600 text-white px-8 py-2.5 rounded-lg font-semibold shadow-md transition-all duration-200">Salvar Aluno</button>
-                            </div>
-                        </form>
+                                if (!isCBA2 && !isCBA_AT && !isCBA_MC && !isCBA_CE) return null;
+
+                                let requiredDocs: { key: string; label: string; optional?: boolean }[] = [];
+
+                                if (isCBA2) {
+                                    requiredDocs = [
+                                        { key: 'physicalAptitude', label: 'ATESTADO DE APTIDÃO FÍSICA' },
+                                        { key: 'psychologicalAptitude', label: 'ATESTADO DE APTIDÃO PSICOLÓGICA' },
+                                        { key: 'photoId', label: 'DOCUMENTO COM FOTO' },
+                                        { key: 'firefighterCertificate', label: 'CERTIFICADO DE BOMBEIRO CIVIL OU FORMAÇÃO DE BOMBEIRO MILITAR' },
+                                        { key: 'highSchoolCertificate', label: 'CERTIFICADO DE ENSINO MÉDIO OU EQUIVALENTE' },
+                                        { key: 'contract', label: 'CONTRATO', optional: true },
+                                    ];
+                                } else if (isCBA_AT) {
+                                    requiredDocs = [
+                                        { key: 'physicalAptitude', label: 'ATESTADO DE APTIDÃO FÍSICA' },
+                                        { key: 'psychologicalAptitude', label: 'ATESTADO DE APTIDÃO PSICOLÓGICA' },
+                                        { key: 'aerodromeCertificate', label: 'CERTIFICADO DE BOMBEIRO DE AERÓDROMO' },
+                                        { key: 'contract', label: 'CONTRATO', optional: true },
+                                    ];
+                                } else if (isCBA_MC) {
+                                    requiredDocs = [
+                                        { key: 'physicalAptitude', label: 'ATESTADO DE APTIDÃO FÍSICA' },
+                                        { key: 'psychologicalAptitude', label: 'ATESTADO DE APTIDÃO PSICOLÓGICA' },
+                                        { key: 'aerodromeCertificate', label: 'CERTIFICADO DE BOMBEIRO DE AERÓDROMO' },
+                                        { key: 'cnh', label: 'CARTEIRA NACIONAL DE HABILITAÇÃO (CNH)' },
+                                        { key: 'emergencyDriverCertificate', label: 'CERTIFICADO DE CONDUTOR E VEÍCULOS DE EMERGÊNCIA' },
+                                        { key: 'contract', label: 'CONTRATO', optional: true },
+                                    ];
+                                } else if (isCBA_CE) {
+                                    requiredDocs = [
+                                        { key: 'physicalAptitude', label: 'ATESTADO DE APTIDÃO FÍSICA' },
+                                        { key: 'psychologicalAptitude', label: 'ATESTADO DE APTIDÃO PSICOLÓGICA' },
+                                        { key: 'aerodromeCertificate', label: 'CERTIFICADO DE BOMBEIRO DE AERÓDROMO' },
+                                        { key: 'contract', label: 'CONTRATO', optional: true },
+                                    ];
+                                }
+
+                                return (
+                                    <div className="col-span-2 p-5 rounded-lg border border-gray-200 mb-6 bg-gray-50 flex flex-col gap-6">
+                                        <h4 className="text-sm font-bold text-gray-800 flex items-center uppercase border-b border-gray-200 pb-2">
+                                            <FileText size={16} className="mr-2 text-[#FF6B35]" />
+                                            DOCUMENTAÇÃO OBRIGATÓRIA
+                                        </h4>
+
+                                        <div className="flex flex-col gap-4">
+                                            {/* Required Docs */}
+                                            {requiredDocs.map((doc) => {
+                                                const fileUrl = studentForm.documents?.[doc.key as keyof typeof studentForm.documents];
+                                                const hasFile = !!fileUrl;
+
+                                                return (
+                                                    <div key={doc.key} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 bg-white border border-gray-200 rounded-md hover:border-gray-300 transition-colors">
+                                                        <label className="text-[11px] font-bold text-gray-700 uppercase leading-tight max-w-md flex-1">
+                                                            {doc.label}
+                                                            {!doc.optional && <span className="text-red-500 ml-1">*</span>}
+                                                        </label>
+
+                                                        <div className="flex items-center gap-3 shrink-0">
+                                                            <div className="relative overflow-hidden group">
+                                                                <input
+                                                                    type="file"
+                                                                    className={`block w-full text-[10px]
+                                                                        file:mr-2 file:py-1.5 file:px-3
+                                                                        file:rounded-md file:border-0
+                                                                        file:text-[10px] file:font-semibold
+                                                                        file:uppercase file:cursor-pointer
+                                                                        ${hasFile
+                                                                            ? 'text-green-600 file:bg-green-100 file:text-green-700 hover:file:bg-green-200'
+                                                                            : 'text-gray-500 file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200'
+                                                                        }`}
+                                                                    onChange={(e) => {
+                                                                        const file = e.target.files?.[0];
+                                                                        if (file) {
+                                                                            setStudentForm(prev => {
+                                                                                const newDocs = { ...prev.documents, [doc.key]: URL.createObjectURL(file) };
+                                                                                return { ...prev, documents: newDocs };
+                                                                            });
+                                                                        }
+                                                                    }}
+                                                                />
+                                                            </div>
+
+                                                            {hasFile && isManagerOrCoord && (
+                                                                <a
+                                                                    href={fileUrl}
+                                                                    download={`${doc.key}.pdf`} // Simple mock download
+                                                                    className="p-1.5 bg-gray-100 text-gray-600 rounded hover:bg-gray-200 transition-colors"
+                                                                    title="Baixar Documento"
+                                                                >
+                                                                    <Download size={14} />
+                                                                </a>
+                                                            )}
+
+                                                            {hasFile && (
+                                                                <div className="text-green-500" title="Documento Anexado">
+                                                                    <CheckSquare size={16} />
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                );
+                            })()}
+                        </div>
+                    </form>
+                </StandardModalBody>
+
+                <StandardModalFooter>
+                    <div className="flex justify-end gap-3 p-4">
+                        <button
+                            type="button"
+                            onClick={handleCloseModal}
+                            className="btn-base btn-delete px-6 py-2.5 text-xs"
+                        >
+                            CANCELAR
+                        </button>
+                        <button
+                            type="submit"
+                            form="student-form"
+                            className="btn-base btn-save px-8 py-2.5"
+                        >
+                            SALVAR ALUNO
+                        </button>
                     </div>
-                </div>
-            )}
-        </div>
+                </StandardModalFooter>
+            </StandardModal>
+        </>
     );
 };

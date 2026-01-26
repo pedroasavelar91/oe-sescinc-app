@@ -1,9 +1,9 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { User, Course, ClassGroup, Student, Task, UserRole, AttendanceLog, GradeLog, PaymentRecord, ChecklistTemplate, ChecklistLog, Notification, SwapRequest, Firefighter, FirefighterLog, Base, Folder, DocumentFile, SetupTeardownAssignment, Question, QuestionReview, QuestionApprover, TrainingSchedule } from '../types';
+import { User, Course, ClassGroup, Student, Task, UserRole, AttendanceLog, GradeLog, PaymentRecord, ChecklistTemplate, ChecklistLog, Notification, SwapRequest, Firefighter, FirefighterLog, Base, Folder, DocumentFile, SetupTeardownAssignment, Question, QuestionReview, QuestionApprover, TrainingSchedule, ClassPhoto } from '../types';
 
 import { supabase, isSupabaseConfigured } from '../services/supabase';
-import { mapStudentFromDB, mapStudentToDB, mapTaskFromDB, mapTaskToDB, mapAttendanceLogFromDB, mapAttendanceLogToDB, mapGradeLogFromDB, mapGradeLogToDB, mapPaymentFromDB, mapPaymentToDB, mapChecklistTemplateFromDB, mapChecklistTemplateToDB, mapChecklistLogFromDB, mapChecklistLogToDB, mapFirefighterFromDB, mapFirefighterToDB, mapFirefighterLogFromDB, mapFirefighterLogToDB, mapBaseFromDB, mapBaseToDB, mapUserFromDB, mapUserToDB } from '../services/dataMappers';
+import { mapStudentFromDB, mapStudentToDB, mapTaskFromDB, mapTaskToDB, mapAttendanceLogFromDB, mapAttendanceLogToDB, mapGradeLogFromDB, mapGradeLogToDB, mapPaymentFromDB, mapPaymentToDB, mapChecklistTemplateFromDB, mapChecklistTemplateToDB, mapChecklistLogFromDB, mapChecklistLogToDB, mapFirefighterFromDB, mapFirefighterToDB, mapFirefighterLogFromDB, mapFirefighterLogToDB, mapBaseFromDB, mapBaseToDB, mapUserFromDB, mapUserToDB, mapQuestionFromDB, mapQuestionToDB, mapQuestionReviewFromDB, mapQuestionReviewToDB, mapQuestionApproverFromDB, mapQuestionApproverToDB, mapClassPhotoFromDB, mapClassPhotoToDB } from '../services/dataMappers';
 
 interface StoreContextType {
     currentUser: User | null;
@@ -29,6 +29,9 @@ interface StoreContextType {
     questionReviews: QuestionReview[];
     questionApprovers: QuestionApprover[];
     trainingSchedules: TrainingSchedule[];
+    classPhotos: ClassPhoto[];
+    addClassPhoto: (photo: ClassPhoto) => Promise<void>;
+    deleteClassPhoto: (id: string) => Promise<void>;
 
     loading: boolean;
     login: (email: string) => Promise<void>;
@@ -56,6 +59,7 @@ interface StoreContextType {
     deleteTask: (id: string) => Promise<void>;
 
     addAttendanceLog: (log: AttendanceLog) => Promise<void>;
+    updateAttendanceLog: (log: AttendanceLog) => Promise<void>;
     addGradeLog: (log: GradeLog) => Promise<void>;
     addPayment: (payment: PaymentRecord) => Promise<void>;
     deletePayment: (id: string) => Promise<void>;
@@ -292,9 +296,25 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const [questions, setQuestions] = useState<Question[]>([]);
     const [questionReviews, setQuestionReviews] = useState<QuestionReview[]>([]);
     const [questionApprovers, setQuestionApprovers] = useState<QuestionApprover[]>([]);
+    const [classPhotos, setClassPhotos] = useState<ClassPhoto[]>([]);
 
     // Initial Load
     useEffect(() => {
+        const storedUser = localStorage.getItem('medgroup_user');
+        if (storedUser) {
+            try {
+                const parsedUser = JSON.parse(storedUser);
+                // Validation: Check if ID is a valid UUID (approximate check by length)
+                if (parsedUser.id.length < 30) {
+                    console.warn('⚠️ Legacy User ID detected. Clearing session to enforce UUIDs.');
+                    localStorage.removeItem('medgroup_user');
+                    window.location.reload(); // Force reload to clear state
+                    return;
+                }
+            } catch (e) {
+                console.error('Error parsing stored user:', e);
+            }
+        }
         fetchInitialData();
     }, []);
 
@@ -406,9 +426,9 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
             try {
                 // Check if we need to seed (If users OR courses OR classes are missing)
-                const { count: userCount } = await supabase.from('users').select('*', { count: 'exact', head: true });
-                const { count: courseCount } = await supabase.from('courses').select('*', { count: 'exact', head: true });
-                const { count: classCount } = await supabase.from('classes').select('*', { count: 'exact', head: true });
+                // const { count: userCount } = await supabase.from('users').select('*', { count: 'exact', head: true });
+                // const { count: courseCount } = await supabase.from('courses').select('*', { count: 'exact', head: true });
+                // const { count: classCount } = await supabase.from('classes').select('*', { count: 'exact', head: true });
 
                 // SEED DISABLED
                 // if ((userCount === 0 || courseCount === 0 || classCount === 0)) {
@@ -464,6 +484,9 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
                 await Promise.all([
                     safeFetch('users', setUsers, mapUserFromDB),
+                    safeFetch('questions', setQuestions, mapQuestionFromDB),
+                    safeFetch('question_reviews', setQuestionReviews, mapQuestionReviewFromDB),
+                    safeFetch('question_approvers', setQuestionApprovers, mapQuestionApproverFromDB),
                     safeFetch('courses', setCourses, mapCourseFromDB),
                     safeFetch('classes', setClasses, mapClassFromDB),
                     safeFetch('students', setStudents, mapStudentFromDB),
@@ -493,6 +516,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                         date: db.date,
                         notes: db.notes
                     })),
+                    safeFetch('class_photos', setClassPhotos, mapClassPhotoFromDB)
                 ]);
             } catch (e) {
                 console.error("Critical Supabase connection error:", e);
@@ -530,7 +554,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             if (!user && email === 'admin@medgroup.com') {
                 console.log("⚠️ Emergency Mode: Creating temporary Admin user");
                 const rescueAdmin: User = {
-                    id: 'admin-master',
+                    id: 'a0000000-0000-0000-0000-000000000000',
                     name: 'Administrador Master',
                     cpf: '000.000.000-00',
                     role: UserRole.GESTOR,
@@ -557,6 +581,9 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             }
 
             if (user) {
+                if (user.isActive === false) {
+                    throw new Error("Acesso negado. Usuário inativo.");
+                }
                 setCurrentUser(user);
                 localStorage.setItem('medgroup_user', JSON.stringify(user));
             } else {
@@ -719,11 +746,21 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         await syncWithSupabase('students', 'DELETE', null, id);
     };
 
+    const addClassPhoto = async (photo: ClassPhoto) => {
+        setClassPhotos(prev => [...prev, photo]);
+        await syncWithSupabase('class_photos', 'INSERT', mapClassPhotoToDB(photo));
+    };
+
+    const deleteClassPhoto = async (id: string) => {
+        setClassPhotos(prev => prev.filter(p => p.id !== id));
+        await syncWithSupabase('class_photos', 'DELETE', null, id);
+    };
+
     const addTask = async (task: Task) => {
         // Initialize logs if empty
         if (!task.logs || task.logs.length === 0) {
             task.logs = [{
-                id: Math.random().toString(36).substr(2, 9),
+                id: crypto.randomUUID(),
                 timestamp: new Date().toISOString(),
                 userId: currentUser?.id || 'system',
                 userName: currentUser?.name || 'Sistema',
@@ -738,7 +775,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         // Notify Assignee
         if (task.assigneeId && task.assigneeId !== currentUser?.id) {
             const notif: Notification = {
-                id: Math.random().toString(36).substr(2, 9),
+                id: crypto.randomUUID(),
                 userId: task.assigneeId,
                 title: 'Nova Tarefa Atribuída',
                 message: `Você recebeu uma nova tarefa: ${task.title}`,
@@ -760,7 +797,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         // Notify completion to creator
         if (oldTask && oldTask.status !== 'Concluída' && task.status === 'Concluída' && task.creatorId !== currentUser?.id) {
             const notif: Notification = {
-                id: Math.random().toString(36).substr(2, 9),
+                id: crypto.randomUUID(),
                 userId: task.creatorId,
                 title: 'Tarefa Concluída',
                 message: `${currentUser?.name} concluiu a tarefa: ${task.title}`,
@@ -776,7 +813,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         // Notify Request Finish
         if (oldTask && oldTask.status !== 'Aguardando Aprovação' && task.status === 'Aguardando Aprovação') {
             const notif: Notification = {
-                id: Math.random().toString(36).substr(2, 9),
+                id: crypto.randomUUID(),
                 userId: task.creatorId,
                 title: 'Aprovação Necessária',
                 message: `${currentUser?.name} solicitou conclusão da tarefa: ${task.title}`,
@@ -798,6 +835,11 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const addAttendanceLog = async (log: AttendanceLog) => {
         setAttendanceLogs([...attendanceLogs, log]);
         await syncWithSupabase('attendance_logs', 'INSERT', mapAttendanceLogToDB(log));
+    };
+
+    const updateAttendanceLog = async (log: AttendanceLog) => {
+        setAttendanceLogs(prev => prev.map(l => l.id === log.id ? log : l));
+        await syncWithSupabase('attendance_logs', 'UPDATE', mapAttendanceLogToDB(log));
     };
 
     const addGradeLog = async (log: GradeLog) => {
@@ -849,7 +891,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const requestSwap = async (request: Partial<SwapRequest>) => {
         if (!currentUser) return;
         const newReq: SwapRequest = {
-            id: Math.random().toString(36).substr(2, 9),
+            id: crypto.randomUUID(),
             requesterId: currentUser.id,
             requesterName: currentUser.name,
             targetInstructorId: request.targetInstructorId!,
@@ -867,7 +909,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         await syncWithSupabase('swap_requests', 'INSERT', mapSwapRequestToDB(newReq));
 
         const notif: Notification = {
-            id: Math.random().toString(36).substr(2, 9),
+            id: crypto.randomUUID(),
             userId: newReq.targetInstructorId,
             title: 'Solicitação de Troca de Aula',
             message: `${currentUser.name} solicitou uma troca para a turma ${newReq.className} no dia ${new Date(newReq.date).toLocaleDateString()}.`,
@@ -889,7 +931,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         await syncWithSupabase('swap_requests', 'UPDATE', mapSwapRequestToDB(updatedReq));
 
         const notif: Notification = {
-            id: Math.random().toString(36).substr(2, 9),
+            id: crypto.randomUUID(),
             userId: req.requesterId,
             title: `Troca de Aula ${approved ? 'Aceita' : 'Recusada'}`,
             message: `${currentUser?.name} ${approved ? 'aceitou' : 'recusou'} sua solicitação de troca.`,
@@ -1082,7 +1124,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             currentUser, users, courses, classes, students, tasks, attendanceLogs, gradeLogs, payments, checklistTemplates, checklistLogs, notifications, swapRequests, firefighters, firefighterLogs, bases, folders, documents, setupTeardownAssignments, questions, questionReviews, questionApprovers,
             loading, login, logout,
             addUser, addCourse, updateCourse, deleteCourse, addClass, updateClass, deleteClass, addStudent, updateStudent, deleteStudent, addTask, updateTask, deleteTask,
-            addAttendanceLog, addGradeLog, addPayment, deletePayment, addChecklistLog, updateChecklistTemplate,
+            addAttendanceLog,
+            updateAttendanceLog,
+            addGradeLog,
+            addPayment, deletePayment, addChecklistLog, updateChecklistTemplate,
             markNotificationAsRead, requestSwap, resolveSwapRequest,
             addFirefighter, updateFirefighter, deleteFirefighter, addFirefighterLog,
             addBase, deleteBase, updateUser, deleteUser,
@@ -1302,20 +1347,28 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                 if (!question) return;
 
                 const reviewer = users.find(u => u.id === reviewerId);
+                let validUntil = question.validUntil;
+                if (action === 'Aprovada') {
+                    const date = new Date();
+                    date.setDate(date.getDate() + 180);
+                    validUntil = date.toISOString();
+                }
+
                 const updatedQuestion: Question = {
                     ...question,
                     status: action,
                     reviewerId,
                     reviewerName: reviewer?.name || '',
                     reviewedAt: new Date().toISOString(),
-                    reviewNotes: notes
+                    reviewNotes: notes,
+                    validUntil
                 };
 
                 setQuestions(questions.map(q => q.id === questionId ? updatedQuestion : q));
 
                 // Add review to history
                 const review: QuestionReview = {
-                    id: Math.random().toString(36).substr(2, 9),
+                    id: crypto.randomUUID(),
                     questionId,
                     reviewerId,
                     reviewerName: reviewer?.name || '',
@@ -1332,7 +1385,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                         reviewer_id: updatedQuestion.reviewerId,
                         reviewer_name: updatedQuestion.reviewerName,
                         reviewed_at: updatedQuestion.reviewedAt,
-                        review_notes: updatedQuestion.reviewNotes
+                        review_notes: updatedQuestion.reviewNotes,
+                        valid_until: updatedQuestion.validUntil
                     });
 
                     await syncWithSupabase('question_reviews', 'INSERT', {
@@ -1349,7 +1403,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
             addApprover: async (userId: string, userName: string, assignedBy: string) => {
                 const approver: QuestionApprover = {
-                    id: Math.random().toString(36).substr(2, 9),
+                    id: crypto.randomUUID(),
                     userId,
                     userName,
                     assignedBy,
@@ -1402,7 +1456,11 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             trainingSchedules,
             addTrainingSchedule,
             updateTrainingSchedule,
-            deleteTrainingSchedule
+            deleteTrainingSchedule,
+
+            classPhotos,
+            addClassPhoto,
+            deleteClassPhoto
         }}>
             {children}
         </StoreContext.Provider >

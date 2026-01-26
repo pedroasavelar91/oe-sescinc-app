@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { useStore } from '../context/AppStore';
 import { UserRole, ChecklistType, ChecklistItemResult, ChecklistLog, ChecklistItemDefinition } from '../types';
-import { ClipboardList, CheckCircle, XCircle, Plus, Trash2, Camera, MessageSquare, AlertTriangle, Eye, Settings, Truck, PlusCircle } from 'lucide-react';
+import { ClipboardList, CheckCircle, XCircle, Plus, Trash2, Camera, MessageSquare, AlertTriangle, Eye, Settings, Truck, PlusCircle, BookOpen } from 'lucide-react';
 import { getCurrentDateString } from '../utils/dateUtils';
 
 export const ChecklistsPage: React.FC = () => {
@@ -32,7 +32,7 @@ export const ChecklistsPage: React.FC = () => {
     const availableTemplates = checklistTemplates.filter(t => {
         if (isManager) return true;
         if (isDriver) return t.type === 'VEICULO';
-        if (isInstructor) return t.type === 'EQUIPAMENTOS';
+        if (isInstructor) return t.type === 'EQUIPAMENTOS' || t.type === 'CURSO';
         return false;
     });
 
@@ -156,20 +156,20 @@ export const ChecklistsPage: React.FC = () => {
                         onClick={() => setActiveTab('fill')}
                         className={`${activeTab === 'fill' ? 'border-primary-500 text-primary-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center gap-2`}
                     >
-                        <ClipboardList size={18} /> Preencher
+                        <ClipboardList size={18} /> PREENCHER
                     </button>
                     <button
                         onClick={() => setActiveTab('history')}
                         className={`${activeTab === 'history' ? 'border-primary-500 text-primary-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center gap-2`}
                     >
-                        <ClipboardList size={18} /> Histórico
+                        <ClipboardList size={18} /> HISTÓRICO
                     </button>
                     {isManager && (
                         <button
                             onClick={() => setActiveTab('manage')}
                             className={`${activeTab === 'manage' ? 'border-primary-500 text-primary-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center gap-2`}
                         >
-                            <Settings size={18} /> Gerenciar Modelos
+                            <Settings size={18} /> GERENCIAR MODELOS
                         </button>
                     )}
                 </nav>
@@ -182,26 +182,48 @@ export const ChecklistsPage: React.FC = () => {
                 <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 animate-fade-in">
                     {!selectedType ? (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            {availableTemplates.map(t => (
-                                <button
-                                    key={t.id}
-                                    onClick={() => handleStartChecklist(t.type)}
-                                    className="relative overflow-hidden group bg-white p-8 rounded-xl border border-gray-200 shadow-sm hover:shadow-md hover:border-primary-500 transition-all duration-300 text-left"
-                                >
-                                    <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                                        <ClipboardList size={120} className="text-primary-600 transform rotate-12 translate-x-8 -translate-y-8" />
-                                    </div>
-                                    <div className="relative z-10">
-                                        <div className="w-14 h-14 bg-primary-50 rounded-lg flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300">
-                                            <ClipboardList size={32} className="text-primary-600" />
+                            {availableTemplates.map(t => {
+                                const isDisabled = t.type === 'CURSO';
+                                return (
+                                    <button
+                                        key={t.id}
+                                        onClick={() => !isDisabled && handleStartChecklist(t.type)}
+                                        disabled={isDisabled}
+                                        className={`relative overflow-hidden group bg-white p-8 rounded-xl border border-gray-200 shadow-sm transition-all duration-300 text-left ${isDisabled
+                                            ? 'opacity-60 cursor-not-allowed'
+                                            : 'hover:shadow-md hover:border-primary-500'
+                                            }`}
+                                    >
+                                        {isDisabled && (
+                                            <div className="absolute top-4 right-4 z-20">
+                                                <span className="bg-orange-100 text-orange-700 text-xs font-bold px-3 py-1 rounded-full border border-orange-200 uppercase">
+                                                    Em Breve
+                                                </span>
+                                            </div>
+                                        )}
+                                        <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                                            {t.type === 'VEICULO' && <Truck size={120} className="text-blue-600 transform rotate-12 translate-x-8 -translate-y-8" />}
+                                            {t.type === 'EQUIPAMENTOS' && <Settings size={120} className="text-orange-600 transform rotate-12 translate-x-8 -translate-y-8" />}
+                                            {t.type === 'CURSO' && <BookOpen size={120} className="text-green-600 transform rotate-12 translate-x-8 -translate-y-8" />}
                                         </div>
-                                        <h3 className="text-xl font-bold text-gray-900 mb-2">{t.title}</h3>
-                                        <p className="text-gray-500 text-sm leading-relaxed">
-                                            {t.type === 'VEICULO' ? 'Verificação diária completa das condições de segurança e operacionais da carreta e caminhão.' : 'Controle rigoroso de materiais e equipamentos utilizados em cursos e treinamentos.'}
-                                        </p>
-                                    </div>
-                                </button>
-                            ))}
+                                        <div className="relative z-10">
+                                            <div className={`w-14 h-14 rounded-lg flex items-center justify-center mb-6 transition-transform duration-300 ${!isDisabled && 'group-hover:scale-110'
+                                                } ${t.type === 'VEICULO' ? 'bg-blue-50' : t.type === 'EQUIPAMENTOS' ? 'bg-orange-50' : 'bg-green-50'
+                                                }`}>
+                                                {t.type === 'VEICULO' && <Truck size={32} className="text-blue-600" />}
+                                                {t.type === 'EQUIPAMENTOS' && <Settings size={32} className="text-orange-600" />}
+                                                {t.type === 'CURSO' && <BookOpen size={32} className="text-green-600" />}
+                                            </div>
+                                            <h3 className="text-xl font-bold text-gray-900 mb-2 uppercase">{t.title}</h3>
+                                            <p className="text-gray-500 text-sm leading-relaxed">
+                                                {t.type === 'VEICULO' && 'Verificação diária completa das condições de segurança e operacionais da carreta e caminhão.'}
+                                                {t.type === 'EQUIPAMENTOS' && 'Controle rigoroso de materiais e equipamentos utilizados em cursos e treinamentos.'}
+                                                {t.type === 'CURSO' && 'Conferência completa de todos os requisitos e materiais necessários para realização do curso.'}
+                                            </p>
+                                        </div>
+                                    </button>
+                                );
+                            })}
                             {availableTemplates.length === 0 && (
                                 <div className="col-span-full text-center py-12 bg-gray-50 rounded-xl border border-dashed border-gray-300">
                                     <ClipboardList size={48} className="mx-auto text-gray-300 mb-4" />
@@ -226,26 +248,26 @@ export const ChecklistsPage: React.FC = () => {
 
                             {/* Context Fields */}
                             {selectedType === 'EQUIPAMENTOS' && (
-                                <div className="bg-blue-50 border border-blue-100 rounded-xl p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="bg-orange-50 border border-orange-100 rounded-xl p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
                                     <div>
-                                        <label className="block text-sm font-semibold text-blue-900 mb-2">Turma</label>
-                                        <select className="w-full bg-white border-blue-200 text-blue-900 rounded-lg focus:ring-blue-500 focus:border-blue-500" value={selectedClassId} onChange={e => setSelectedClassId(e.target.value)}>
+                                        <label className="block text-sm font-semibold text-orange-900 mb-2 uppercase">Turma</label>
+                                        <select className="w-full bg-white border-orange-200 text-orange-900 rounded-lg focus:ring-orange-500 focus:border-orange-500" value={selectedClassId} onChange={e => setSelectedClassId(e.target.value)}>
                                             <option value="">Selecione a turma...</option>
                                             {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                                         </select>
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-semibold text-blue-900 mb-2">Etapa</label>
-                                        <div className="flex bg-white rounded-lg p-1 border border-blue-200">
+                                        <label className="block text-sm font-semibold text-orange-900 mb-2 uppercase">Etapa</label>
+                                        <div className="flex bg-white rounded-lg p-1 border border-orange-200">
                                             <button
                                                 onClick={() => setSelectedStage('INICIO')}
-                                                className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-all ${selectedStage === 'INICIO' ? 'bg-blue-100 text-blue-700 shadow-sm' : 'text-gray-500 hover:bg-gray-50'}`}
+                                                className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-all uppercase ${selectedStage === 'INICIO' ? 'bg-orange-100 text-orange-700 shadow-sm' : 'text-gray-500 hover:bg-gray-50'}`}
                                             >
                                                 Início
                                             </button>
                                             <button
                                                 onClick={() => setSelectedStage('TERMINO')}
-                                                className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-all ${selectedStage === 'TERMINO' ? 'bg-blue-100 text-blue-700 shadow-sm' : 'text-gray-500 hover:bg-gray-50'}`}
+                                                className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-all uppercase ${selectedStage === 'TERMINO' ? 'bg-orange-100 text-orange-700 shadow-sm' : 'text-gray-500 hover:bg-gray-50'}`}
                                             >
                                                 Término
                                             </button>
@@ -293,18 +315,16 @@ export const ChecklistsPage: React.FC = () => {
                                                             <div className="flex items-center bg-gray-100 rounded-lg p-1">
                                                                 <button
                                                                     onClick={() => handleItemChange(item.id, 'status', 'Conforme')}
-                                                                    className={`px-4 py-2 rounded-md text-sm font-medium transition-all flex items-center gap-2 ${result.status === 'Conforme' ? 'bg-white text-green-700 shadow-sm ring-1 ring-black/5' : 'text-gray-500 hover:text-gray-700'}`}
+                                                                    className={`px-4 py-2 rounded-md text-sm font-medium transition-all flex items-center gap-2 uppercase font-bold text-xs ${result.status === 'Conforme' ? 'bg-white text-green-700 shadow-sm ring-1 ring-black/5' : 'text-gray-500 hover:text-gray-700'}`}
                                                                 >
-                                                                    <CheckCircle size={16} className={result.status === 'Conforme' ? 'text-green-600' : 'text-gray-400'} />
-                                                                    Conforme
+                                                                    CONFORME
                                                                 </button>
                                                                 <div className="w-px h-4 bg-gray-300 mx-1"></div>
                                                                 <button
                                                                     onClick={() => handleItemChange(item.id, 'status', 'Não Conforme')}
-                                                                    className={`px-4 py-2 rounded-md text-sm font-medium transition-all flex items-center gap-2 ${result.status === 'Não Conforme' ? 'bg-white text-red-700 shadow-sm ring-1 ring-black/5' : 'text-gray-500 hover:text-gray-700'}`}
+                                                                    className={`px-4 py-2 rounded-md text-sm font-medium transition-all flex items-center gap-2 uppercase font-bold text-xs ${result.status === 'Não Conforme' ? 'bg-white text-red-700 shadow-sm ring-1 ring-black/5' : 'text-gray-500 hover:text-gray-700'}`}
                                                                 >
-                                                                    <XCircle size={16} className={result.status === 'Não Conforme' ? 'text-red-600' : 'text-gray-400'} />
-                                                                    Não Conforme
+                                                                    NÃO CONFORME
                                                                 </button>
                                                             </div>
                                                         </div>
@@ -365,10 +385,9 @@ export const ChecklistsPage: React.FC = () => {
                             <div className="flex justify-end pt-4 pb-8">
                                 <button
                                     onClick={handleSubmit}
-                                    className="btn-premium bg-gradient-to-r from-primary-600 to-primary-500 hover:from-primary-700 hover:to-primary-600 text-white px-8 py-4 rounded-xl shadow-lg hover:shadow-xl font-bold text-lg transform hover:-translate-y-0.5 transition-all duration-200 flex items-center gap-3"
+                                    className="btn-premium btn-premium-orange btn-premium-shimmer px-8 py-4 text-lg login-uppercase"
                                 >
-                                    <CheckCircle size={24} />
-                                    Finalizar Checklist
+                                    FINALIZAR CHECKLIST
                                 </button>
                             </div>
                         </div>
@@ -410,12 +429,19 @@ export const ChecklistsPage: React.FC = () => {
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             <div className="flex items-center">
-                                                <span className={`p-2 rounded-lg mr-3 ${log.type === 'VEICULO' ? 'bg-blue-100 text-blue-600' : 'bg-orange-100 text-orange-600'}`}>
-                                                    {log.type === 'VEICULO' ? <ClipboardList size={16} /> : <Settings size={16} />}
+                                                <span className={`p-2 rounded-lg mr-3 ${log.type === 'VEICULO' ? 'bg-blue-100 text-blue-600' :
+                                                    log.type === 'EQUIPAMENTOS' ? 'bg-orange-100 text-orange-600' :
+                                                        'bg-green-100 text-green-600'
+                                                    }`}>
+                                                    {log.type === 'VEICULO' && <Truck size={16} />}
+                                                    {log.type === 'EQUIPAMENTOS' && <Settings size={16} />}
+                                                    {log.type === 'CURSO' && <BookOpen size={16} />}
                                                 </span>
                                                 <div>
-                                                    <div className="text-sm font-medium text-gray-900">{log.type === 'VEICULO' ? 'Veículo Diário' : 'Equipamentos'}</div>
-                                                    {log.stage && <div className="text-xs text-gray-500">{log.stage === 'INICIO' ? 'Início do Curso' : 'Término do Curso'}</div>}
+                                                    <div className="text-sm font-medium text-gray-900 uppercase">
+                                                        {log.type === 'VEICULO' ? 'Med Truck' : log.type === 'EQUIPAMENTOS' ? 'Equipamentos' : 'Curso'}
+                                                    </div>
+                                                    {log.stage && <div className="text-xs text-gray-500 uppercase">{log.stage === 'INICIO' ? 'Início do Curso' : 'Término do Curso'}</div>}
                                                 </div>
                                             </div>
                                         </td>
@@ -439,10 +465,10 @@ export const ChecklistsPage: React.FC = () => {
                                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                             <button
                                                 onClick={() => alert('Feature: Modal de detalhes do checklist (em desenvolvimento)')}
-                                                className="text-gray-400 hover:text-primary-600 transition-colors p-2 rounded-full hover:bg-primary-50"
+                                                className="text-gray-400 hover:text-primary-600 transition-colors p-2 rounded-lg hover:bg-primary-50 font-bold text-xs uppercase"
                                                 title="Ver Detalhes"
                                             >
-                                                <Eye size={20} />
+                                                VER DETALHES
                                             </button>
                                         </td>
                                     </tr>
@@ -459,17 +485,28 @@ export const ChecklistsPage: React.FC = () => {
                     <div className="flex flex-col sm:flex-row gap-4 mb-8">
                         <button
                             onClick={() => setManageType('VEICULO')}
-                            className={`flex-1 py-3 px-4 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2 ${manageType === 'VEICULO' ? 'bg-primary-50 text-primary-700 border-2 border-primary-200 shadow-sm' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'}`}
+                            className={`flex-1 py-3 px-4 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2 uppercase ${manageType === 'VEICULO' ? 'bg-blue-50 text-blue-700 border-2 border-blue-200 shadow-sm' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'}`}
                         >
                             <Truck size={20} />
-                            Veículo / Caminhão
+                            Med Truck
                         </button>
                         <button
                             onClick={() => setManageType('EQUIPAMENTOS')}
-                            className={`flex-1 py-3 px-4 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2 ${manageType === 'EQUIPAMENTOS' ? 'bg-primary-50 text-primary-700 border-2 border-primary-200 shadow-sm' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'}`}
+                            className={`flex-1 py-3 px-4 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2 uppercase ${manageType === 'EQUIPAMENTOS' ? 'bg-orange-50 text-orange-700 border-2 border-orange-200 shadow-sm' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'}`}
                         >
                             <Settings size={20} />
-                            Materiais / Equipamentos
+                            Equipamentos
+                        </button>
+                        <button
+                            onClick={() => setManageType('CURSO')}
+                            disabled
+                            className="flex-1 py-3 px-4 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2 uppercase bg-white text-gray-400 border border-gray-200 opacity-50 cursor-not-allowed relative"
+                        >
+                            <BookOpen size={20} />
+                            Curso
+                            <span className="absolute -top-2 -right-2 bg-orange-100 text-orange-700 text-xs font-bold px-2 py-0.5 rounded-full border border-orange-200">
+                                Em Breve
+                            </span>
                         </button>
                     </div>
 
@@ -524,9 +561,9 @@ export const ChecklistsPage: React.FC = () => {
                                     <button
                                         onClick={handleAddItem}
                                         disabled={!newItemText}
-                                        className="w-full btn-premium bg-primary-600 hover:bg-primary-700 text-white py-3 rounded-lg font-bold shadow-md disabled:opacity-50 disabled:cursor-not-allowed transition-all mt-2"
+                                        className="w-full btn-premium btn-premium-orange btn-premium-shimmer py-3 login-uppercase mt-2"
                                     >
-                                        Adicionar Item
+                                        ADICIONAR ITEM
                                     </button>
                                 </div>
                             </div>
@@ -572,10 +609,10 @@ export const ChecklistsPage: React.FC = () => {
                                                     </div>
                                                     <button
                                                         onClick={() => handleDeleteItem(item.id)}
-                                                        className="text-gray-400 hover:text-red-600 p-2 rounded-full hover:bg-red-50 transition-colors opacity-0 group-hover:opacity-100"
+                                                        className="text-gray-400 hover:text-red-600 p-2 rounded-lg hover:bg-red-50 transition-colors opacity-0 group-hover:opacity-100 font-bold text-xs uppercase"
                                                         title="Remover Item"
                                                     >
-                                                        <Trash2 size={18} />
+                                                        REMOVER
                                                     </button>
                                                 </div>
                                             ))}

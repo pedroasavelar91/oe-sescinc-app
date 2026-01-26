@@ -1,16 +1,17 @@
-
 import React, { useState } from 'react';
 import { useStore } from '../context/AppStore';
 import { User, UserRole, UNIFORM_SIZES, SHOE_SIZES } from '../types';
-import { Plus, Search, Filter, X, Trash2, Edit2 } from 'lucide-react';
+import { Plus, Search, Filter, X, Trash2, Edit2, UserPlus } from 'lucide-react';
 import { getCurrentDateString } from '../utils/dateUtils';
-import { formatCPF } from '../utils/formatters';
+import { formatCPF, formatPhone } from '../utils/formatters';
+import { StandardModal, StandardModalHeader, StandardModalBody, StandardModalFooter, inputClass, labelClass } from '../components/StandardModal';
 
 export const UsersPage: React.FC = () => {
-  const { users, addUser, updateUser, deleteUser, currentUser } = useStore();
+  const { users, addUser, updateUser, deleteUser, currentUser, bases } = useStore();
   const [showModal, setShowModal] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [roleFilter, setRoleFilter] = useState<string>('Todas');
 
   // Verificar se o usuário pode criar novos usuários
   const canCreateUsers = currentUser && [
@@ -20,16 +21,23 @@ export const UsersPage: React.FC = () => {
   ].includes(currentUser.role);
 
   // Form State
-  const [newUser, setNewUser] = useState<Partial<User>>({
+  const initialUserState: Partial<User> = {
+    name: '',
+    cpf: '',
+    email: '',
+    phone: '',
+    birthDate: '',
     role: UserRole.INSTRUTOR,
     base: '',
+    isActive: true,
     password: '123',
     uniformSize: { jumpsuit: 'M', shoes: '40', shirt: 'M' },
     ppeSize: { pants: 'M', jacket: 'M', gloves: 'M', boots: '40' }
-  });
+  };
 
-  const handleSave = (e: React.FormEvent) => {
-    e.preventDefault();
+  const [newUser, setNewUser] = useState<Partial<User>>(initialUserState);
+
+  const handleSave = () => {
     if (!currentUser) return;
 
     if (editingUser) {
@@ -43,6 +51,7 @@ export const UsersPage: React.FC = () => {
         phone: newUser.phone || editingUser.phone,
         birthDate: newUser.birthDate || editingUser.birthDate,
         base: newUser.base,
+        isActive: newUser.isActive ?? true,
         uniformSize: newUser.uniformSize as any,
         ppeSize: newUser.ppeSize as any,
         password: newUser.password || editingUser.password
@@ -61,6 +70,7 @@ export const UsersPage: React.FC = () => {
         registrationDate: getCurrentDateString(),
         createdBy: currentUser.name,
         base: newUser.base,
+        isActive: newUser.isActive ?? true,
         uniformSize: newUser.uniformSize as any,
         ppeSize: newUser.ppeSize as any,
         password: newUser.password || '123'
@@ -70,19 +80,20 @@ export const UsersPage: React.FC = () => {
 
     setShowModal(false);
     setEditingUser(null);
-    setNewUser({ role: UserRole.INSTRUTOR, base: '', password: '123', uniformSize: { jumpsuit: 'M', shoes: '40', shirt: 'M' }, ppeSize: { pants: 'M', jacket: 'M', gloves: 'M', boots: '40' } });
+    setNewUser(initialUserState);
   };
 
   const handleEdit = (user: User) => {
     setEditingUser(user);
     setNewUser({
-      name: user.name,
+      name: user.name.toUpperCase(),
       cpf: user.cpf,
       role: user.role,
       email: user.email,
       phone: user.phone,
       birthDate: user.birthDate,
-      base: user.base,
+      base: user.base?.toUpperCase(),
+      isActive: user.isActive ?? true,
       password: user.password,
       uniformSize: user.uniformSize,
       ppeSize: user.ppeSize
@@ -96,317 +107,332 @@ export const UsersPage: React.FC = () => {
     }
   };
 
+  const handleOpenModal = () => {
+    setEditingUser(null);
+    setNewUser(initialUserState);
+    setShowModal(true);
+  };
+
   // Sorting and Pagination
   const ITEMS_PER_PAGE = 10;
   const [currentPage, setCurrentPage] = useState(1);
 
   const filteredUsers = users
-    .filter(u =>
-      u.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      u.role.toLowerCase().includes(searchTerm.toLowerCase())
-    )
+    .filter(u => {
+      const matchesSearch = u.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        u.email.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesRole = roleFilter === 'Todas' || u.role === roleFilter;
+      return matchesSearch && matchesRole;
+    })
     .sort((a, b) => a.name.localeCompare(b.name));
 
   const totalPages = Math.ceil(filteredUsers.length / ITEMS_PER_PAGE);
-  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-  const paginatedUsers = filteredUsers.slice(startIndex, startIndex + ITEMS_PER_PAGE);
-
-  const goToPage = (page: number) => {
-    if (page >= 1 && page <= totalPages) {
-      setCurrentPage(page);
-    }
-  };
-
-  const inputClass = "appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm bg-white text-gray-900";
+  const paginatedUsers = filteredUsers.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 animate-slide-down">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Gerenciamento de Usuários</h1>
-          <p className="text-gray-500 mt-1">Gerencie usuários e permissões</p>
+      {/* Filters */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div className="flex flex-wrap gap-2 w-full md:w-auto items-center">
+          <div className="relative flex-1 min-w-[300px]">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+            <input
+              type="text"
+              placeholder="BUSCAR POR NOME OU EMAIL..."
+              className={`${inputClass} pl-10 uppercase`}
+              value={searchTerm}
+              onChange={e => setSearchTerm(e.target.value)}
+            />
+          </div>
+          <div className="w-full md:w-48">
+            <select
+              className={inputClass}
+              value={roleFilter}
+              onChange={e => setRoleFilter(e.target.value)}
+            >
+              <option value="Todas">TODAS AS FUNÇÕES</option>
+              {Object.values(UserRole).map(role => (
+                <option key={role} value={role}>{role.toUpperCase()}</option>
+              ))}
+            </select>
+          </div>
         </div>
         {canCreateUsers && (
           <button
-            onClick={() => setShowModal(true)}
-            className="btn-premium flex items-center space-x-2 bg-gradient-to-r from-primary-600 to-primary-500 hover:from-primary-700 hover:to-primary-600 text-white px-6 py-3 rounded-lg shadow-md transition-all duration-200"
+            onClick={handleOpenModal}
+            className="btn-base btn-insert flex items-center justify-center px-6 py-2 text-xs font-bold"
           >
-            <Plus size={20} />
-            <span className="font-semibold">Novo Usuário</span>
+            INSERIR
           </button>
         )}
       </div>
 
-      <div className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden">
-        <div className="p-4 border-b border-gray-100 flex items-center space-x-4">
-          <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
-            <input
-              type="text"
-              placeholder="Buscar por nome ou função..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm bg-white text-gray-900"
-            />
-          </div>
-          <button className="text-gray-500 hover:text-gray-700">
-            <Filter size={20} />
-          </button>
-        </div>
-
+      {/* Users Table */}
+      <div className="card-premium overflow-hidden animate-slide-up">
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
+          <table className="min-w-full divide-y divide-gray-200 border-collapse">
+            <thead className="bg-white text-gray-700">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nome / Email</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Função</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">CPF / Telefone</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Base</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cadastrado Por</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>
+                <th className="px-3 py-3 text-left text-xs font-bold uppercase border border-gray-200 whitespace-nowrap">Nome / Email</th>
+                <th className="px-3 py-3 text-center text-xs font-bold uppercase border border-gray-200 whitespace-nowrap">Função</th>
+                <th className="px-3 py-3 text-center text-xs font-bold uppercase border border-gray-200 whitespace-nowrap">CPF</th>
+                <th className="px-3 py-3 text-center text-xs font-bold uppercase border border-gray-200 whitespace-nowrap">Telefone</th>
+                <th className="px-3 py-3 text-center text-xs font-bold uppercase border border-gray-200 whitespace-nowrap">Base</th>
+                <th className="px-3 py-3 text-center text-xs font-bold uppercase border border-gray-200 whitespace-nowrap">Status</th>
+                <th className="px-3 py-3 text-center text-xs font-bold uppercase border border-gray-200 whitespace-nowrap sticky right-0 bg-white z-10 w-32">Ações</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {paginatedUsers.map((user) => (
-                <tr key={user.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center">
-                      <div className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center text-gray-600 font-bold">
-                        {user.name.charAt(0)}
-                      </div>
-                      <div className="ml-4">
-                        <div className="text-sm font-medium text-gray-900">{user.name}</div>
-                        <div className="text-sm text-gray-500">{user.email}</div>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
-                      ${user.role === UserRole.GESTOR ? 'bg-purple-100 text-purple-800' :
-                        user.role === UserRole.INSTRUTOR ? 'bg-orange-100 text-orange-800' :
-                          user.role === UserRole.AUXILIAR_INSTRUCAO ? 'bg-yellow-100 text-yellow-800' :
-                            'bg-gray-100 text-gray-800'}`}>
-                      {user.role}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">{formatCPF(user.cpf)}</div>
-                    <div className="text-sm text-gray-500">{user.phone}</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {user.base || '-'}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {user.createdBy}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="text-green-600 text-sm font-medium">Ativo</span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    <div className="flex items-center justify-end gap-2">
-                      <button
-                        onClick={() => handleEdit(user)}
-                        className="text-blue-600 hover:text-blue-900 hover:scale-110 transition-all duration-200"
-                        title="Editar usuário"
-                      >
-                        <Edit2 size={18} />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(user.id)}
-                        className="text-red-600 hover:text-red-900 hover:scale-110 transition-all duration-200"
-                        title="Excluir usuário"
-                      >
-                        <Trash2 size={18} />
-                      </button>
-                    </div>
+              {paginatedUsers.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="px-6 py-12 text-center text-gray-500 border border-gray-200">
+                    Nenhum usuário encontrado para os filtros selecionados.
                   </td>
                 </tr>
-              ))}
+              ) : (
+                paginatedUsers.map((user) => (
+                  <tr key={user.id} className="hover:bg-gray-50 transition-colors group">
+                    <td className="px-3 py-2 whitespace-nowrap border border-gray-200">
+                      <div className="flex flex-col">
+                        <span className="text-xs font-bold text-gray-900 uppercase">{user.name}</span>
+                        <span className="text-[10px] text-gray-500">{user.email}</span>
+                      </div>
+                    </td>
+                    <td className="px-3 py-2 text-center whitespace-nowrap border border-gray-200">
+                      <span className={`px-2 py-0.5 inline-flex text-[10px] font-semibold rounded-full uppercase border 
+                                                ${user.role === UserRole.GESTOR ? 'bg-purple-100 text-purple-800 border-purple-200' :
+                          user.role === UserRole.COORDENADOR ? 'bg-blue-100 text-blue-800 border-blue-200' :
+                            user.role === UserRole.INSTRUTOR ? 'bg-orange-100 text-orange-800 border-orange-200' :
+                              'bg-gray-100 text-gray-800 border-gray-200'}`}>
+                        {user.role}
+                      </span>
+                    </td>
+                    <td className="px-3 py-2 text-center whitespace-nowrap border border-gray-200">
+                      <span className="text-[10px] font-mono text-gray-700">{formatCPF(user.cpf)}</span>
+                    </td>
+                    <td className="px-3 py-2 text-center whitespace-nowrap border border-gray-200">
+                      <span className="text-[10px] text-gray-500">{formatPhone(user.phone)}</span>
+                    </td>
+                    <td className="px-3 py-2 text-center whitespace-nowrap border border-gray-200 text-xs text-gray-600 font-medium">
+                      {user.base || '-'}
+                    </td>
+                    <td className="px-3 py-2 text-center whitespace-nowrap border border-gray-200">
+                      <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full border 
+                                                ${user.isActive !== false ? 'bg-green-50 text-green-600 border-green-100' : 'bg-red-50 text-red-600 border-red-100'}`}>
+                        {user.isActive !== false ? 'ATIVO' : 'INATIVO'}
+                      </span>
+                    </td>
+                    <td className="px-3 py-2 whitespace-nowrap text-center border border-gray-200 sticky right-0 bg-white group-hover:bg-gray-50 z-10">
+                      <div className="flex justify-center gap-2">
+                        <button
+                          onClick={() => handleEdit(user)}
+                          className="btn-base btn-edit px-3 py-1 text-[10px]"
+                        >
+                          EDITAR
+                        </button>
+                        <button
+                          onClick={() => handleDelete(user.id)}
+                          className="btn-base btn-delete px-3 py-1 text-[10px]"
+                        >
+                          EXCLUIR
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
 
         {/* Pagination Controls */}
-        <div className="px-6 py-4 border-t border-gray-100 flex items-center justify-between bg-gray-50">
-          <div className="text-sm text-gray-500">
-            Mostrando <span className="font-medium">{startIndex + 1}</span> a <span className="font-medium">{Math.min(startIndex + ITEMS_PER_PAGE, filteredUsers.length)}</span> de <span className="font-medium">{filteredUsers.length}</span> usuários
-          </div>
-          <div className="flex space-x-2">
-            <button
-              onClick={() => goToPage(currentPage - 1)}
-              disabled={currentPage === 1}
-              className={`px-3 py-1 rounded-md text-sm font-medium ${currentPage === 1 ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-300'}`}
-            >
-              Anterior
-            </button>
-            <div className="flex items-center space-x-1">
-              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                // Logic to show window of pages around current
-                let pageNum = i + 1;
-                if (totalPages > 5) {
-                  if (currentPage > 3) pageNum = currentPage - 2 + i;
-                  if (pageNum > totalPages) pageNum = totalPages - (4 - i);
-                }
-                return (
-                  <button
-                    key={pageNum}
-                    onClick={() => goToPage(pageNum)}
-                    className={`px-3 py-1 rounded-md text-sm font-medium ${currentPage === pageNum ? 'bg-primary-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-300'}`}
-                  >
-                    {pageNum}
-                  </button>
-                );
-              })}
+        {filteredUsers.length > 0 && (
+          <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between bg-gray-50">
+            <span className="text-xs font-bold text-gray-500 uppercase tracking-wide">
+              Mostrando <span className="font-medium text-gray-700">{((currentPage - 1) * ITEMS_PER_PAGE) + 1}</span> a <span className="font-medium text-gray-700">{Math.min(currentPage * ITEMS_PER_PAGE, filteredUsers.length)}</span> de <span className="font-medium text-gray-700">{filteredUsers.length}</span> resultados
+            </span>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className={`btn-base btn-pagination px-4 py-2 text-xs ${currentPage === 1 ? 'opacity-50 cursor-not-allowed' : ''}`}
+              >
+                ANTERIOR
+              </button>
+              <button
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+                className={`btn-base btn-pagination px-4 py-2 text-xs ${currentPage === totalPages ? 'opacity-50 cursor-not-allowed' : ''}`}
+              >
+                PRÓXIMO
+              </button>
             </div>
-            <button
-              onClick={() => goToPage(currentPage + 1)}
-              disabled={currentPage === totalPages}
-              className={`px-3 py-1 rounded-md text-sm font-medium ${currentPage === totalPages ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-300'}`}
-            >
-              Próximo
-            </button>
           </div>
-        </div>
+        )}
       </div>
 
       {/* Modal */}
-      {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col animate-scale-in">
-            <div className="p-6 border-b border-gray-100 flex justify-between items-center">
-              <h3 className="text-lg font-bold text-gray-900">{editingUser ? 'Editar Usuário' : 'Novo Cadastro de Usuário'}</h3>
-              <button onClick={() => { setShowModal(false); setEditingUser(null); setNewUser({ role: UserRole.INSTRUTOR, base: '', password: '123', uniformSize: { jumpsuit: 'M', shoes: '40', shirt: 'M' }, ppeSize: { pants: 'M', jacket: 'M', gloves: 'M', boots: '40' } }); }}>
-                <X size={24} className="text-gray-400 hover:text-gray-600" />
-              </button>
+      <StandardModal isOpen={showModal} onClose={() => setShowModal(false)} maxWidth="max-w-4xl">
+        <StandardModalHeader
+          title={editingUser ? 'EDITAR USUÁRIO' : ''}
+          onClose={() => setShowModal(false)}
+        />
+        <StandardModalBody>
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className={labelClass}>Nome Completo</label>
+                <input required type="text" className={inputClass}
+                  value={newUser.name} onChange={e => setNewUser({ ...newUser, name: e.target.value.toUpperCase() })} />
+              </div>
+              <div>
+                <label className={labelClass}>CPF</label>
+                <input
+                  required
+                  type="text"
+                  className={inputClass}
+                  value={formatCPF(newUser.cpf || '')}
+                  onChange={e => setNewUser({ ...newUser, cpf: formatCPF(e.target.value) })}
+                  placeholder="000.000.000-00"
+                  maxLength={14}
+                />
+              </div>
+              <div>
+                <label className={labelClass}>FUNÇÃO</label>
+                <select className={`${inputClass} uppercase`}
+                  value={newUser.role} onChange={e => setNewUser({ ...newUser, role: e.target.value as UserRole })}>
+                  {Object.values(UserRole).map(r => <option key={r} value={r}>{r.toUpperCase()}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className={labelClass}>BASE (OPCIONAL)</label>
+                <select
+                  className={`${inputClass} uppercase`}
+                  value={newUser.base || ''}
+                  onChange={e => setNewUser({ ...newUser, base: e.target.value })}
+                >
+                  <option value="">SELECIONE UMA BASE (OPCIONAL)</option>
+                  {bases.map(base => (
+                    <option key={base.id} value={base.name}>{base.name.toUpperCase()}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className={labelClass}>Status</label>
+                <select
+                  className={inputClass}
+                  value={newUser.isActive !== false ? 'true' : 'false'}
+                  onChange={e => setNewUser({ ...newUser, isActive: e.target.value === 'true' })}
+                >
+                  <option value="true">ATIVO</option>
+                  <option value="false">INATIVO</option>
+                </select>
+              </div>
+              <div>
+                <label className={labelClass}>E-Mail</label>
+                <input required type="email" className={inputClass}
+                  value={newUser.email || ''} onChange={e => setNewUser({ ...newUser, email: e.target.value })} />
+              </div>
+              <div>
+                <label className={labelClass}>Telefone</label>
+                <input required type="text" className={inputClass}
+                  value={formatPhone(newUser.phone || '')} onChange={e => setNewUser({ ...newUser, phone: formatPhone(e.target.value) })}
+                  placeholder="(XX) X XXXX-XXXX"
+                  maxLength={16} />
+              </div>
+              <div>
+                <label className={labelClass}>DATA DE NASCIMENTO</label>
+                <input required type="date" className={`${inputClass} uppercase`}
+                  value={newUser.birthDate || ''} onChange={e => setNewUser({ ...newUser, birthDate: e.target.value })} />
+              </div>
+              <div>
+                <label className={labelClass}>Senha</label>
+                <input
+                  required
+                  type="password"
+                  className={inputClass}
+                  value={newUser.password || ''}
+                  onChange={e => setNewUser({ ...newUser, password: e.target.value })}
+                  placeholder="DIGITE A SENHA"
+                  minLength={3}
+                />
+              </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto">
-              <form onSubmit={handleSave} className="p-6 space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
+              <div className="bg-gray-50 p-4 rounded-md border border-gray-200">
+                <h4 className="text-xs font-bold text-gray-700 uppercase tracking-wider mb-3 flex items-center gap-2">Tamanho de Uniforme</h4>
+                <div className="grid grid-cols-1 gap-3">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700">Nome Completo</label>
-                    <input required type="text" className={inputClass}
-                      value={newUser.name || ''} onChange={e => setNewUser({ ...newUser, name: e.target.value.toUpperCase() })} />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">CPF</label>
-                    <input
-                      required
-                      type="text"
-                      className={inputClass}
-                      value={formatCPF(newUser.cpf || '')}
-                      onChange={e => setNewUser({ ...newUser, cpf: formatCPF(e.target.value) })}
-                      placeholder="000.000.000-00"
-                      maxLength={14}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Função</label>
-                    <select className={inputClass}
-                      value={newUser.role} onChange={e => setNewUser({ ...newUser, role: e.target.value as UserRole })}>
-                      {Object.values(UserRole).map(r => <option key={r} value={r}>{r}</option>)}
+                    <label className={labelClass}>Macacão</label>
+                    <select className={inputClass} value={newUser.uniformSize?.jumpsuit} onChange={e => setNewUser({ ...newUser, uniformSize: { ...newUser.uniformSize!, jumpsuit: e.target.value } })}>
+                      {UNIFORM_SIZES.map(s => <option key={s}>{s}</option>)}
                     </select>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700">Base (Opcional)</label>
-                    <input type="text" className={inputClass} placeholder="Ex: SBGR"
-                      value={newUser.base || ''} onChange={e => setNewUser({ ...newUser, base: e.target.value.toUpperCase() })} />
+                    <label className={labelClass}>Camisa</label>
+                    <select className={inputClass} value={newUser.uniformSize?.shirt} onChange={e => setNewUser({ ...newUser, uniformSize: { ...newUser.uniformSize!, shirt: e.target.value } })}>
+                      {UNIFORM_SIZES.map(s => <option key={s}>{s}</option>)}
+                    </select>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700">E-Mail</label>
-                    <input required type="email" className={inputClass}
-                      value={newUser.email || ''} onChange={e => setNewUser({ ...newUser, email: e.target.value })} />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Número de Telefone</label>
-                    <input required type="text" className={inputClass}
-                      value={newUser.phone || ''} onChange={e => setNewUser({ ...newUser, phone: e.target.value })} />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Data de Nascimento</label>
-                    <input required type="date" className={inputClass}
-                      value={newUser.birthDate || ''} onChange={e => setNewUser({ ...newUser, birthDate: e.target.value })} />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Senha</label>
-                    <input
-                      required
-                      type="password"
-                      className={inputClass}
-                      value={newUser.password || ''}
-                      onChange={e => setNewUser({ ...newUser, password: e.target.value })}
-                      placeholder="Digite a senha"
-                      minLength={3}
-                    />
+                    <label className={labelClass}>Calçado</label>
+                    <select className={inputClass} value={newUser.uniformSize?.shoes} onChange={e => setNewUser({ ...newUser, uniformSize: { ...newUser.uniformSize!, shoes: e.target.value } })}>
+                      {SHOE_SIZES.map(s => <option key={s}>{s}</option>)}
+                    </select>
                   </div>
                 </div>
+              </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
-                  <div className="bg-gray-50 p-4 rounded-md border border-gray-200">
-                    <h4 className="text-sm font-bold text-gray-900 mb-3 flex items-center gap-2">Tamanho de Uniforme</h4>
-                    <div className="grid grid-cols-1 gap-3">
-                      <div>
-                        <label className="text-xs text-gray-500 font-medium">Macacão</label>
-                        <select className={inputClass} value={newUser.uniformSize?.jumpsuit} onChange={e => setNewUser({ ...newUser, uniformSize: { ...newUser.uniformSize!, jumpsuit: e.target.value } })}>
-                          {UNIFORM_SIZES.map(s => <option key={s}>{s}</option>)}
-                        </select>
-                      </div>
-                      <div>
-                        <label className="text-xs text-gray-500 font-medium">Camisa</label>
-                        <select className={inputClass} value={newUser.uniformSize?.shirt} onChange={e => setNewUser({ ...newUser, uniformSize: { ...newUser.uniformSize!, shirt: e.target.value } })}>
-                          {UNIFORM_SIZES.map(s => <option key={s}>{s}</option>)}
-                        </select>
-                      </div>
-                      <div>
-                        <label className="text-xs text-gray-500 font-medium">Calçado</label>
-                        <select className={inputClass} value={newUser.uniformSize?.shoes} onChange={e => setNewUser({ ...newUser, uniformSize: { ...newUser.uniformSize!, shoes: e.target.value } })}>
-                          {SHOE_SIZES.map(s => <option key={s}>{s}</option>)}
-                        </select>
-                      </div>
-                    </div>
+              <div className="bg-gray-50 p-4 rounded-md border border-gray-200">
+                <h4 className="text-xs font-bold text-gray-700 uppercase tracking-wider mb-3 flex items-center gap-2">Tamanho de EPI</h4>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className={labelClass}>Calça</label>
+                    <select className={inputClass} value={newUser.ppeSize?.pants} onChange={e => setNewUser({ ...newUser, ppeSize: { ...newUser.ppeSize!, pants: e.target.value } })}>
+                      {UNIFORM_SIZES.map(s => <option key={s}>{s}</option>)}
+                    </select>
                   </div>
-
-                  <div className="bg-gray-50 p-4 rounded-md border border-gray-200">
-                    <h4 className="text-sm font-bold text-gray-900 mb-3 flex items-center gap-2">Tamanho de EPI</h4>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <label className="text-xs text-gray-500 font-medium">Calça</label>
-                        <select className={inputClass} value={newUser.ppeSize?.pants} onChange={e => setNewUser({ ...newUser, ppeSize: { ...newUser.ppeSize!, pants: e.target.value } })}>
-                          {UNIFORM_SIZES.map(s => <option key={s}>{s}</option>)}
-                        </select>
-                      </div>
-                      <div>
-                        <label className="text-xs text-gray-500 font-medium">Blusão</label>
-                        <select className={inputClass} value={newUser.ppeSize?.jacket} onChange={e => setNewUser({ ...newUser, ppeSize: { ...newUser.ppeSize!, jacket: e.target.value } })}>
-                          {UNIFORM_SIZES.map(s => <option key={s}>{s}</option>)}
-                        </select>
-                      </div>
-                      <div>
-                        <label className="text-xs text-gray-500 font-medium">Luva</label>
-                        <select className={inputClass} value={newUser.ppeSize?.gloves} onChange={e => setNewUser({ ...newUser, ppeSize: { ...newUser.ppeSize!, gloves: e.target.value } })}>
-                          {UNIFORM_SIZES.map(s => <option key={s}>{s}</option>)}
-                        </select>
-                      </div>
-                      <div>
-                        <label className="text-xs text-gray-500 font-medium">Bota de Combate</label>
-                        <select className={inputClass} value={newUser.ppeSize?.boots} onChange={e => setNewUser({ ...newUser, ppeSize: { ...newUser.ppeSize!, boots: e.target.value } })}>
-                          {SHOE_SIZES.map(s => <option key={s}>{s}</option>)}
-                        </select>
-                      </div>
-                    </div>
+                  <div>
+                    <label className={labelClass}>Blusão</label>
+                    <select className={inputClass} value={newUser.ppeSize?.jacket} onChange={e => setNewUser({ ...newUser, ppeSize: { ...newUser.ppeSize!, jacket: e.target.value } })}>
+                      {UNIFORM_SIZES.map(s => <option key={s}>{s}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className={labelClass}>Luva</label>
+                    <select className={inputClass} value={newUser.ppeSize?.gloves} onChange={e => setNewUser({ ...newUser, ppeSize: { ...newUser.ppeSize!, gloves: e.target.value } })}>
+                      {UNIFORM_SIZES.map(s => <option key={s}>{s}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className={labelClass}>Bota de Combate</label>
+                    <select className={inputClass} value={newUser.ppeSize?.boots} onChange={e => setNewUser({ ...newUser, ppeSize: { ...newUser.ppeSize!, boots: e.target.value } })}>
+                      {SHOE_SIZES.map(s => <option key={s}>{s}</option>)}
+                    </select>
                   </div>
                 </div>
-
-                <div className="flex justify-end pt-4 border-t border-gray-100">
-                  <button type="button" onClick={() => { setShowModal(false); setEditingUser(null); setNewUser({ role: UserRole.INSTRUTOR, base: '', password: '123', uniformSize: { jumpsuit: 'M', shoes: '40', shirt: 'M' }, ppeSize: { pants: 'M', jacket: 'M', gloves: 'M', boots: '40' } }); }} className="mr-3 px-4 py-2 text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200">Cancelar</button>
-                  <button type="submit" className="px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700">{editingUser ? 'Atualizar Usuário' : 'Salvar Usuário'}</button>
-                </div>
-              </form>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        </StandardModalBody>
+        <StandardModalFooter>
+          <div className="flex justify-end gap-3 w-full">
+            <button
+              onClick={() => setShowModal(false)}
+              className="btn-base btn-cancel px-6 py-2.5 text-sm"
+            >
+              CANCELAR
+            </button>
+            <button
+              onClick={handleSave}
+              className="btn-base btn-save px-6 py-2.5 text-sm"
+            >
+              {editingUser ? 'ATUALIZAR' : 'SALVAR'}
+            </button>
+          </div>
+        </StandardModalFooter>
+      </StandardModal>
     </div>
   );
 };

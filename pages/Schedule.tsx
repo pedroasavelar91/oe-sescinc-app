@@ -1,23 +1,35 @@
 import React, { useState } from 'react';
 import { useStore } from '../context/AppStore';
 import { UserRole, TrainingSchedule } from '../types';
-import { Plus, Search, Filter, Edit2, Trash2, MapPin, Calendar, Truck, Users, Clock, Download, FileText, List, LayoutList } from 'lucide-react';
+import { Plus, Search, Edit2, Trash2, MapPin, Calendar, Truck, Users, Clock, Download, FileText } from 'lucide-react';
 import { formatDate, formatDateTime } from '../utils/dateUtils';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { StandardModal, StandardModalHeader, StandardModalBody, StandardModalFooter, inputClass, labelClass } from '../components/StandardModal';
+import { StandardSelect } from '../components/StandardSelect';
+import { GanttChart } from '../components/GanttChart';
+import { List, Calendar as CalendarIcon } from 'lucide-react';
 
 export const SchedulePage: React.FC = () => {
-    const { currentUser, trainingSchedules, addTrainingSchedule, updateTrainingSchedule, deleteTrainingSchedule, bases } = useStore();
-    const [searchTerm, setSearchTerm] = useState('');
-    const [selectedBase, setSelectedBase] = useState('');
+    const { currentUser, trainingSchedules, addTrainingSchedule, updateTrainingSchedule, deleteTrainingSchedule, bases, courses } = useStore();
+
+    // Filters
+    const [monthFilter, setMonthFilter] = useState('');
+    const [yearFilter, setYearFilter] = useState('');
+    const [locationFilter, setLocationFilter] = useState('');
+
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingSchedule, setEditingSchedule] = useState<TrainingSchedule | null>(null);
-    const [viewMode, setViewMode] = useState<'list' | 'timeline'>('list');
+
+    // Pagination
+    const [currentPage, setCurrentPage] = useState(1);
+    const itemsPerPage = 10;
 
     // Form State
     const [formData, setFormData] = useState<Partial<TrainingSchedule>>({});
 
-    const inputClass = "appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm bg-white text-gray-900";
+    // View Mode
+    const [viewMode, setViewMode] = useState<'list' | 'gantt'>('list');
 
     if (!currentUser || (currentUser.role !== UserRole.GESTOR && currentUser.role !== UserRole.COORDENADOR)) {
         return (
@@ -31,18 +43,29 @@ export const SchedulePage: React.FC = () => {
     }
 
     const filteredSchedules = trainingSchedules
-        .filter(s =>
-            (s.className.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                s.location.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                s.origin.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                s.destination.toLowerCase().includes(searchTerm.toLowerCase())) &&
-            (selectedBase ? s.location === selectedBase : true)
-        )
+        .filter(s => {
+            const date = new Date(s.medtruckDisplacementStart);
+            const month = (date.getMonth() + 1).toString();
+            const year = date.getFullYear().toString();
+
+            if (monthFilter && month !== monthFilter) return false;
+            if (yearFilter && year !== yearFilter) return false;
+            if (locationFilter && s.location !== locationFilter) return false;
+            return true;
+        })
         .sort((a, b) => {
             if (!a.medtruckDisplacementStart) return 1;
             if (!b.medtruckDisplacementStart) return -1;
             return a.medtruckDisplacementStart.localeCompare(b.medtruckDisplacementStart);
         });
+
+    // Pagination Logic
+    const indexOfLastItem = currentPage * itemsPerPage;
+    const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+    const currentItems = filteredSchedules.slice(indexOfFirstItem, indexOfLastItem);
+    const totalPages = Math.ceil(filteredSchedules.length / itemsPerPage);
+
+    const uniqueLocations = Array.from(new Set(trainingSchedules.map(s => s.location))).sort();
 
     const handleOpenModal = (schedule?: TrainingSchedule) => {
         if (schedule) {
@@ -118,284 +141,253 @@ export const SchedulePage: React.FC = () => {
         doc.text('Cronograma de Treinamentos', 14, 15);
 
         const tableData = filteredSchedules.map(s => [
+            courses.find(c => c.id === s.courseId)?.name || 'N/A',
             s.className,
-            `${s.origin} -> ${s.destination}`,
-            `${formatDate(s.medtruckDisplacementStart)} - ${formatDate(s.medtruckDisplacementEnd)}`,
-            `${formatDate(s.setupDate)} / ${formatDate(s.teardownDate)}`,
-            `${formatDate(s.theoryStart)} (${s.theoryStudentCount})`,
-            `${formatDate(s.practiceStart)} (${s.practiceStudentCount})`,
-            s.location
+            s.origin,
+            s.destination,
+            formatDate(s.medtruckDisplacementStart),
+            formatDate(s.medtruckDisplacementEnd),
+            formatDate(s.setupDate),
+            formatDate(s.teardownDate),
+            s.glpRefillDate ? formatDate(s.glpRefillDate) : '-',
+            formatDate(s.theoryStart),
+            formatDate(s.theoryEnd),
+            s.theoryStudentCount,
+            s.instructorCount || 0,
+            formatDate(s.practiceStart),
+            formatDate(s.practiceEnd),
+            s.practiceStudentCount,
+            s.location,
+            s.studentBreakdown ? s.studentBreakdown.map(b => `${b.base}: ${b.count}`).join(', ') : '-',
+            (s as any).created_at ? formatDateTime((s as any).created_at) : '-'
         ]);
 
         autoTable(doc, {
-            head: [['Turma', 'Rota', 'Deslocamento', 'Mont/Desm', 'Teórico', 'Prático', 'Local']],
+            head: [[
+                'Curso', 'Turma', 'Origem', 'Destino', 'Ida Truck', 'Volta Truck',
+                'Montagem', 'Desmontagem', 'GLP', 'Início Teór.', 'Fim Teór.',
+                'Alunos Teór.', 'Instrutores', 'Início Prát.', 'Fim Prát.',
+                'Alunos Prát.', 'Local', 'Composição', 'Criado Em'
+            ]],
             body: tableData,
             startY: 20,
-            styles: { fontSize: 8 },
-            headStyles: { fillColor: [22, 163, 74] }
+            styles: { fontSize: 6 },
+            headStyles: { fillColor: [22, 163, 74] },
+            columnStyles: {
+                0: { cellWidth: 15 },
+                17: { cellWidth: 20 }
+            }
         });
 
         doc.save('cronograma.pdf');
     };
 
-    const TimelineView = () => (
-        <div className="space-y-6">
-            {filteredSchedules.map((schedule) => (
-                <div key={schedule.id} className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 relative overflow-hidden">
-                    <div className="flex justify-between items-start mb-6">
-                        <div>
-                            <h3 className="text-lg font-bold text-gray-900">{schedule.className}</h3>
-                            <div className="flex items-center gap-2 text-sm text-gray-500 mt-1">
-                                <MapPin size={14} />
-                                {schedule.origin} <span className="text-gray-300">→</span> {schedule.destination}
-                                <span className="mx-2">•</span>
-                                <span className="font-medium text-gray-700">{schedule.location}</span>
-                            </div>
-                        </div>
-                        <div className="flex gap-2">
-                            <button
-                                onClick={() => handleOpenModal(schedule)}
-                                className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                            >
-                                <Edit2 size={18} />
-                            </button>
-                            <button
-                                onClick={() => handleDelete(schedule.id)}
-                                className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                            >
-                                <Trash2 size={18} />
-                            </button>
-                        </div>
-                    </div>
-
-                    {/* Timeline Visualization */}
-                    <div className="relative pt-8 pb-4">
-                        {/* Base Line */}
-                        <div className="absolute top-1/2 left-0 right-0 h-1 bg-gray-100 -translate-y-1/2 rounded-full"></div>
-
-                        <div className="grid grid-cols-5 gap-4 relative z-10">
-                            {/* Step 1: Displacement Start */}
-                            <div className="text-center group">
-                                <div className="w-4 h-4 bg-blue-500 rounded-full mx-auto mb-2 ring-4 ring-white group-hover:scale-125 transition-transform"></div>
-                                <div className="text-xs font-bold text-blue-600 mb-1">Deslocamento</div>
-                                <div className="text-xs text-gray-500">{formatDate(schedule.medtruckDisplacementStart)}</div>
-                            </div>
-
-                            {/* Step 2: Setup */}
-                            <div className="text-center group">
-                                <div className="w-4 h-4 bg-orange-500 rounded-full mx-auto mb-2 ring-4 ring-white group-hover:scale-125 transition-transform"></div>
-                                <div className="text-xs font-bold text-orange-600 mb-1">Montagem</div>
-                                <div className="text-xs text-gray-500">{formatDate(schedule.setupDate)}</div>
-                            </div>
-
-                            {/* Step 3: Theory */}
-                            <div className="text-center group">
-                                <div className="w-4 h-4 bg-purple-500 rounded-full mx-auto mb-2 ring-4 ring-white group-hover:scale-125 transition-transform"></div>
-                                <div className="text-xs font-bold text-purple-600 mb-1">Teórico</div>
-                                <div className="text-xs text-gray-500">{formatDate(schedule.theoryStart)}</div>
-                                <div className="text-[10px] text-gray-400 mt-1">{schedule.theoryStudentCount} alunos</div>
-                            </div>
-
-                            {/* Step 4: Practice */}
-                            <div className="text-center group">
-                                <div className="w-4 h-4 bg-green-500 rounded-full mx-auto mb-2 ring-4 ring-white group-hover:scale-125 transition-transform"></div>
-                                <div className="text-xs font-bold text-green-600 mb-1">Prático</div>
-                                <div className="text-xs text-gray-500">{formatDate(schedule.practiceStart)}</div>
-                                <div className="text-[10px] text-gray-400 mt-1">{schedule.practiceStudentCount} alunos</div>
-                            </div>
-
-                            {/* Step 5: Teardown/Return */}
-                            <div className="text-center group">
-                                <div className="w-4 h-4 bg-red-500 rounded-full mx-auto mb-2 ring-4 ring-white group-hover:scale-125 transition-transform"></div>
-                                <div className="text-xs font-bold text-red-600 mb-1">Desmontagem</div>
-                                <div className="text-xs text-gray-500">{formatDate(schedule.teardownDate)}</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            ))}
-        </div>
-    );
-
     return (
-        <div className="space-y-6 animate-fade-in">
-            <div className="flex justify-between items-center animate-slide-down">
-                <div>
-                    <h1 className="text-3xl font-bold text-gray-900">Cronograma de Treinamentos</h1>
-                    <p className="text-gray-500 mt-1">Gerencie o itinerário e agenda da unidade móvel.</p>
+        <>
+            <div className="space-y-6 mb-8">
+                <div className="flex flex-col md:flex-row justify-between items-end gap-4 animate-slide-down">
+                    <div className="flex-1 w-full md:max-w-4xl">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <StandardSelect
+                                label="MÊS"
+                                value={monthFilter}
+                                onChange={(e) => setMonthFilter(e.target.value)}
+                                options={[
+                                    { value: "", label: "TODOS" },
+                                    { value: "1", label: "JANEIRO" },
+                                    { value: "2", label: "FEVEREIRO" },
+                                    { value: "3", label: "MARÇO" },
+                                    { value: "4", label: "ABRIL" },
+                                    { value: "5", label: "MAIO" },
+                                    { value: "6", label: "JUNHO" },
+                                    { value: "7", label: "JULHO" },
+                                    { value: "8", label: "AGOSTO" },
+                                    { value: "9", label: "SETEMBRO" },
+                                    { value: "10", label: "OUTUBRO" },
+                                    { value: "11", label: "NOVEMBRO" },
+                                    { value: "12", label: "DEZEMBRO" }
+                                ]}
+                            />
+                            <StandardSelect
+                                label="ANO"
+                                value={yearFilter}
+                                onChange={(e) => setYearFilter(e.target.value)}
+                                options={[
+                                    { value: "", label: "TODOS" },
+                                    ...Array.from(new Set(trainingSchedules.map(s => new Date(s.theoryStart).getFullYear()))).sort().map(y => ({
+                                        value: y.toString(),
+                                        label: y.toString()
+                                    }))
+                                ]}
+                            />
+                            <StandardSelect
+                                label="LOCALIZAÇÃO"
+                                value={locationFilter}
+                                onChange={(e) => setLocationFilter(e.target.value)}
+                                options={[
+                                    { value: "", label: "TODAS" },
+                                    ...uniqueLocations.map(loc => ({
+                                        value: loc,
+                                        label: loc
+                                    }))
+                                ]}
+                            />
+                        </div>
+                    </div>
                 </div>
-                <div className="flex gap-2">
-                    <div className="flex bg-gray-100 rounded-lg p-1 mr-2">
+                <div className="flex justify-end items-center gap-2">
+                    <div className="flex gap-2 mr-2">
                         <button
                             onClick={() => setViewMode('list')}
-                            className={`p-2 rounded-md transition-all ${viewMode === 'list' ? 'bg-white shadow text-primary-600' : 'text-gray-500 hover:text-gray-700'}`}
-                            title="Lista"
+                            className={`px-4 py-2 rounded-lg text-sm font-bold uppercase transition-all duration-200 ${viewMode === 'list' ? 'bg-[#FF6B35] text-white shadow-md' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
                         >
-                            <List size={20} />
+                            TABELA
                         </button>
                         <button
-                            onClick={() => setViewMode('timeline')}
-                            className={`p-2 rounded-md transition-all ${viewMode === 'timeline' ? 'bg-white shadow text-primary-600' : 'text-gray-500 hover:text-gray-700'}`}
-                            title="Linha do Tempo"
+                            onClick={() => setViewMode('gantt')}
+                            className={`px-4 py-2 rounded-lg text-sm font-bold uppercase transition-all duration-200 ${viewMode === 'gantt' ? 'bg-[#FF6B35] text-white shadow-md' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
                         >
-                            <LayoutList size={20} />
+                            CALENDÁRIO
                         </button>
                     </div>
 
                     <button
                         onClick={exportToCSV}
-                        className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 font-medium transition-colors shadow-sm"
-                        title="Exportar CSV"
+                        className="btn-base bg-blue-600 text-white hover:bg-blue-700 shadow-lg shadow-blue-500/30 flex items-center justify-center px-8 py-3 text-sm font-bold"
+                        title="EXPORTAR CSV"
                     >
-                        <FileText size={18} className="text-gray-500" />
                         CSV
                     </button>
                     <button
                         onClick={exportToPDF}
-                        className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 font-medium transition-colors shadow-sm"
-                        title="Exportar PDF"
+                        className="btn-base bg-blue-600 text-white hover:bg-blue-700 shadow-lg shadow-blue-500/30 flex items-center justify-center px-8 py-3 text-sm font-bold"
+                        title="EXPORTAR PDF"
                     >
-                        <Download size={18} className="text-gray-500" />
                         PDF
                     </button>
                     <button
                         onClick={() => handleOpenModal()}
-                        className="flex items-center gap-2 px-4 py-2 bg-[#F97316] hover:bg-[#EA580C] text-white rounded-lg font-medium transition-colors shadow-sm"
+                        className="btn-base btn-insert flex items-center justify-center px-8 py-3 text-sm font-bold shadow-lg shadow-green-500/30"
                     >
-                        <Plus size={20} />
-                        Inserir
+                        INSERIR
                     </button>
                 </div>
             </div>
 
-            {/* Filters */}
-            <div className="flex gap-4 bg-white p-4 rounded-xl border border-gray-200 shadow-sm animate-fade-in delay-100">
-                <div className="flex-1 relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
-                    <input
-                        type="text"
-                        placeholder="Buscar por turma, local, origem ou destino..."
-                        className="input-field pl-10 w-full"
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                    />
-                </div>
-                <div className="w-64">
-                    <select
-                        className="input-field w-full"
-                        value={selectedBase}
-                        onChange={(e) => setSelectedBase(e.target.value)}
-                    >
-                        <option value="">Todas as Bases</option>
-                        {bases.map(base => (
-                            <option key={base.id} value={base.name}>{base.name}</option>
-                        ))}
-                    </select>
-                </div>
-                <button className="btn-secondary flex items-center gap-2">
-                    <Filter size={20} />
-                    Filtros
-                </button>
-            </div>
-
             {/* Content View */}
-            {viewMode === 'list' ? (
-                <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden animate-slide-up delay-200">
+            <div className="card-premium animate-fade-in text-gray-800">
+                {viewMode === 'list' ? (
                     <div className="overflow-x-auto">
-                        <table className="w-full text-sm text-left">
-                            <thead className="bg-gray-50 text-gray-700 font-semibold border-b border-gray-200">
+                        <table className="min-w-full divide-y divide-gray-200">
+                            <thead className="bg-white">
                                 <tr>
-                                    <th className="p-4 min-w-[150px]">Turma</th>
-                                    <th className="p-4 min-w-[200px]">Deslocamento Medtruck</th>
-                                    <th className="p-4 min-w-[150px]">Montagem/Desmontagem</th>
-                                    <th className="p-4 min-w-[200px]">Teórico</th>
-                                    <th className="p-4 min-w-[200px]">Prático</th>
-                                    <th className="p-4 min-w-[150px]">Local</th>
-                                    <th className="p-4 text-right">Ações</th>
+                                    <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider border border-gray-200 min-w-[200px]">CURSO</th>
+                                    <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider border border-gray-200">TURMA</th>
+                                    <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider border border-gray-200">ORIGEM</th>
+                                    <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider border border-gray-200">DESTINO</th>
+                                    <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider border border-gray-200">IDA MEDTRUCK</th>
+                                    <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider border border-gray-200">VOLTA MEDTRUCK</th>
+                                    <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider border border-gray-200">MONTAGEM</th>
+                                    <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider border border-gray-200">DESMONTAGEM</th>
+                                    <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider border border-gray-200">RECARGA GLP</th>
+                                    <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider border border-gray-200">INÍCIO TEÓRICO</th>
+                                    <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider border border-gray-200">FIM TEÓRICO</th>
+                                    <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider border border-gray-200">ALUNOS TEÓRICO</th>
+                                    <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider border border-gray-200">INSTRUTORES</th>
+                                    <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider border border-gray-200">INÍCIO PRÁTICO</th>
+                                    <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider border border-gray-200">FIM PRÁTICO</th>
+                                    <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider border border-gray-200">ALUNOS PRÁTICO</th>
+                                    <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider border border-gray-200">LOCAL</th>
+                                    <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider border border-gray-200 min-w-[200px]">COMPOSIÇÃO</th>
+                                    <th className="px-6 py-3 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border border-gray-200">AÇÕES</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-gray-100">
-                                {filteredSchedules.length === 0 ? (
+                            <tbody className="bg-white divide-y divide-gray-200">
+                                {currentItems.length === 0 ? (
                                     <tr>
-                                        <td colSpan={7} className="p-8 text-center text-gray-500">
-                                            Nenhum agendamento encontrado.
+                                        <td colSpan={19} className="px-6 py-12 text-center text-gray-500 border border-gray-200">
+                                            <div className="flex flex-col items-center justify-center">
+                                                <Calendar className="text-gray-300 mb-3" size={48} />
+                                                <p className="text-lg font-medium text-gray-900">NENHUM AGENDAMENTO ENCONTRADO</p>
+                                                <p className="text-sm text-gray-500 uppercase">TENTE AJUSTAR OS FILTROS OU ADICIONE UM NOVO AGENDAMENTO.</p>
+                                            </div>
                                         </td>
                                     </tr>
                                 ) : (
-                                    filteredSchedules.map((schedule) => (
-                                        <tr key={schedule.id} className="hover:bg-gray-50 transition-colors stagger-item">
-                                            <td className="p-4">
-                                                <div className="font-medium text-gray-900">{schedule.className}</div>
-                                                <div className="text-xs text-gray-500 mt-1 flex items-center gap-1">
-                                                    <MapPin size={12} />
-                                                    {schedule.origin} ➝ {schedule.destination}
-                                                </div>
+                                    currentItems.map((schedule) => (
+                                        <tr key={schedule.id} className="hover:bg-gray-50 transition-colors">
+                                            <td className="px-6 py-4 whitespace-nowrap border border-gray-200 text-sm text-gray-900 font-bold uppercase">
+                                                {courses.find(c => c.id === schedule.courseId)?.name || 'N/A'}
                                             </td>
-                                            <td className="p-4">
-                                                <div className="flex flex-col gap-1">
-                                                    <div className="flex items-center gap-1 text-xs text-gray-600">
-                                                        <Truck size={12} className="text-blue-500" />
-                                                        Saída: {formatDate(schedule.medtruckDisplacementStart)}
-                                                    </div>
-                                                    <div className="flex items-center gap-1 text-xs text-gray-600">
-                                                        <Truck size={12} className="text-green-500" />
-                                                        Chegada: {formatDate(schedule.medtruckDisplacementEnd)}
-                                                    </div>
-                                                </div>
+                                            <td className="px-6 py-4 whitespace-nowrap border border-gray-200 text-sm text-gray-500 uppercase font-bold">
+                                                {schedule.className}
                                             </td>
-                                            <td className="p-4">
-                                                <div className="flex flex-col gap-1">
-                                                    <div className="text-xs text-gray-600">
-                                                        <span className="font-medium">Mont:</span> {formatDate(schedule.setupDate)}
-                                                    </div>
-                                                    <div className="text-xs text-gray-600">
-                                                        <span className="font-medium">Desm:</span> {formatDate(schedule.teardownDate)}
-                                                    </div>
-                                                </div>
+                                            <td className="px-6 py-4 whitespace-nowrap border border-gray-200 text-sm text-gray-500 uppercase">
+                                                {schedule.origin}
                                             </td>
-                                            <td className="p-4">
-                                                <div className="flex flex-col gap-1">
-                                                    <div className="text-xs text-gray-600">
-                                                        {formatDate(schedule.theoryStart)} - {formatDate(schedule.theoryEnd)}
-                                                    </div>
-                                                    <div className="flex items-center gap-1 text-xs text-gray-500">
-                                                        <Users size={12} />
-                                                        {schedule.theoryStudentCount} alunos
-                                                    </div>
-                                                </div>
+                                            <td className="px-6 py-4 whitespace-nowrap border border-gray-200 text-sm text-gray-500 uppercase">
+                                                {schedule.destination}
                                             </td>
-                                            <td className="p-4">
-                                                <div className="flex flex-col gap-1">
-                                                    <div className="text-xs text-gray-600">
-                                                        {formatDate(schedule.practiceStart)} - {formatDate(schedule.practiceEnd)}
-                                                    </div>
-                                                    <div className="flex items-center gap-1 text-xs text-gray-500">
-                                                        <Users size={12} />
-                                                        {schedule.practiceStudentCount} alunos
-                                                    </div>
-                                                </div>
+                                            <td className="px-6 py-4 whitespace-nowrap border border-gray-200 text-sm text-gray-500 uppercase">
+                                                {formatDate(schedule.medtruckDisplacementStart)}
                                             </td>
-                                            <td className="p-4">
-                                                <div className="font-medium text-gray-900">{schedule.location}</div>
-                                                <div className="text-xs text-gray-500">{schedule.studentLocality}</div>
+                                            <td className="px-6 py-4 whitespace-nowrap border border-gray-200 text-sm text-gray-500 uppercase">
+                                                {formatDate(schedule.medtruckDisplacementEnd)}
                                             </td>
-                                            <td className="p-4 text-right">
-                                                <div className="flex justify-end gap-2">
-                                                    <button
-                                                        onClick={() => handleOpenModal(schedule)}
-                                                        className="p-1 text-blue-600 hover:bg-blue-50 rounded transition-colors"
-                                                        title="Editar"
-                                                    >
-                                                        <Edit2 size={16} />
-                                                    </button>
-                                                    <button
-                                                        onClick={() => handleDelete(schedule.id)}
-                                                        className="p-1 text-red-600 hover:bg-red-50 rounded transition-colors"
-                                                        title="Excluir"
-                                                    >
-                                                        <Trash2 size={16} />
-                                                    </button>
-                                                </div>
+                                            <td className="px-6 py-4 whitespace-nowrap border border-gray-200 text-sm text-gray-500 uppercase">
+                                                {formatDate(schedule.setupDate)}
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap border border-gray-200 text-sm text-gray-500 uppercase">
+                                                {formatDate(schedule.teardownDate)}
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap border border-gray-200 text-sm text-gray-500 font-bold uppercase">
+                                                {schedule.glpRefillDate ? formatDate(schedule.glpRefillDate) : '-'}
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap border border-gray-200 text-sm text-gray-500 uppercase">
+                                                {formatDate(schedule.theoryStart)}
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap border border-gray-200 text-sm text-gray-500 uppercase">
+                                                {formatDate(schedule.theoryEnd)}
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap border border-gray-200 text-sm text-gray-900 font-bold uppercase">
+                                                {schedule.theoryStudentCount}
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap border border-gray-200 text-sm text-gray-500 uppercase">
+                                                {schedule.instructorCount || 0}
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap border border-gray-200 text-sm text-gray-500 uppercase">
+                                                {formatDate(schedule.practiceStart)}
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap border border-gray-200 text-sm text-gray-500 uppercase">
+                                                {formatDate(schedule.practiceEnd)}
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap border border-gray-200 text-sm text-gray-900 font-bold uppercase">
+                                                {schedule.practiceStudentCount}
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap border border-gray-200 text-sm text-gray-900 font-medium uppercase">
+                                                {schedule.location}
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap border border-gray-200 text-xs text-gray-500 uppercase">
+                                                {schedule.studentBreakdown && schedule.studentBreakdown.length > 0
+                                                    ? schedule.studentBreakdown.map(b => `${b.base}: ${b.count}`).join(', ')
+                                                    : '-'
+                                                }
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-center text-sm flex justify-center gap-2 border border-gray-200">
+                                                <button
+                                                    onClick={() => handleOpenModal(schedule)}
+                                                    className="btn-base btn-edit px-3 py-1 text-[10px]"
+                                                    title="EDITAR"
+                                                >
+                                                    EDITAR
+                                                </button>
+                                                <button
+                                                    onClick={() => handleDelete(schedule.id)}
+                                                    className="btn-base btn-delete px-3 py-1 text-[10px]"
+                                                    title="EXCLUIR"
+                                                >
+                                                    EXCLUIR
+                                                </button>
                                             </td>
                                         </tr>
                                     ))
@@ -403,335 +395,361 @@ export const SchedulePage: React.FC = () => {
                             </tbody>
                         </table>
                     </div>
-                </div>
-            ) : (
-                <TimelineView />
-            )}
+                ) : (
+                    <div className="p-4">
+                        <GanttChart
+                            schedules={filteredSchedules}
+                            courses={courses}
+                            onEdit={handleOpenModal}
+                        />
+                    </div>
+                )}
 
-            {/* Modal */}
-            {isModalOpen && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
-                    <div className="bg-white rounded-xl p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto shadow-2xl animate-scale-in">
-                        <div className="p-6 border-b border-gray-100 flex justify-between items-center">
-                            <h2 className="text-xl font-bold text-gray-900">
-                                {editingSchedule ? 'Editar Agendamento' : 'Novo Agendamento'}
-                            </h2>
-                            <button onClick={handleCloseModal} className="text-gray-400 hover:text-gray-600 transition-colors">
-                                <span className="text-3xl">&times;</span>
+
+                {/* Pagination Controls - Only show in List View */}
+                {viewMode === 'list' && totalPages > 1 && (
+                    <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between bg-gray-50 rounded-b-xl border border-gray-200">
+                        <span className="text-sm text-gray-700">
+                            MOSTRANDO <span className="font-medium">{indexOfFirstItem + 1}</span> A <span className="font-medium">{Math.min(indexOfLastItem, filteredSchedules.length)}</span> DE <span className="font-medium">{filteredSchedules.length}</span> RESULTADOS
+                        </span>
+                        <div className="flex gap-2">
+                            <button
+                                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                                disabled={currentPage === 1}
+                                className="btn-base btn-pagination px-4 py-2 text-xs"
+                            >
+                                ANTERIOR
+                            </button>
+                            <button
+                                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                                disabled={currentPage === totalPages}
+                                className="btn-base btn-pagination px-4 py-2 text-xs"
+                            >
+                                PRÓXIMO
                             </button>
                         </div>
-
-                        <form onSubmit={handleSubmit} className="p-6 space-y-6">
-                            {/* Section 1: Basic Info & Logistics */}
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                <div className="md:col-span-1">
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Turma</label>
-                                    <input
-                                        type="text"
-                                        required
-                                        className={inputClass}
-                                        value={formData.className || ''}
-                                        onChange={e => setFormData({ ...formData, className: e.target.value })}
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Origem (De)</label>
-                                    <input
-                                        type="text"
-                                        required
-                                        className={inputClass}
-                                        value={formData.origin || ''}
-                                        onChange={e => setFormData({ ...formData, origin: e.target.value })}
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Destino (Para)</label>
-                                    <input
-                                        type="text"
-                                        required
-                                        className={inputClass}
-                                        value={formData.destination || ''}
-                                        onChange={e => setFormData({ ...formData, destination: e.target.value })}
-                                    />
-                                </div>
-                            </div>
-
-                            <div className="border-t border-gray-100 pt-4">
-                                <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                                    <Truck size={16} /> Deslocamento Medtruck
-                                </h3>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">Início</label>
-                                        <input
-                                            type="date"
-                                            className={inputClass}
-                                            value={formData.medtruckDisplacementStart ? formData.medtruckDisplacementStart.split('T')[0] : ''}
-                                            onChange={e => setFormData({ ...formData, medtruckDisplacementStart: e.target.value })}
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">Término</label>
-                                        <input
-                                            type="date"
-                                            className={inputClass}
-                                            value={formData.medtruckDisplacementEnd ? formData.medtruckDisplacementEnd.split('T')[0] : ''}
-                                            onChange={e => setFormData({ ...formData, medtruckDisplacementEnd: e.target.value })}
-                                        />
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="border-t border-gray-100 pt-4">
-                                <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                                    <Calendar size={16} /> Montagem e Desmontagem
-                                </h3>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">Data Montagem</label>
-                                        <input
-                                            type="date"
-                                            className={inputClass}
-                                            value={formData.setupDate || ''}
-                                            onChange={e => setFormData({ ...formData, setupDate: e.target.value })}
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">Data Desmontagem</label>
-                                        <input
-                                            type="date"
-                                            className={inputClass}
-                                            value={formData.teardownDate || ''}
-                                            onChange={e => setFormData({ ...formData, teardownDate: e.target.value })}
-                                        />
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="border-t border-gray-100 pt-4">
-                                <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                                    <Users size={16} /> Composição da Turma (Por Base)
-                                </h3>
-                                <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 mb-4">
-                                    <div className="flex gap-2 mb-2">
-                                        <select
-                                            className={`${inputClass} flex-1`}
-                                            id="baseInput"
-                                        >
-                                            <option value="">Selecione a Base</option>
-                                            {bases.map(base => (
-                                                <option key={base.id} value={base.name}>{base.name}</option>
-                                            ))}
-                                        </select>
-                                        <input
-                                            type="number"
-                                            placeholder="Qtd"
-                                            className={`${inputClass} w-24`}
-                                            id="countInput"
-                                        />
-                                        <button
-                                            type="button"
-                                            onClick={() => {
-                                                const baseInput = document.getElementById('baseInput') as HTMLSelectElement;
-                                                const countInput = document.getElementById('countInput') as HTMLInputElement;
-                                                const base = baseInput.value;
-                                                const count = parseInt(countInput.value);
-
-                                                if (base && count > 0) {
-                                                    const currentBreakdown = formData.studentBreakdown || [];
-                                                    const newBreakdown = [...currentBreakdown, { base, count }];
-                                                    const total = newBreakdown.reduce((sum, item) => sum + item.count, 0);
-
-                                                    setFormData({
-                                                        ...formData,
-                                                        studentBreakdown: newBreakdown,
-                                                        theoryStudentCount: total,
-                                                        practiceStudentCount: total
-                                                    });
-
-                                                    baseInput.value = '';
-                                                    countInput.value = '';
-                                                }
-                                            }}
-                                            className="btn-secondary"
-                                        >
-                                            Adicionar
-                                        </button>
-                                    </div>
-
-                                    {formData.studentBreakdown && formData.studentBreakdown.length > 0 && (
-                                        <div className="space-y-2 mt-3">
-                                            {formData.studentBreakdown.map((item, index) => (
-                                                <div key={index} className="flex justify-between items-center bg-white p-2 rounded border border-gray-200 text-sm">
-                                                    <span className="font-medium text-gray-700">{item.base}</span>
-                                                    <div className="flex items-center gap-3">
-                                                        <span className="bg-primary-50 text-primary-700 px-2 py-0.5 rounded-full font-bold">
-                                                            {item.count} alunos
-                                                        </span>
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => {
-                                                                const baseInput = document.getElementById('baseInput') as HTMLSelectElement;
-                                                                const countInput = document.getElementById('countInput') as HTMLInputElement;
-
-                                                                // Populate inputs for editing
-                                                                baseInput.value = item.base;
-                                                                countInput.value = item.count.toString();
-
-                                                                // Remove from list
-                                                                const newBreakdown = formData.studentBreakdown!.filter((_, i) => i !== index);
-                                                                const total = newBreakdown.reduce((sum, item) => sum + item.count, 0);
-                                                                setFormData({
-                                                                    ...formData,
-                                                                    studentBreakdown: newBreakdown,
-                                                                    theoryStudentCount: total,
-                                                                    practiceStudentCount: total
-                                                                });
-                                                            }}
-                                                            className="text-blue-500 hover:text-blue-700"
-                                                            title="Editar"
-                                                        >
-                                                            <Edit2 size={14} />
-                                                        </button>
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => {
-                                                                const newBreakdown = formData.studentBreakdown!.filter((_, i) => i !== index);
-                                                                const total = newBreakdown.reduce((sum, item) => sum + item.count, 0);
-                                                                setFormData({
-                                                                    ...formData,
-                                                                    studentBreakdown: newBreakdown,
-                                                                    theoryStudentCount: total,
-                                                                    practiceStudentCount: total
-                                                                });
-                                                            }}
-                                                            className="text-red-500 hover:text-red-700"
-                                                            title="Remover"
-                                                        >
-                                                            <Trash2 size={14} />
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                            ))}
-                                            <div className="flex justify-end pt-2 border-t border-gray-200">
-                                                <span className="text-sm font-bold text-gray-900">
-                                                    Total: {formData.studentBreakdown.reduce((sum, item) => sum + item.count, 0)} alunos
-                                                </span>
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-
-                            <div className="border-t border-gray-100 pt-4">
-                                <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                                    <Users size={16} /> Treinamento Teórico
-                                </h3>
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">Início</label>
-                                        <input
-                                            type="date"
-                                            className={inputClass}
-                                            value={formData.theoryStart ? formData.theoryStart.split('T')[0] : ''}
-                                            onChange={e => setFormData({ ...formData, theoryStart: e.target.value })}
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">Término</label>
-                                        <input
-                                            type="date"
-                                            className={inputClass}
-                                            value={formData.theoryEnd ? formData.theoryEnd.split('T')[0] : ''}
-                                            onChange={e => setFormData({ ...formData, theoryEnd: e.target.value })}
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">Qtd Alunos</label>
-                                        <input
-                                            type="number"
-                                            required
-                                            className={`${inputClass} bg-gray-50`}
-                                            value={formData.theoryStudentCount || ''}
-                                            onChange={e => setFormData({ ...formData, theoryStudentCount: parseInt(e.target.value) })}
-                                        />
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="border-t border-gray-100 pt-4">
-                                <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                                    <Users size={16} /> Treinamento Prático
-                                </h3>
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">Início</label>
-                                        <input
-                                            type="date"
-                                            className={inputClass}
-                                            value={formData.practiceStart ? formData.practiceStart.split('T')[0] : ''}
-                                            onChange={e => setFormData({ ...formData, practiceStart: e.target.value })}
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">Final</label>
-                                        <input
-                                            type="date"
-                                            className={inputClass}
-                                            value={formData.practiceEnd ? formData.practiceEnd.split('T')[0] : ''}
-                                            onChange={e => setFormData({ ...formData, practiceEnd: e.target.value })}
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">Qtd Alunos</label>
-                                        <input
-                                            type="number"
-                                            required
-                                            className={`${inputClass} bg-gray-50`}
-                                            value={formData.practiceStudentCount || ''}
-                                            onChange={e => setFormData({ ...formData, practiceStudentCount: parseInt(e.target.value) })}
-                                        />
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="border-t border-gray-100 pt-4">
-                                <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                                    <MapPin size={16} /> Localização
-                                </h3>
-                                <div className="grid grid-cols-1 gap-4">
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">Local do Treinamento</label>
-                                        <input
-                                            type="text"
-                                            required
-                                            className={inputClass}
-                                            value={formData.location || ''}
-                                            onChange={e => setFormData({ ...formData, location: e.target.value })}
-                                        />
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="flex justify-end gap-3 pt-6 border-t border-gray-100">
-                                <button
-                                    type="button"
-                                    onClick={handleCloseModal}
-                                    className="px-6 py-2.5 border rounded-lg text-gray-700 hover:bg-gray-50 bg-white font-medium transition-colors"
-                                >
-                                    Cancelar
-                                </button>
-                                <button
-                                    type="submit"
-                                    className="btn-premium bg-gradient-to-r from-primary-600 to-primary-500 hover:from-primary-700 hover:to-primary-600 text-white px-8 py-2.5 rounded-lg shadow-md font-semibold transition-all duration-200"
-                                >
-                                    {editingSchedule ? 'Salvar Alterações' : 'Criar Agendamento'}
-                                </button>
-                            </div>
-                        </form>
                     </div>
-                </div>
-            )}
-        </div>
+                )}
+            </div>
+
+            {/* Modal */}
+            <StandardModal isOpen={isModalOpen} onClose={handleCloseModal} maxWidth="max-w-4xl">
+                <StandardModalHeader
+                    title={editingSchedule ? 'EDITAR AGENDAMENTO' : 'NOVO AGENDAMENTO'}
+                    onClose={handleCloseModal}
+                />
+                <StandardModalBody>
+                    <div className="space-y-6">
+                        {/* Section 1: Basic Info & Logistics */}
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                            <div>
+                                <label className={labelClass}>CURSO</label>
+                                <select
+                                    className={`${inputClass} uppercase`}
+                                    value={formData.courseId || ''}
+                                    onChange={e => setFormData({ ...formData, courseId: e.target.value })}
+                                >
+                                    <option value="">SELECIONE</option>
+                                    {courses.map(course => (
+                                        <option key={course.id} value={course.id}>
+                                            {course.name.toUpperCase()}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div>
+                                <label className={labelClass}>TURMA</label>
+                                <input
+                                    type="text"
+                                    required
+                                    className={`${inputClass} uppercase`}
+                                    value={formData.className || ''}
+                                    onChange={e => setFormData({ ...formData, className: e.target.value.toUpperCase() })}
+                                />
+                            </div>
+                            <div>
+                                <label className={labelClass}>ORIGEM (DE)</label>
+                                <input
+                                    type="text"
+                                    required
+                                    className={`${inputClass} uppercase`}
+                                    value={formData.origin || ''}
+                                    onChange={e => setFormData({ ...formData, origin: e.target.value.toUpperCase() })}
+                                />
+                            </div>
+                            <div>
+                                <label className={labelClass}>DESTINO (PARA)</label>
+                                <input
+                                    type="text"
+                                    required
+                                    className={`${inputClass} uppercase`}
+                                    value={formData.destination || ''}
+                                    onChange={e => setFormData({ ...formData, destination: e.target.value.toUpperCase() })}
+                                />
+                            </div>
+                            <div>
+                                <label className={labelClass}>QTD INSTRUTORES</label>
+                                <input
+                                    type="number"
+                                    required
+                                    className={inputClass}
+                                    value={formData.instructorCount || ''}
+                                    onChange={e => setFormData({ ...formData, instructorCount: parseInt(e.target.value) })}
+                                />
+                            </div>
+                        </div>
+
+                        <div className="border-t border-gray-100 pt-4">
+                            <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2 uppercase">
+                                <Truck size={16} /> DESLOCAMENTO MEDTRUCK
+                            </h3>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="flex-1">
+                                    <label className={labelClass}>INÍCIO</label>
+                                    <input
+                                        type="date"
+                                        lang="pt-BR"
+                                        className={inputClass}
+                                        value={formData.medtruckDisplacementStart ? formData.medtruckDisplacementStart.split('T')[0] : ''}
+                                        onChange={e => setFormData({ ...formData, medtruckDisplacementStart: e.target.value })}
+                                    />
+                                </div>
+                                <div className="flex-1">
+                                    <label className={labelClass}>TÉRMINO</label>
+                                    <input
+                                        type="date"
+                                        lang="pt-BR"
+                                        className={inputClass}
+                                        value={formData.medtruckDisplacementEnd ? formData.medtruckDisplacementEnd.split('T')[0] : ''}
+                                        onChange={e => setFormData({ ...formData, medtruckDisplacementEnd: e.target.value })}
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="border-t border-gray-100 pt-4">
+                            <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2 uppercase">
+                                <Calendar size={16} /> MONTAGEM E DESMONTAGEM
+                            </h3>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div>
+                                    <label className={labelClass}>DATA MONTAGEM</label>
+                                    <input
+                                        type="date"
+                                        lang="pt-BR"
+                                        className={inputClass}
+                                        value={formData.setupDate || ''}
+                                        onChange={e => setFormData({ ...formData, setupDate: e.target.value })}
+                                    />
+                                </div>
+                                <div>
+                                    <label className={labelClass}>DATA DESMONTAGEM</label>
+                                    <input
+                                        type="date"
+                                        lang="pt-BR"
+                                        className={inputClass}
+                                        value={formData.teardownDate || ''}
+                                        onChange={e => setFormData({ ...formData, teardownDate: e.target.value })}
+                                    />
+                                </div>
+                                <div>
+                                    <label className={labelClass}>RECARGA GLP</label>
+                                    <input
+                                        type="date"
+                                        lang="pt-BR"
+                                        className={inputClass}
+                                        value={formData.glpRefillDate ? formData.glpRefillDate.split('T')[0] : ''}
+                                        onChange={e => setFormData({ ...formData, glpRefillDate: e.target.value })}
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="border-t border-gray-100 pt-4">
+                            <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2 uppercase">
+                                <Users size={16} /> COMPOSIÇÃO DA TURMA (POR BASE)
+                            </h3>
+                            <div className="bg-white p-4 border border-gray-200 mb-4 rounded-lg">
+                                <div className="flex gap-2 mb-2">
+                                    <div className="flex-1">
+                                        <div className="mb-1">
+                                            <select
+                                                id="baseInput"
+                                                className={`${inputClass} uppercase`}
+                                            >
+                                                <option value="">SELECIONE A BASE</option>
+                                                {bases.map(base => (
+                                                    <option key={base.id} value={base.name}>{base.name.toUpperCase()}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <input
+                                        type="number"
+                                        placeholder="QTD"
+                                        className={`${inputClass} w-32 uppercase`}
+                                        id="countInput"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            const baseInput = document.getElementById('baseInput') as HTMLSelectElement;
+                                            const countInput = document.getElementById('countInput') as HTMLInputElement;
+                                            const base = baseInput.value;
+                                            const count = parseInt(countInput.value);
+
+                                            if (base && count > 0) {
+                                                const currentBreakdown = formData.studentBreakdown || [];
+                                                const newBreakdown = [...currentBreakdown, { base, count }];
+                                                const total = newBreakdown.reduce((sum, item) => sum + item.count, 0);
+
+                                                setFormData({
+                                                    ...formData,
+                                                    studentBreakdown: newBreakdown,
+                                                    theoryStudentCount: total,
+                                                    practiceStudentCount: total
+                                                });
+
+                                                baseInput.value = '';
+                                                countInput.value = '';
+                                            }
+                                        }}
+                                        className="btn-base bg-blue-600 text-white hover:bg-blue-700 shadow-lg shadow-blue-500/30 px-6 py-2 text-xs font-bold self-start mt-0.5"
+                                        style={{ height: '38px' }}
+                                    >
+                                        ADICIONAR
+                                    </button>
+                                </div>
+
+                                {formData.studentBreakdown && formData.studentBreakdown.length > 0 && (
+                                    <div className="space-y-2 mt-3">
+                                        {formData.studentBreakdown.map((item, index) => (
+                                            <div key={index} className="flex justify-between items-center bg-gray-50 p-3 rounded-lg border border-gray-200 text-sm">
+                                                <span className="font-bold text-gray-700 uppercase">{item.base}</span>
+                                                <div className="flex items-center gap-3">
+                                                    <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-xs font-bold uppercase">
+                                                        {item.count} ALUNOS
+                                                    </span>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            const newBreakdown = formData.studentBreakdown!.filter((_, i) => i !== index);
+                                                            const total = newBreakdown.reduce((sum, item) => sum + item.count, 0);
+                                                            setFormData({
+                                                                ...formData,
+                                                                studentBreakdown: newBreakdown,
+                                                                theoryStudentCount: total,
+                                                                practiceStudentCount: total
+                                                            });
+                                                        }}
+                                                        className="text-red-500 hover:text-red-700 font-bold text-xs uppercase"
+                                                    >
+                                                        EXCLUIR
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ))}
+                                        <div className="flex justify-end pt-2 border-t border-gray-200">
+                                            <span className="text-sm font-bold text-gray-900 uppercase">
+                                                TOTAL: {formData.studentBreakdown.reduce((sum, item) => sum + item.count, 0)} ALUNOS
+                                            </span>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        <div className="border-t border-gray-100 pt-4">
+                            <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2 uppercase">
+                                <Users size={16} /> TREINAMENTO TEÓRICO
+                            </h3>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="flex-1">
+                                    <label className={labelClass}>INÍCIO</label>
+                                    <input
+                                        type="date"
+                                        lang="pt-BR"
+                                        className={inputClass}
+                                        value={formData.theoryStart ? formData.theoryStart.split('T')[0] : ''}
+                                        onChange={e => setFormData({ ...formData, theoryStart: e.target.value })}
+                                    />
+                                </div>
+                                <div className="flex-1">
+                                    <label className={labelClass}>TÉRMINO</label>
+                                    <input
+                                        type="date"
+                                        lang="pt-BR"
+                                        className={inputClass}
+                                        value={formData.theoryEnd ? formData.theoryEnd.split('T')[0] : ''}
+                                        onChange={e => setFormData({ ...formData, theoryEnd: e.target.value })}
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="border-t border-gray-100 pt-4">
+                            <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2 uppercase">
+                                <Users size={16} /> TREINAMENTO PRÁTICO
+                            </h3>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="flex-1">
+                                    <label className={labelClass}>INÍCIO</label>
+                                    <input
+                                        type="date"
+                                        lang="pt-BR"
+                                        className={inputClass}
+                                        value={formData.practiceStart ? formData.practiceStart.split('T')[0] : ''}
+                                        onChange={e => setFormData({ ...formData, practiceStart: e.target.value })}
+                                    />
+                                </div>
+                                <div className="flex-1">
+                                    <label className={labelClass}>TÉRMINO</label>
+                                    <input
+                                        type="date"
+                                        lang="pt-BR"
+                                        className={inputClass}
+                                        value={formData.practiceEnd ? formData.practiceEnd.split('T')[0] : ''}
+                                        onChange={e => setFormData({ ...formData, practiceEnd: e.target.value })}
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="border-t border-gray-100 pt-4">
+                            <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2 uppercase">
+                                <MapPin size={16} /> LOCALIZAÇÃO
+                            </h3>
+                            <div className="grid grid-cols-1 gap-4">
+                                <div>
+                                    <label className={labelClass}>LOCAL DO TREINAMENTO</label>
+                                    <input
+                                        type="text"
+                                        required
+                                        className={`${inputClass} uppercase`}
+                                        value={formData.location || ''}
+                                        onChange={e => setFormData({ ...formData, location: e.target.value.toUpperCase() })}
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </StandardModalBody>
+                <StandardModalFooter>
+                    <button
+                        type="button"
+                        onClick={handleCloseModal}
+                        className="btn-base bg-gray-500 text-white hover:bg-gray-600 shadow-lg shadow-gray-500/30 px-6 py-2.5 text-xs font-bold"
+                    >
+                        CANCELAR
+                    </button>
+                    <button
+                        onClick={handleSubmit as any}
+                        className="btn-base bg-green-600 text-white hover:bg-green-700 shadow-lg shadow-green-500/30 px-8 py-3 text-sm font-bold"
+                    >
+                        {editingSchedule ? 'SALVAR' : 'CRIAR'}
+                    </button>
+                </StandardModalFooter>
+            </StandardModal >
+        </>
     );
 };

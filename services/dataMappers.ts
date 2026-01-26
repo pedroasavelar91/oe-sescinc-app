@@ -1,6 +1,6 @@
 // Data mappers for converting between database snake_case and TypeScript camelCase
 
-import { Student, Task, AttendanceLog, GradeLog, PaymentRecord, ChecklistTemplate, ChecklistLog, Firefighter, FirefighterLog, Base, Region, AirportClass, User, UserRole } from '../types';
+import { Student, Task, AttendanceLog, GradeLog, PaymentRecord, ChecklistTemplate, ChecklistLog, Firefighter, FirefighterLog, Base, Region, AirportClass, User, UserRole, Question, QuestionReview, QuestionApprover } from '../types';
 
 // Student Mappers
 export const mapStudentFromDB = (db: any): Student => ({
@@ -26,7 +26,11 @@ export const mapStudentFromDB = (db: any): Student => ({
     grades: db.grades || {},
     finalTheory: db.final_theory || 0,
     finalPractical: db.final_practical || 0,
-    finalGrade: db.final_grade || 0
+    finalGrade: db.final_grade || 0,
+    isEmployee: db.is_employee,
+    baseId: db.base_id,
+    documents: db.documents || {},
+    team: db.team // Optional load if column exists
 });
 
 export const mapStudentToDB = (student: Student) => ({
@@ -52,7 +56,11 @@ export const mapStudentToDB = (student: Student) => ({
     grades: student.grades,
     final_theory: student.finalTheory,
     final_practical: student.finalPractical,
-    final_grade: student.finalGrade
+    final_grade: student.finalGrade,
+    is_employee: student.isEmployee,
+    base_id: student.baseId
+    // documents: student.documents, // EXCLUDED: Virtual field, not in DB
+    // team: student.team // EXCLUDED: Virtual field, not in DB
 });
 
 // Task Mappers
@@ -262,6 +270,7 @@ export const mapUserFromDB = (db: any): User => ({
     uniformSize: db.uniform_size,
     ppeSize: db.ppe_size,
     photoUrl: db.photo_url,
+    isActive: db.is_active ?? true,
     password: db.password
 });
 
@@ -279,6 +288,7 @@ export const mapUserToDB = (user: User) => ({
     uniform_size: user.uniformSize,
     ppe_size: user.ppeSize,
     photo_url: user.photoUrl,
+    is_active: user.isActive,
     password: user.password
 });
 
@@ -295,4 +305,116 @@ export const mapBaseToDB = (base: Base) => ({
     name: base.name,
     region: base.region,
     airport_class: base.airportClass
+});
+
+// Question Mappers
+export const mapQuestionFromDB = (db: any): Question => ({
+    id: db.id,
+    title: db.title,
+    subject: db.subject,
+    content: db.content,
+    optionA: db.option_a,
+    optionB: db.option_b,
+    optionC: db.option_c,
+    optionD: db.option_d,
+    correctOption: db.correct_option,
+    explanation: db.explanation,
+    createdBy: db.created_by,
+    createdByName: db.created_by_name,
+    createdAt: db.created_at,
+    status: db.status,
+    reviewerId: db.reviewer_id,
+    reviewerName: db.reviewer_name,
+    reviewedAt: db.reviewed_at,
+    reviewNotes: db.review_notes,
+    timesUsed: db.times_used || 0,
+    validUntil: db.valid_until
+});
+
+export const mapQuestionToDB = (q: Question) => ({
+    id: q.id,
+    title: q.title,
+    subject: q.subject,
+    content: q.content,
+    option_a: q.optionA,
+    option_b: q.optionB,
+    option_c: q.optionC,
+    option_d: q.optionD,
+    correct_option: q.correctOption,
+    explanation: q.explanation,
+    created_by: q.createdBy,
+    created_by_name: q.createdByName,
+    created_at: q.createdAt,
+    status: q.status,
+    reviewer_id: q.reviewerId,
+    reviewer_name: q.reviewerName,
+    reviewed_at: q.reviewedAt,
+    review_notes: q.reviewNotes,
+    times_used: q.timesUsed,
+    valid_until: q.validUntil
+});
+
+// QuestionReview Mappers
+export const mapQuestionReviewFromDB = (db: any): QuestionReview => ({
+    id: db.id,
+    questionId: db.question_id,
+    reviewerId: db.reviewer_id,
+    reviewerName: db.reviewer_name,
+    timestamp: db.timestamp,
+    action: db.action,
+    notes: db.notes
+});
+
+export const mapQuestionReviewToDB = (r: QuestionReview) => ({
+    id: r.id,
+    question_id: r.questionId,
+    reviewer_id: r.reviewerId,
+    reviewer_name: r.reviewerName,
+    timestamp: r.timestamp,
+    action: r.action,
+    notes: r.notes
+});
+
+// QuestionApprover Mappers
+export const mapQuestionApproverFromDB = (db: any): QuestionApprover => ({
+    id: db.id,
+    userId: db.user_id,
+    userName: db.user_name,
+    assignedBy: db.assigned_by,
+    assignedByName: db.assigned_by_name,
+    assignedAt: db.assigned_at,
+    isActive: db.is_active
+});
+
+export const mapQuestionApproverToDB = (a: QuestionApprover) => ({
+    id: a.id,
+    user_id: a.userId,
+    user_name: a.userName,
+    assigned_by: a.assignedBy,
+    assigned_by_name: a.assignedByName,
+    assigned_at: a.assignedAt,
+    is_active: a.isActive
+});
+
+// ClassPhoto Mappers
+export const mapClassPhotoFromDB = (db: any): ClassPhoto => ({
+    id: db.id,
+    classId: db.class_id,
+    subjectId: db.subject_id,
+    type: db.type,
+    photoUrl: db.photo_url,
+    uploadedBy: db.uploaded_by,
+    uploadedByName: db.uploaded_by_name,
+    uploadedAt: db.uploaded_at
+});
+
+export const mapClassPhotoToDB = (photo: ClassPhoto) => ({
+    id: photo.id,
+    class_id: photo.classId,
+    subject_id: photo.subjectId,
+    type: photo.type,
+    photo_url: photo.photoUrl,
+    uploaded_by: photo.uploadedBy,
+    uploaded_by_name: photo.uploadedByName,
+    uploaded_at: photo.uploadedAt
 });

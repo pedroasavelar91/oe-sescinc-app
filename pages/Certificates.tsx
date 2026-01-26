@@ -1,8 +1,7 @@
-
 import React, { useState, useMemo } from 'react';
 import { useStore } from '../context/AppStore';
 import { CourseType, UserRole } from '../types';
-import { FileBadge, Search, Filter, Printer, Award } from 'lucide-react';
+import { FileBadge, Search, Filter, Printer, Award, ChevronLeft, ChevronRight } from 'lucide-react';
 import { formatCPF } from '../utils/formatters';
 import { formatDate } from '../utils/dateUtils';
 
@@ -11,6 +10,8 @@ export const CertificatesPage: React.FC = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [classFilter, setClassFilter] = useState('');
     const [yearFilter, setYearFilter] = useState('');
+    const [currentPage, setCurrentPage] = useState(1);
+    const ITEMS_PER_PAGE = 10;
 
     if (!currentUser || (currentUser.role !== UserRole.GESTOR && currentUser.role !== UserRole.COORDENADOR)) {
         return <div className="p-8 text-center text-gray-500">Acesso não autorizado.</div>;
@@ -130,105 +131,154 @@ export const CertificatesPage: React.FC = () => {
         return matchesSearch && matchesClass && matchesYear;
     });
 
+    const totalPages = Math.ceil(filteredCertificates.length / ITEMS_PER_PAGE);
+    const paginatedCertificates = filteredCertificates.slice(
+        (currentPage - 1) * ITEMS_PER_PAGE,
+        currentPage * ITEMS_PER_PAGE
+    );
+
+    // Classes with students
+    const activeClasses = useMemo(() => {
+        return classes.filter(c => students.some(s => s.classId === c.id));
+    }, [classes, students]);
+
     const handlePrint = (id: string) => {
         alert('Funcionalidade ainda não implementada.');
     };
 
     return (
         <div className="space-y-6 animate-fade-in">
-            <div className="flex justify-between items-center animate-slide-down">
-                <div>
-                    <h1 className="text-3xl font-bold text-gray-900">Consulta de Certificados</h1>
-                    <p className="text-gray-500 mt-1">Gerencie e emita certificados</p>
-                </div>
-            </div>
 
-            {/* Search and Filters */}
-            <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-100 grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
-                    <input
-                        type="text"
-                        placeholder="Filtrar por Nome ou CPF"
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="pl-10 appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm bg-white text-gray-900"
-                    />
-                </div>
-                <div>
-                    <select
-                        className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm bg-white text-gray-900"
-                        value={classFilter}
-                        onChange={(e) => setClassFilter(e.target.value)}
-                    >
-                        <option value="">Todas as Turmas</option>
-                        {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                    </select>
-                </div>
-                <div>
-                    <select
-                        className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm bg-white text-gray-900"
-                        value={yearFilter}
-                        onChange={(e) => setYearFilter(e.target.value)}
-                    >
-                        <option value="">Todos os Anos</option>
-                        <option value="2024">2024</option>
-                        <option value="2025">2025</option>
-                        <option value="2026">2026</option>
-                    </select>
-                </div>
-            </div>
-
-            {/* Certificates Grid/List */}
-            <div className="grid grid-cols-1 gap-4">
-                {filteredCertificates.length === 0 ? (
-                    <div className="p-12 text-center bg-white rounded-lg border border-dashed border-gray-300">
-                        <Award className="mx-auto h-12 w-12 text-gray-300 mb-3" />
-                        <p className="text-gray-500 italic">Nenhum certificado disponível para os filtros selecionados.</p>
+            {/* Filters & Actions Header */}
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <div className="flex flex-wrap gap-2 w-full md:w-auto items-center">
+                    <div className="relative flex-1 min-w-[300px]">
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+                        <input
+                            type="text"
+                            placeholder="BUSCAR POR NOME OU CPF..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className={`${inputClass} pl-10 uppercase`}
+                        />
                     </div>
-                ) : (
-                    filteredCertificates.map(cert => (
-                        <div key={cert.id} className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 flex flex-col md:flex-row items-center justify-between hover:shadow-md transition-shadow">
-                            <div className="flex items-center space-x-4 w-full md:w-auto mb-4 md:mb-0">
-                                <div className="h-12 w-12 rounded-full bg-primary-50 flex items-center justify-center text-primary-600 font-bold text-lg border border-primary-100">
-                                    {cert.name.charAt(0)}
-                                </div>
-                                <div>
-                                    <h3 className="font-bold text-gray-900 text-lg">{cert.name}</h3>
-                                    <p className="text-sm text-gray-500">CPF: {formatCPF(cert.cpf)}</p>
-                                    <div className="flex flex-wrap gap-2 mt-2">
-                                        <span className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded text-xs border border-blue-100">
-                                            Matrícula: {cert.matricula}
-                                        </span>
-                                        <span className="bg-green-50 text-green-700 px-2 py-0.5 rounded text-xs border border-green-100">
-                                            Registro: {cert.registro}
-                                        </span>
-                                        {cert.capBa && cert.capBa !== '-' && (
-                                            <span className="bg-orange-50 text-orange-700 px-2 py-0.5 rounded text-xs border border-orange-100">
-                                                CAP-BA: {cert.capBa}
-                                            </span>
-                                        )}
-                                    </div>
-                                </div>
-                            </div>
 
-                            <div className="flex flex-col md:flex-row items-center gap-6 w-full md:w-auto">
-                                <div className="text-center md:text-right">
-                                    <p className="text-sm font-bold text-gray-800">{cert.courseName}</p>
-                                    <p className="text-xs text-gray-500">
-                                        Conclusão: {formatDate(cert.endDate)}
-                                    </p>
-                                </div>
-                                <button
-                                    onClick={() => handlePrint(cert.id)}
-                                    className="btn-premium w-full md:w-auto bg-gradient-to-r from-primary-600 to-primary-500 hover:from-primary-700 hover:to-primary-600 text-white px-6 py-2 rounded-lg shadow-md flex items-center justify-center space-x-2 transition-all duration-200"
-                                >
-                                    <Printer size={18} />
-                                    <span>Emitir</span>
-                                </button>
-                            </div>
+                    <div className="w-full md:w-32">
+                        <select
+                            className={inputClass}
+                            value={yearFilter}
+                            onChange={(e) => { setYearFilter(e.target.value); setCurrentPage(1); }}
+                        >
+                            <option value="">ANO</option>
+                            <option value="2024">2024</option>
+                            <option value="2025">2025</option>
+                            <option value="2026">2026</option>
+                        </select>
+                    </div>
+
+                    <div className="w-full md:w-64">
+                        <select
+                            className={inputClass}
+                            value={classFilter}
+                            onChange={(e) => { setClassFilter(e.target.value); setCurrentPage(1); }}
+                        >
+                            <option value="">TODAS AS TURMAS</option>
+                            {activeClasses.map(c => <option key={c.id} value={c.id}>{c.name.toUpperCase()}</option>)}
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            {/* Certificates Table */}
+            <div className="card-premium overflow-hidden animate-slide-up">
+                <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200 border-collapse">
+                        <thead className="bg-white text-gray-700">
+                            <tr>
+                                <th className="px-3 py-3 text-left text-xs font-bold uppercase border border-gray-200 whitespace-nowrap sticky left-0 bg-white z-10">Aluno</th>
+                                <th className="px-3 py-3 text-center text-xs font-bold uppercase border border-gray-200">Curso / Turma</th>
+                                <th className="px-3 py-3 text-center text-xs font-bold uppercase border border-gray-200">Conclusão</th>
+                                <th className="px-3 py-3 text-center text-xs font-bold uppercase border border-gray-200">Matrícula</th>
+                                <th className="px-3 py-3 text-center text-xs font-bold uppercase border border-gray-200">Registro</th>
+                                <th className="px-3 py-3 text-center text-xs font-bold uppercase border border-gray-200">CAP-BA</th>
+                                <th className="px-3 py-3 text-center text-xs font-bold uppercase border border-gray-200 sticky right-0 bg-white z-10">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                            {paginatedCertificates.length === 0 ? (
+                                <tr>
+                                    <td colSpan={7} className="px-6 py-12 text-center text-gray-500 border border-gray-200">
+                                        Nenhum certificado encontrado para os filtros selecionados.
+                                    </td>
+                                </tr>
+                            ) : (
+                                paginatedCertificates.map((cert) => (
+                                    <tr key={cert.id} className="hover:bg-gray-50 transition-colors group">
+                                        <td className="px-3 py-2 whitespace-nowrap border border-gray-200 sticky left-0 bg-white group-hover:bg-gray-50 z-10">
+                                            <div className="flex flex-col">
+                                                <span className="text-xs font-bold text-gray-900 uppercase">{cert.name}</span>
+                                                <span className="text-[10px] text-gray-500 font-mono">{formatCPF(cert.cpf)}</span>
+                                            </div>
+                                        </td>
+                                        <td className="px-3 py-2 text-center whitespace-nowrap border border-gray-200">
+                                            <div className="flex flex-col">
+                                                <span className="text-[10px] font-bold text-gray-900 uppercase">{cert.courseName}</span>
+                                                <span className="text-[10px] text-gray-500 uppercase">{cert.className}</span>
+                                            </div>
+                                        </td>
+                                        <td className="px-3 py-2 text-center whitespace-nowrap border border-gray-200">
+                                            <span className="text-[10px] font-semibold text-gray-700 bg-gray-100 px-2 py-0.5 rounded-full border border-gray-200">
+                                                {formatDate(cert.endDate)}
+                                            </span>
+                                        </td>
+                                        <td className="px-3 py-2 text-center whitespace-nowrap text-[10px] font-medium text-gray-600 uppercase border border-gray-200">
+                                            {cert.matricula}
+                                        </td>
+                                        <td className="px-3 py-2 text-center whitespace-nowrap text-[10px] font-medium text-gray-600 uppercase border border-gray-200">
+                                            {cert.registro}
+                                        </td>
+                                        <td className="px-3 py-2 text-center whitespace-nowrap text-[10px] font-medium text-gray-600 uppercase border border-gray-200">
+                                            {cert.capBa}
+                                        </td>
+                                        <td className="px-3 py-2 whitespace-nowrap text-center border border-gray-200 sticky right-0 bg-white group-hover:bg-gray-50 z-10">
+                                            <button
+                                                onClick={() => handlePrint(cert.id)}
+                                                className="btn-base btn-edit px-3 py-1 text-xs inline-flex items-center gap-1"
+                                                title="Emitir Certificado"
+                                            >
+                                                EMITIR
+                                            </button>
+                                        </td>
+                                    </tr>
+                                ))
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+
+                {/* Pagination Controls */}
+                {filteredCertificates.length > 0 && (
+                    <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between bg-gray-50">
+                        <span className="text-xs font-bold text-gray-500 uppercase tracking-wide">
+                            Mostrando <span className="font-medium text-gray-700">{((currentPage - 1) * ITEMS_PER_PAGE) + 1}</span> a <span className="font-medium text-gray-700">{Math.min(currentPage * ITEMS_PER_PAGE, filteredCertificates.length)}</span> de <span className="font-medium text-gray-700">{filteredCertificates.length}</span> resultados
+                        </span>
+                        <div className="flex gap-2">
+                            <button
+                                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                                disabled={currentPage === 1}
+                                className={`btn-base btn-pagination px-4 py-2 text-xs ${currentPage === 1 ? 'opacity-50 cursor-not-allowed' : ''}`}
+                            >
+                                ANTERIOR
+                            </button>
+                            <button
+                                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                                disabled={currentPage === totalPages}
+                                className={`btn-base btn-pagination px-4 py-2 text-xs ${currentPage === totalPages ? 'opacity-50 cursor-not-allowed' : ''}`}
+                            >
+                                PRÓXIMO
+                            </button>
                         </div>
-                    ))
+                    </div>
                 )}
             </div>
         </div>

@@ -1,0 +1,145 @@
+/* Button Standards */
+
+/* Base Button Style */
+.btn-base {
+    /* @apply usage removed for safety, using standard CSS below */
+    /* Fallback if @apply fails or for specific overrides */
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.5rem 1rem;
+    border-radius: 0.5rem;
+    /* rounded-lg */
+    font-weight: 700;
+    /* font-bold */
+    text-transform: uppercase;
+    letter-spacing: 0.025em;
+    /* tracking-wide */
+    transition: all 0.2s ease-in-out;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    cursor: pointer;
+    border: none;
+    outline: none;
+}
+
+.btn-base:hover {
+    transform: translateY(-2px);
+    filter: brightness(110%);
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+}
+
+.btn-base:active {
+    transform: translateY(0);
+    filter: brightness(95%);
+}
+
+.btn-base:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+    filter: none;
+    box-shadow: none;
+}
+
+/* 1. Insert / Save / Action Button (Green/Success or Primary) */
+/* Using an Emerald Green for "Positive" actions distinct from Brand Orange */
+.btn-insert,
+.btn-save,
+.btn-success {
+    background-color: #10B981;
+    /* Emerald 500 */
+    color: white;
+}
+
+.btn-insert:hover,
+.btn-save:hover,
+.btn-success:hover {
+    background-color: #059669;
+    /* Emerald 600 */
+    box-shadow: 0 0 15px rgba(16, 185, 129, 0.4);
+    /* Green Glow */
+}
+
+/* 2. Edit / Update (Blue) */
+.btn-edit,
+.btn-update {
+    background-color: #3B82F6;
+    /* Blue 500 */
+    color: white;
+}
+
+.btn-edit:hover,
+.btn-update:hover {
+    background-color: #2563EB;
+    /* Blue 600 */
+    box-shadow: 0 0 15px rgba(59, 130, 246, 0.4);
+    /* Blue Glow */
+}
+
+/* 3. Delete / Remove / Cancel (Red) */
+.btn-delete,
+.btn-remove,
+.btn-cancel {
+    background-color: #EF4444;
+    /* Red 500 */
+    color: white;
+}
+
+.btn-delete:hover,
+.btn-remove:hover,
+.btn-cancel:hover {
+    background-color: #DC2626;
+    /* Red 600 */
+    box-shadow: 0 0 15px rgba(239, 68, 68, 0.4);
+    /* Red Glow */
+}
+
+/* 4. Pagination Buttons */
+.btn-pagination {
+    background-color: white;
+    color: #374151;
+    /* Gray 700 */
+    border: 1px solid #E5E7EB;
+    /* Gray 200 */
+    padding: 0.5rem 0.75rem;
+    font-size: 0.875rem;
+}
+
+.btn-pagination:hover {
+    background-color: #F9FAFB;
+    /* Gray 50 */
+    border-color: #D1D5DB;
+    /* Gray 300 */
+    transform: translateY(-1px);
+}
+
+.btn-pagination.active {
+    background-color: #FF6B35;
+    /* Brand Orange */
+    color: white;
+    border-color: #FF6B35;
+    box-shadow: 0 0 10px rgba(255, 107, 53, 0.4);
+}
+
+/* Optional: Primary Brand Button */
+.btn-primary {
+    background-color: #FF6B35;
+    color: white;
+}
+
+.btn-primary:hover {
+    background-color: #E85D2E;
+    box-shadow: 0 0 15px rgba(255, 107, 53, 0.4);
+}
+
+/* Outline Variants */
+.btn-outline-primary {
+    background-color: transparent;
+    border: 2px solid #FF6B35;
+    color: #FF6B35;
+}
+
+.btn-outline-primary:hover {
+    background-color: #FF6B35;
+    color: white;
+}

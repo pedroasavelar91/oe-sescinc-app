@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useStore } from '../context/AppStore';
 import { Course, Subject, CourseType, UserRole } from '../types';
 import { Plus, Trash2, Pencil, X, Save, ChevronDown, ChevronUp, Copy, ArrowUp, ArrowDown } from 'lucide-react';
@@ -8,7 +8,8 @@ export const CoursesPage: React.FC = () => {
     const [isCreating, setIsCreating] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
     const [editingSubjectId, setEditingSubjectId] = useState<string | null>(null);
-    const [expandedCourses, setExpandedCourses] = useState<Set<string>>(new Set());
+    const [expandedCourseId, setExpandedCourseId] = useState<string | null>(null);
+    const [deletionTarget, setDeletionTarget] = useState<{ id: string, type: 'course' | 'subject', name?: string, subject?: Subject } | null>(null);
 
     const canEdit = currentUser?.role === UserRole.GESTOR || currentUser?.role === UserRole.COORDENADOR;
 
@@ -32,6 +33,13 @@ export const CoursesPage: React.FC = () => {
         modality: 'Teórica'
     });
 
+    // Scroll to top when modal opens to ensure it's centered
+    useEffect(() => {
+        if (isCreating) {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+    }, [isCreating]);
+
     const handleAddSubject = () => {
         if (!tempSubject.name) return;
 
@@ -50,13 +58,23 @@ export const CoursesPage: React.FC = () => {
     };
 
     const handleRemoveSubject = (id: string) => {
+        const subject = courseForm.subjects?.find(s => s.id === id);
+        if (subject) {
+            setDeletionTarget({ id, type: 'subject', name: subject.name, subject });
+        }
+    };
+
+    const confirmRemoveSubject = () => {
+        if (!deletionTarget || deletionTarget.type !== 'subject') return;
+
         setCourseForm({
             ...courseForm,
-            subjects: courseForm.subjects?.filter(s => s.id !== id)
+            subjects: courseForm.subjects?.filter(s => s.id !== deletionTarget.id)
         });
-        if (editingSubjectId === id) {
+        if (editingSubjectId === deletionTarget.id) {
             setEditingSubjectId(null);
         }
+        setDeletionTarget(null);
     };
 
     const moveSubject = (index: number, direction: 'up' | 'down') => {
@@ -103,13 +121,7 @@ export const CoursesPage: React.FC = () => {
     };
 
     const toggleCourseExpansion = (courseId: string) => {
-        const newExpanded = new Set(expandedCourses);
-        if (newExpanded.has(courseId)) {
-            newExpanded.delete(courseId);
-        } else {
-            newExpanded.add(courseId);
-        }
-        setExpandedCourses(newExpanded);
+        setExpandedCourseId(prev => prev === courseId ? null : courseId);
     };
 
     const handleSaveCourse = () => {
@@ -157,9 +169,16 @@ export const CoursesPage: React.FC = () => {
     };
 
     const handleDeleteClick = (id: string) => {
-        if (window.confirm("Tem certeza que deseja excluir este curso?")) {
-            deleteCourse(id);
+        const course = courses.find(c => c.id === id);
+        if (course) {
+            setDeletionTarget({ id, type: 'course', name: course.name });
         }
+    };
+
+    const confirmDeleteCourse = () => {
+        if (!deletionTarget || deletionTarget.type !== 'course') return;
+        deleteCourse(deletionTarget.id);
+        setDeletionTarget(null);
     };
 
     const handleCopyClick = (course: Course) => {
@@ -183,36 +202,34 @@ export const CoursesPage: React.FC = () => {
         setTempSubject({ module: '', name: '', hours: 4, modality: 'Teórica' });
     };
 
-    const inputClass = "appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm bg-white text-gray-900";
+    const inputClass = "appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm bg-white text-gray-900 uppercase";
 
     return (
-        <div className="space-y-6 animate-fade-in">
-            <div className="flex justify-between items-center animate-slide-down">
-                <div>
-                    <h1 className="text-3xl font-bold text-gray-900">Cursos e Matérias</h1>
-                    <p className="text-gray-500 mt-1">Gerencie os cursos e suas disciplinas</p>
+        <>
+            <div className="space-y-6 animate-fade-in">
+                <div className="flex justify-between items-center animate-slide-down">
+                    <div>
+                    </div>
+                    {!isCreating && canEdit && (
+                        <button
+                            onClick={() => setIsCreating(true)}
+                            className="btn-base btn-insert px-6 py-3"
+                        >
+                            INSERIR
+                        </button>
+                    )}
                 </div>
-                {!isCreating && canEdit && (
-                    <button
-                        onClick={() => setIsCreating(true)}
-                        className="btn-premium flex items-center space-x-2 bg-gradient-to-r from-primary-600 to-primary-500 hover:from-primary-700 hover:to-primary-600 text-white px-6 py-3 rounded-lg shadow-md transition-all duration-200"
-                    >
-                        <Plus size={20} />
-                        <span className="font-semibold">Novo Curso</span>
-                    </button>
-                )}
+
             </div>
 
             {isCreating && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
-                    <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto animate-scale-in">
-                        <div className="p-6 border-b border-gray-100 flex justify-between items-center sticky top-0 bg-white z-10">
-                            <h3 className="text-xl font-bold text-gray-900 flex items-center">
-                                {editingId ? <Pencil size={20} className="mr-2 text-primary-500" /> : <Plus size={20} className="mr-2 text-primary-500" />}
-                                {editingId ? 'Editar Curso' : 'Cadastrar Novo Curso'}
-                            </h3>
-                            <button onClick={resetForm} className="text-gray-400 hover:text-gray-600 transition-colors">
-                                <X size={24} />
+                <div className="fixed inset-0 flex items-center justify-center p-4" style={{ zIndex: 10000 }}>
+                    <div className="absolute inset-0 bg-black/20 backdrop-blur-sm" onClick={resetForm} />
+                    <div className="bg-white w-full max-w-[95%] max-h-[90vh] overflow-y-auto relative z-10" style={{ border: '1px solid #E5E7EB', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04), 0 0 0 1px rgba(0, 0, 0, 0.05)' }}>
+                        <div className="p-6 flex justify-between items-center sticky top-0 bg-white z-10" style={{ borderBottom: '2px solid #FF6B35' }}>
+                            <div></div>
+                            <button onClick={resetForm} className="btn-base btn-delete px-4 py-2 text-xs">
+                                FECHAR
                             </button>
                         </div>
 
@@ -220,56 +237,56 @@ export const CoursesPage: React.FC = () => {
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Tipo de Curso</label>
+                                    <label className="block text-xs font-bold login-uppercase tracking-wider mb-1" style={{ color: '#6B7280' }}>CURSO</label>
                                     <select
                                         className={inputClass}
                                         value={courseForm.type}
                                         onChange={e => setCourseForm({ ...courseForm, type: e.target.value as CourseType })}
                                     >
-                                        {Object.values(CourseType).map(t => <option key={t} value={t}>{t}</option>)}
+                                        {Object.values(CourseType).map(t => <option key={t} value={t}>{t.toUpperCase()}</option>)}
                                     </select>
                                 </div>
 
                                 {courseForm.type === CourseType.CUSTOM && (
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">Nome do Curso Personalizado</label>
+                                        <label className="block text-xs font-bold login-uppercase tracking-wider mb-1" style={{ color: '#6B7280' }}>NOME DO CURSO PERSONALIZADO</label>
                                         <input
-                                            placeholder="Digite o nome do curso..."
+                                            placeholder="DIGITE O NOME DO CURSO..."
                                             className={inputClass}
                                             value={customName}
-                                            onChange={e => setCustomName(e.target.value)}
+                                            onChange={e => setCustomName(e.target.value.toUpperCase())}
                                         />
                                     </div>
                                 )}
                             </div>
 
-                            <div className="bg-orange-50 p-4 rounded mb-4 border border-orange-100">
-                                <h4 className="text-sm font-bold text-gray-700 mb-3 flex items-center">
-                                    <Plus size={16} className="mr-1" /> Adicionar Matérias
+                            <div className="p-4 mb-4" style={{ backgroundColor: '#FFFFFF', border: '1px solid #E5E7EB' }}>
+                                <h4 className="text-sm font-bold login-uppercase mb-3 flex items-center" style={{ color: '#1F2937' }}>
+                                    <Plus size={16} className="mr-1" style={{ color: '#FF6B35' }} /> ADICIONAR MATÉRIAS
                                 </h4>
 
                                 {/* Subject Input Row: Module -> Name -> Hours -> Modality */}
                                 <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
-                                    <div className="md:col-span-3">
-                                        <label className="text-xs text-gray-500 font-medium">Módulo</label>
+                                    <div className="md:col-span-2">
+                                        <label className="text-xs font-bold login-uppercase tracking-wider" style={{ color: '#6B7280' }}>MÓDULO</label>
                                         <input
-                                            placeholder="Ex: Módulo 1"
-                                            className={inputClass}
+                                            placeholder="EX: MÓDULO 1"
+                                            className={`${inputClass} uppercase`}
                                             value={tempSubject.module}
-                                            onChange={e => setTempSubject({ ...tempSubject, module: e.target.value })}
+                                            onChange={e => setTempSubject({ ...tempSubject, module: e.target.value.toUpperCase() })}
                                         />
                                     </div>
                                     <div className="md:col-span-4">
-                                        <label className="text-xs text-gray-500 font-medium">Matéria</label>
+                                        <label className="text-xs font-bold login-uppercase tracking-wider" style={{ color: '#6B7280' }}>MATÉRIA</label>
                                         <input
-                                            placeholder="Nome da Matéria"
-                                            className={inputClass}
+                                            placeholder="NOME DA MATÉRIA"
+                                            className={`${inputClass} uppercase`}
                                             value={tempSubject.name}
-                                            onChange={e => setTempSubject({ ...tempSubject, name: e.target.value })}
+                                            onChange={e => setTempSubject({ ...tempSubject, name: e.target.value.toUpperCase() })}
                                         />
                                     </div>
                                     <div className="md:col-span-2">
-                                        <label className="text-xs text-gray-500 font-medium">Carga Horária</label>
+                                        <label className="text-xs font-bold login-uppercase tracking-wider" style={{ color: '#6B7280' }}>CARGA HORÁRIA</label>
                                         <input
                                             type="number"
                                             className={inputClass}
@@ -281,24 +298,24 @@ export const CoursesPage: React.FC = () => {
                                         />
                                     </div>
                                     <div className="md:col-span-2">
-                                        <label className="text-xs text-gray-500 font-medium">Modalidade</label>
+                                        <label className="text-xs font-bold login-uppercase tracking-wider" style={{ color: '#6B7280' }}>MODALIDADE</label>
                                         <select
                                             className={inputClass}
                                             value={tempSubject.modality}
                                             onChange={e => setTempSubject({ ...tempSubject, modality: e.target.value as any })}
                                         >
-                                            <option>Teórica</option>
-                                            <option>Prática</option>
+                                            <option value="Teórica">TEÓRICA</option>
+                                            <option value="Prática">PRÁTICA</option>
                                         </select>
                                     </div>
-                                    <div className="md:col-span-1">
+                                    <div className="md:col-span-2">
                                         <button
                                             onClick={editingSubjectId ? handleUpdateSubject : handleAddSubject}
-                                            className={`w-full flex justify-center items-center text-white rounded-md h-[38px] transition-colors ${editingSubjectId ? 'bg-blue-600 hover:bg-blue-700' : 'bg-green-600 hover:bg-green-700'
+                                            className={`btn-base w-full flex justify-center items-center text-white h-[42px] font-bold text-xs !px-1 ${editingSubjectId ? 'btn-edit' : 'btn-insert'
                                                 }`}
                                             title={editingSubjectId ? "Atualizar Matéria" : "Adicionar Matéria"}
                                         >
-                                            {editingSubjectId ? <Save size={20} /> : <Plus size={20} />}
+                                            {editingSubjectId ? 'EDITAR' : 'ADICIONAR'}
                                         </button>
                                     </div>
                                 </div>
@@ -306,55 +323,55 @@ export const CoursesPage: React.FC = () => {
 
                                 {/* List of Subjects with Scrollbar */}
                                 <div className="mt-4">
-                                    <h4 className="text-sm font-semibold text-gray-700 mb-2 pb-2 border-b border-gray-200">
-                                        Matérias Cadastradas ({courseForm.subjects?.length || 0})
+                                    <h4 className="text-sm font-semibold text-gray-700 mb-2 pb-2 border-b border-gray-200 login-uppercase">
+                                        MATÉRIAS CADASTRADAS ({courseForm.subjects?.length || 0})
                                     </h4>
                                     <div className="max-h-64 overflow-y-auto space-y-2 pr-2">
                                         {courseForm.subjects?.length === 0 && (
-                                            <p className="text-sm text-gray-500 italic text-center py-2">Nenhuma matéria adicionada ainda.</p>
+                                            <p className="text-sm text-gray-500 italic text-center py-2 uppercase">Nenhuma matéria adicionada ainda.</p>
                                         )}
                                         {courseForm.subjects?.map((sub, index) => (
                                             <div key={sub.id || index} className="flex justify-between items-center text-sm bg-white p-3 border rounded shadow-sm hover:shadow-md transition-shadow">
-                                                <div className="flex-1 flex flex-col">
-                                                    <span className="text-xs text-gray-500 font-bold">{sub.module}</span>
-                                                    <span className="font-semibold text-gray-900">{sub.name}</span>
+                                                <div className="flex flex-col mr-3 justify-center">
+                                                    <button
+                                                        onClick={() => moveSubject(index, 'up')}
+                                                        disabled={index === 0}
+                                                        className={`text-orange-500 p-0.5 transition-transform hover:scale-110 ${index === 0 ? 'opacity-30 cursor-not-allowed' : 'hover:text-orange-700'}`}
+                                                        title="Mover para cima"
+                                                    >
+                                                        <ArrowUp size={16} />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => moveSubject(index, 'down')}
+                                                        disabled={index === (courseForm.subjects?.length || 0) - 1}
+                                                        className={`text-orange-500 p-0.5 transition-transform hover:scale-110 ${index === (courseForm.subjects?.length || 0) - 1 ? 'opacity-30 cursor-not-allowed' : 'hover:text-orange-700'}`}
+                                                        title="Mover para baixo"
+                                                    >
+                                                        <ArrowDown size={16} />
+                                                    </button>
+                                                </div>
+                                                <div className="flex-1 flex flex-row items-center gap-2">
+                                                    <span className="text-xs text-gray-500 font-bold whitespace-nowrap uppercase">{sub.module}</span>
+                                                    <span className="font-semibold text-gray-900 uppercase">{sub.name}</span>
                                                 </div>
                                                 <div className="flex items-center space-x-2">
-                                                    <span className={`px-2 py-0.5 rounded text-xs ${sub.modality === 'Teórica' ? 'bg-blue-100 text-blue-800' : 'bg-orange-100 text-orange-800'}`}>
+                                                    <span className={`px-2 py-0.5 rounded text-xs uppercase font-bold ${sub.modality === 'Teórica' ? 'bg-blue-100 text-blue-800' : 'bg-orange-100 text-orange-800'}`}>
                                                         {sub.modality}
                                                     </span>
                                                     <span className="font-bold text-gray-600 w-12 text-right">{sub.hours}h</span>
                                                     <button
                                                         onClick={() => handleEditSubject(sub)}
-                                                        className="text-blue-600 hover:text-blue-800 p-1"
+                                                        className="btn-base btn-edit px-2 py-1 text-xs"
                                                         title="Editar Matéria"
                                                     >
-                                                        <Pencil size={16} />
+                                                        EDITAR
                                                     </button>
-                                                    <div className="flex flex-col">
-                                                        <button
-                                                            onClick={() => moveSubject(index, 'up')}
-                                                            disabled={index === 0}
-                                                            className={`text-gray-500 p-0.5 ${index === 0 ? 'opacity-30 cursor-not-allowed' : 'hover:text-gray-900'}`}
-                                                            title="Mover para cima"
-                                                        >
-                                                            <ArrowUp size={14} />
-                                                        </button>
-                                                        <button
-                                                            onClick={() => moveSubject(index, 'down')}
-                                                            disabled={index === (courseForm.subjects?.length || 0) - 1}
-                                                            className={`text-gray-500 p-0.5 ${index === (courseForm.subjects?.length || 0) - 1 ? 'opacity-30 cursor-not-allowed' : 'hover:text-gray-900'}`}
-                                                            title="Mover para baixo"
-                                                        >
-                                                            <ArrowDown size={14} />
-                                                        </button>
-                                                    </div>
                                                     <button
                                                         onClick={() => handleRemoveSubject(sub.id)}
-                                                        className="text-red-500 hover:text-red-700 p-1"
+                                                        className="btn-base btn-delete px-2 py-1 text-xs"
                                                         title="Remover Matéria"
                                                     >
-                                                        <Trash2 size={16} />
+                                                        EXCLUIR
                                                     </button>
                                                 </div>
                                             </div>
@@ -364,12 +381,11 @@ export const CoursesPage: React.FC = () => {
                             </div>
 
                             <div className="flex justify-end space-x-3 pt-2">
-                                <button onClick={resetForm} className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 bg-white">
-                                    Cancelar
+                                <button onClick={resetForm} className="btn-base btn-delete px-6 py-2.5 text-xs">
+                                    CANCELAR
                                 </button>
-                                <button onClick={handleSaveCourse} className="btn-premium flex items-center space-x-2 px-6 py-2.5 bg-gradient-to-r from-primary-600 to-primary-500 hover:from-primary-700 hover:to-primary-600 text-white rounded-lg shadow-md transition-all duration-200">
-                                    <Save size={18} />
-                                    <span className="font-semibold">{editingId ? 'Salvar Alterações' : 'Salvar Curso'}</span>
+                                <button onClick={handleSaveCourse} className="btn-base btn-save px-6 py-2.5">
+                                    SALVAR
                                 </button>
                             </div>
                         </div>
@@ -377,88 +393,122 @@ export const CoursesPage: React.FC = () => {
                 </div>
             )}
 
-            <div className="grid grid-cols-1 gap-6">
-                {courses.map(course => (
-                    <div key={course.id} className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden hover:shadow-lg hover:-translate-y-1 transition-all duration-300 group">
-                        <div className="bg-white px-6 py-5 border-b border-gray-100 flex justify-between items-center group-hover:bg-orange-50/50 transition-colors">
-                            <div className="flex items-center space-x-3">
-                                <button
-                                    onClick={() => toggleCourseExpansion(course.id)}
-                                    className="p-1 hover:bg-gray-200 rounded transition-colors"
-                                    title={expandedCourses.has(course.id) ? "Minimizar" : "Expandir"}
-                                >
-                                    {expandedCourses.has(course.id) ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
-                                </button>
-                                <div>
-                                    <h3 className="text-lg font-bold text-gray-900">{course.name}</h3>
+            <div className="mt-6 space-y-6 animate-fade-in">
+                <div className="grid grid-cols-1 gap-6">
+                    {courses.map(course => (
+                        <div key={course.id} className="bg-white rounded-lg shadow-sm overflow-hidden hover:shadow-lg hover:-translate-y-1 transition-all duration-300 group" style={{ border: '1px solid #E5E7EB', borderLeft: '4px solid #FF6B35' }}>
+                            <div className="bg-white px-6 py-5 flex justify-between items-center transition-colors" style={{ borderBottom: '1px solid #E5E7EB' }}>
+                                <div className="flex items-center space-x-3">
+                                    <button
+                                        onClick={() => toggleCourseExpansion(course.id)}
+                                        className="p-1 transition-colors text-orange-500 hover:text-orange-700"
+                                        title={expandedCourseId === course.id ? "Recolher" : "Expandir"}
+                                    >
+                                        {expandedCourseId === course.id ? <ChevronUp size={24} /> : <ChevronDown size={24} />}
+                                    </button>
+                                    <div>
+                                        <h3 className="text-lg font-bold login-uppercase" style={{ color: '#1F2937' }}>{course.name}</h3>
 
+                                    </div>
+                                </div>
+                                <div className="flex items-center space-x-4">
+                                    <span className="text-sm font-medium text-gray-600 uppercase">
+                                        TOTAL: {course.subjects.reduce((acc, s) => acc + s.hours, 0)} HORAS | {course.subjects.length} MATÉRIAS
+                                    </span>
+                                    <div className="flex space-x-2 pl-4 border-l border-gray-300">
+                                        {canEdit && (
+                                            <>
+                                                <button
+                                                    onClick={() => handleCopyClick(course)}
+                                                    className="btn-base btn-save px-3 py-2 text-xs"
+                                                    title="Copiar Curso"
+                                                >
+                                                    COPIAR
+                                                </button>
+                                                <button
+                                                    onClick={() => handleEditClick(course)}
+                                                    className="btn-base btn-edit px-3 py-2 text-xs"
+                                                    title="Editar Curso"
+                                                >
+                                                    EDITAR
+                                                </button>
+                                                <button
+                                                    onClick={() => handleDeleteClick(course.id)}
+                                                    className="btn-base btn-delete px-3 py-2 text-xs"
+                                                    title="Excluir Curso"
+                                                >
+                                                    EXCLUIR
+                                                </button>
+                                            </>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
-                            <div className="flex items-center space-x-4">
-                                <span className="text-sm font-medium text-gray-600">
-                                    Total: {course.subjects.reduce((acc, s) => acc + s.hours, 0)} Horas | {course.subjects.length} Matérias
-                                </span>
-                                <div className="flex space-x-2 pl-4 border-l border-gray-300">
-                                    {canEdit && (
-                                        <>
-                                            <button
-                                                onClick={() => handleCopyClick(course)}
-                                                className="p-2 text-green-600 hover:bg-green-50 rounded-full transition-colors"
-                                                title="Copiar Curso"
-                                            >
-                                                <Copy size={18} />
-                                            </button>
-                                            <button
-                                                onClick={() => handleEditClick(course)}
-                                                className="p-2 text-blue-600 hover:bg-blue-50 rounded-full transition-colors"
-                                                title="Editar Curso"
-                                            >
-                                                <Pencil size={18} />
-                                            </button>
-                                            <button
-                                                onClick={() => handleDeleteClick(course.id)}
-                                                className="p-2 text-red-600 hover:bg-red-50 rounded-full transition-colors"
-                                                title="Excluir Curso"
-                                            >
-                                                <Trash2 size={18} />
-                                            </button>
-                                        </>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-                        {expandedCourses.has(course.id) && (
-                            <div className="p-6">
-                                <h4 className="text-sm font-medium text-gray-500 mb-3 uppercase tracking-wider">Grade Curricular</h4>
-                                {course.subjects.length > 0 ? (
-                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                        {course.subjects.map(sub => (
-                                            <div key={sub.id} className={`p-4 rounded-lg border shadow-sm hover:shadow-md transition-shadow bg-white relative overflow-hidden group/card`}>
-                                                <div className={`absolute left-0 top-0 bottom-0 w-1 ${sub.modality === 'Teórica' ? 'bg-blue-500' : 'bg-orange-500'}`}></div>
-                                                <div className="pl-2">
-                                                    <div className="flex justify-between items-start mb-1">
-                                                        <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">{sub.module}</span>
-                                                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${sub.modality === 'Teórica' ? 'bg-blue-50 text-blue-700' : 'bg-orange-50 text-orange-700'}`}>
-                                                            {sub.modality}
-                                                        </span>
-                                                    </div>
-                                                    <h5 className="font-bold text-gray-800 text-sm mb-2 line-clamp-2 min-h-[40px]">{sub.name}</h5>
-                                                    <div className="flex items-center text-xs text-gray-500 font-medium">
-                                                        <span className="bg-gray-100 px-2 py-1 rounded text-gray-600 border border-gray-200">{sub.hours} Horas</span>
+                            {expandedCourseId === course.id && (
+                                <div className="p-6">
+                                    <h4 className="text-sm font-medium text-gray-500 mb-3 uppercase tracking-wider">Grade Curricular</h4>
+                                    {course.subjects.length > 0 ? (
+                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                            {course.subjects.map(sub => (
+                                                <div key={sub.id} className={`p-6 rounded-xl border shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 bg-white relative overflow-hidden group/card h-full uppercase`}>
+                                                    <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${sub.modality === 'Teórica' ? 'bg-blue-600' : 'bg-orange-500'}`}></div>
+                                                    <div className="pl-3 flex flex-col h-full">
+                                                        <div className="flex justify-between items-start mb-3">
+                                                            <span className="text-xs font-extra-bold tracking-wider text-gray-500">{sub.module}</span>
+                                                            <span className={`text-xs font-bold px-2 py-1 rounded-md ${sub.modality === 'Teórica' ? 'bg-blue-50 text-blue-700' : 'bg-orange-50 text-orange-700'}`}>
+                                                                {sub.modality}
+                                                            </span>
+                                                        </div>
+                                                        <h5 className="font-extrabold text-gray-800 text-base mb-4 flex-grow leading-relaxed">{sub.name}</h5>
+                                                        <div className="flex items-center text-sm text-gray-600 font-bold mt-auto pt-4 border-t border-gray-100">
+                                                            <span className="bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-200">{sub.hours} HORAS</span>
+                                                        </div>
                                                     </div>
                                                 </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                ) : (
-                                    <p className="text-sm text-gray-400 italic">Nenhuma matéria cadastrada.</p>
-                                )}
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <p className="text-sm text-gray-400 italic">Nenhuma matéria cadastrada.</p>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    ))
+                    }
+                </div >
+            </div>
+
+            {deletionTarget && (
+                <div className="fixed inset-0 flex items-center justify-center p-4" style={{ zIndex: 11000 }}>
+                    <div className="absolute inset-0 bg-black/20 backdrop-blur-sm" onClick={() => setDeletionTarget(null)} />
+                    <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md relative z-10 text-center animate-scale-in" style={{ border: '1px solid #E5E7EB' }}>
+                        <div className="mb-4">
+                            <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                                <Trash2 size={32} className="text-red-500" />
                             </div>
-                        )}
+                            <h3 className="text-lg font-bold text-gray-900 mb-2 uppercase">Confirmar Exclusão</h3>
+                            <p className="text-gray-600 uppercase">
+                                Tem certeza que deseja excluir {deletionTarget.type === 'course' ? 'o curso' : 'a matéria'} <span className="font-bold">"{deletionTarget.name}"</span>?
+                            </p>
+                            <p className="text-xs text-gray-500 mt-2 uppercase">Esta ação não pode ser desfeita.</p>
+                        </div>
+                        <div className="flex justify-center space-x-3">
+                            <button
+                                onClick={() => setDeletionTarget(null)}
+                                className="btn-base btn-delete px-6 py-2 text-sm w-32"
+                            >
+                                NÃO
+                            </button>
+                            <button
+                                onClick={deletionTarget.type === 'course' ? confirmDeleteCourse : confirmRemoveSubject}
+                                className="btn-base btn-save px-6 py-2 text-sm w-32"
+                            >
+                                SIM
+                            </button>
+                        </div>
                     </div>
-                ))
-                }
-            </div >
-        </div >
+                </div>
+            )}
+        </>
     );
 };

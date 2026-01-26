@@ -6,6 +6,7 @@ import { HOURLY_RATES } from '../constants';
 import { BookOpen, DollarSign, TrendingUp, AlertCircle, CheckCircle, Clock, Calendar } from 'lucide-react';
 import { formatDate, getCurrentDateString } from '../utils/dateUtils';
 import { StudentGradesChart, InstructorPerformanceChart, GraduatedStudentsChart, FirefighterStatusChart, SubjectAveragesChart } from '../components/DashboardCharts';
+import { StandardCard } from '../components/StandardCard';
 
 export const Dashboard: React.FC = () => {
     const { classes, students, tasks, currentUser, payments, notifications, firefighters, setupTeardownAssignments, courses, users } = useStore();
@@ -26,53 +27,63 @@ export const Dashboard: React.FC = () => {
 
         return (
             <div className="space-y-6 animate-fade-in">
-                <div className="gradient-primary-soft p-6 rounded-xl border border-primary-100">
-                    <h1 className="text-3xl font-bold text-gray-900">👋 Bem-vindo, {currentUser.name.split(' ')[0]}!</h1>
-                    <p className="text-gray-600 mt-1">Aqui está um resumo das suas atividades</p>
+                <div className="bg-white p-6 rounded-2xl border shadow-md" style={{ borderColor: '#E5E7EB' }}>
+                    <h1 className="text-3xl font-bold login-uppercase" style={{ color: '#1F2937' }}>👋 Bem-vindo, {currentUser.name.split(' ')[0]}!</h1>
+                    <p className="mt-1 login-uppercase" style={{ color: '#6B7280', fontSize: '0.875rem' }}>Aqui está um resumo das suas atividades</p>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     {/* Next Classes Card */}
-                    <div className="card-premium stagger-item hover:border-primary-200 transition-all duration-300">
-                        <div className="absolute top-0 right-0 w-20 h-20 bg-primary-50 rounded-bl-full opacity-50"></div>
-                        <h2 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
-                            <Calendar className="text-primary-600" /> Próximas Aulas
+                    <StandardCard
+                        accentColor="#FF6B35"
+                        className="h-full relative overflow-hidden transition-all duration-300 hover:shadow-lg"
+                    >
+                        <div className="absolute top-0 right-0 w-20 h-20 rounded-bl-full opacity-20" style={{ background: '#FF6B35' }}></div>
+                        <h2 className="text-lg font-bold mb-4 flex items-center gap-2 login-uppercase" style={{ color: '#1F2937' }}>
+                            <Calendar style={{ color: '#FF6B35' }} /> Próximas Aulas
                         </h2>
                         {myNextClasses.length === 0 ? (
-                            <p className="text-gray-500 italic">Nenhuma aula agendada para os próximos dias.</p>
+                            <p className="italic" style={{ color: '#9CA3AF' }}>Nenhuma aula agendada para os próximos dias.</p>
                         ) : (
                             <div className="space-y-3">
                                 {myNextClasses.map(item => (
-                                    <div key={item.id} className="flex justify-between items-center p-3 bg-gradient-gray rounded-lg border border-gray-200 hover:shadow-md hover:border-primary-200 transition-all duration-200 cursor-pointer">
+                                    <div key={item.id} className="flex justify-between items-center p-3 bg-white rounded-lg border hover:shadow-md transition-all duration-200 cursor-pointer" style={{ borderColor: '#E5E7EB' }}
+                                        onMouseEnter={(e) => e.currentTarget.style.borderColor = '#FF6B35'}
+                                        onMouseLeave={(e) => e.currentTarget.style.borderColor = '#E5E7EB'}>
                                         <div>
-                                            <p className="font-semibold text-gray-800">{formatDate(item.date)}</p>
-                                            <p className="text-xs text-gray-500">{item.startTime} - {item.endTime}</p>
+                                            <p className="font-semibold" style={{ color: '#1F2937' }}>{formatDate(item.date)}</p>
+                                            <p className="text-xs" style={{ color: '#6B7280' }}>{item.startTime} - {item.endTime}</p>
                                         </div>
                                         <div className="text-right">
-                                            <p className="text-sm font-medium text-gray-900">{item.moduleId}</p>
-                                            <p className="text-xs text-gray-500">{item.className}</p>
+                                            <p className="text-sm font-medium" style={{ color: '#1F2937' }}>{item.moduleId}</p>
+                                            <p className="text-xs" style={{ color: '#6B7280' }}>{item.className}</p>
                                         </div>
                                     </div>
                                 ))}
                             </div>
                         )}
-                    </div>
+                    </StandardCard>
 
                     {/* Tasks Card */}
-                    <div className="card-premium stagger-item hover:border-green-200 transition-all duration-300">
-                        <div className="absolute top-0 right-0 w-20 h-20 bg-green-50 rounded-bl-full opacity-50"></div>
-                        <h2 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
-                            <CheckCircle className="text-green-600" /> Minhas Tarefas
+                    <StandardCard
+                        accentColor="#10B981"
+                        className="h-full relative overflow-hidden transition-all duration-300 hover:shadow-lg"
+                    >
+                        <div className="absolute top-0 right-0 w-20 h-20 rounded-bl-full opacity-20" style={{ background: '#10B981' }}></div>
+                        <h2 className="text-lg font-bold mb-4 flex items-center gap-2 login-uppercase" style={{ color: '#1F2937' }}>
+                            <CheckCircle style={{ color: '#10B981' }} /> Minhas Tarefas
                         </h2>
                         {myPendingTasks.length === 0 ? (
-                            <p className="text-gray-500 italic">Você não tem tarefas pendentes.</p>
+                            <p className="italic" style={{ color: '#9CA3AF' }}>Você não tem tarefas pendentes.</p>
                         ) : (
                             <div className="space-y-3">
                                 {myPendingTasks.map(task => (
-                                    <div key={task.id} className="flex justify-between items-center p-3 bg-gradient-gray rounded-lg border border-gray-200 hover:shadow-md hover:border-green-200 transition-all duration-200 cursor-pointer group">
+                                    <div key={task.id} className="flex justify-between items-center p-3 bg-white rounded-lg border hover:shadow-md transition-all duration-200 cursor-pointer group" style={{ borderColor: '#E5E7EB' }}
+                                        onMouseEnter={(e) => e.currentTarget.style.borderColor = '#10B981'}
+                                        onMouseLeave={(e) => e.currentTarget.style.borderColor = '#E5E7EB'}>
                                         <div>
-                                            <p className="font-medium text-gray-800">{task.title}</p>
-                                            <p className="text-xs text-gray-500">Prazo: {task.deadline ? new Date(task.deadline).toLocaleDateString() : 'Sem prazo'}</p>
+                                            <p className="font-medium" style={{ color: '#1F2937' }}>{task.title}</p>
+                                            <p className="text-xs" style={{ color: '#6B7280' }}>Prazo: {task.deadline ? new Date(task.deadline).toLocaleDateString() : 'Sem prazo'}</p>
                                         </div>
                                         <span className={`badge transition-transform group-hover:scale-110 ${task.priority === 'Alta' ? 'badge-error' : 'bg-gray-200 text-gray-700 border border-gray-300'}`}>
                                             {task.priority}
@@ -81,13 +92,11 @@ export const Dashboard: React.FC = () => {
                                 ))}
                             </div>
                         )}
-                    </div>
+                    </StandardCard>
                 </div>
             </div>
         );
     }
-
-    // --- MANAGER DASHBOARD (KPIs) ---
 
     // --- MANAGER DASHBOARD (KPIs) ---
 
@@ -184,50 +193,39 @@ export const Dashboard: React.FC = () => {
         <div className="space-y-8">
             <div className="flex justify-between items-end animate-slide-down">
                 <div>
-                    <h1 className="text-3xl font-bold text-gray-900">Dashboard Executivo</h1>
-                    <p className="text-gray-500 mt-1">Visão geral de performance e indicadores.</p>
                 </div>
-                <div className="text-sm text-gray-500 bg-white px-3 py-1 rounded border shadow-sm">
-                    Atualizado: {new Date().toLocaleDateString()}
+                <div className="text-sm px-4 py-2 rounded-xl border shadow-sm" style={{ color: '#6B7280', backgroundColor: '#FFFFFF', borderColor: '#E5E7EB' }}>
+                    <span className="login-uppercase" style={{ fontSize: '0.75rem' }}>ATUALIZADO: {new Date().toLocaleDateString()}</span>
                 </div>
             </div>
 
-            {/* KPI Cards Row 1 - Financials & Hours */}
             {/* KPI Cards Row - Financials */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Card 1: Total Paid */}
-                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 relative overflow-hidden group hover:shadow-md transition-all">
-                    <div className="absolute top-0 right-0 w-24 h-24 bg-green-50 rounded-bl-full -mr-4 -mt-4 transition-transform group-hover:scale-110"></div>
+                <div className="bg-white p-8 rounded-2xl shadow-lg border border-l-4 relative overflow-hidden group hover:shadow-xl transition-all duration-300" style={{ borderColor: '#E5E7EB', borderLeftColor: '#10B981' }}>
+                    <div className="absolute top-0 right-0 w-32 h-32 rounded-bl-full -mr-8 -mt-8 transition-transform group-hover:scale-110" style={{ background: 'rgba(16, 185, 129, 0.1)' }}></div>
                     <div className="relative z-10">
-                        <div className="flex items-center justify-between mb-4">
-                            <div className="p-3 bg-green-100 rounded-xl text-green-600">
-                                <DollarSign size={24} />
+                        <div className="flex items-center justify-between mb-6">
+                            <div className="p-4 rounded-2xl" style={{ backgroundColor: 'rgba(16, 185, 129, 0.1)' }}>
+                                <DollarSign size={28} style={{ color: '#10B981' }} />
                             </div>
-                            <span className="flex items-center text-xs font-bold text-green-600 bg-green-50 px-2 py-1 rounded-lg">
-                                <CheckCircle size={14} className="mr-1" />
-                                100% em dia
-                            </span>
                         </div>
-                        <p className="text-sm font-medium text-gray-500 uppercase tracking-wide">Total Pago (Instrutores)</p>
-                        <h3 className="text-3xl font-bold text-gray-900 mt-1">R$ {totalPaid.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</h3>
+                        <p className="text-sm font-bold uppercase tracking-wide mb-2" style={{ color: '#6B7280', letterSpacing: '0.05em' }}>Total Pago - Instrutores</p>
+                        <h3 className="text-4xl font-extrabold" style={{ color: '#1F2937' }}>R$ {totalPaid.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</h3>
                     </div>
                 </div>
 
                 {/* Card 2: Values to Pay */}
-                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 relative overflow-hidden group hover:shadow-md transition-all">
-                    <div className="absolute top-0 right-0 w-24 h-24 bg-orange-50 rounded-bl-full -mr-4 -mt-4 transition-transform group-hover:scale-110"></div>
+                <div className="bg-white p-8 rounded-2xl shadow-lg border border-l-4 relative overflow-hidden group hover:shadow-xl transition-all duration-300" style={{ borderColor: '#E5E7EB', borderLeftColor: '#FF6B35' }}>
+                    <div className="absolute top-0 right-0 w-32 h-32 rounded-bl-full -mr-8 -mt-8 transition-transform group-hover:scale-110" style={{ background: 'rgba(255, 107, 53, 0.1)' }}></div>
                     <div className="relative z-10">
-                        <div className="flex items-center justify-between mb-4">
-                            <div className="p-3 bg-orange-100 rounded-xl text-orange-600">
-                                <DollarSign size={24} />
+                        <div className="flex items-center justify-between mb-6">
+                            <div className="p-4 rounded-2xl" style={{ backgroundColor: 'rgba(255, 107, 53, 0.1)' }}>
+                                <DollarSign size={28} style={{ color: '#FF6B35' }} />
                             </div>
-                            <span className="flex items-center text-xs font-bold text-orange-600 bg-orange-50 px-2 py-1 rounded-lg">
-                                <AlertCircle size={14} className="mr-1" />
-                                Pendente
-                            </span>
                         </div>
-                        <p className="text-sm font-medium text-gray-500 uppercase tracking-wide">Valores a Pagar</p>
-                        <h3 className="text-3xl font-bold text-gray-900 mt-1">R$ {realPendingValue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</h3>
+                        <p className="text-sm font-bold uppercase tracking-wide mb-2" style={{ color: '#6B7280', letterSpacing: '0.05em' }}>A Pagar - Instrutores</p>
+                        <h3 className="text-4xl font-extrabold" style={{ color: '#1F2937' }}>R$ {realPendingValue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</h3>
                     </div>
                 </div>
             </div>
@@ -241,54 +239,9 @@ export const Dashboard: React.FC = () => {
                 <InstructorPerformanceChart />
             </div>
 
-            {/* Lower Section: Recent Activity */}
-            <div className="card-premium overflow-hidden animate-slide-up">
-                <div className="px-6 py-4 border-b border-gray-100">
-                    <h3 className="font-bold text-gray-800">Atividades Recentes</h3>
-                </div>
-                <div className="p-6">
-                    <div className="space-y-4">
-                        {(() => {
-                            const recentActivities = [
-                                ...tasks.filter(t => t.status === 'Concluída').slice(-3).map(t => ({
-                                    icon: <CheckCircle size={18} className="text-green-600" />,
-                                    title: `Tarefa concluída: ${t.title}`,
-                                    time: new Date(t.logs?.[t.logs.length - 1]?.timestamp || Date.now()).toLocaleString('pt-BR'),
-                                    bgColor: 'bg-green-50'
-                                })),
-                                ...notifications.filter(n => !n.read).slice(0, 3).map(n => ({
-                                    icon: <AlertCircle size={18} className="text-orange-500" />,
-                                    title: n.title,
-                                    time: new Date(n.timestamp).toLocaleString('pt-BR'),
-                                    bgColor: 'bg-orange-50'
-                                }))
-                            ].sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime()).slice(0, 10);
 
-                            if (recentActivities.length === 0) {
-                                return (
-                                    <p className="text-gray-500 italic text-center py-8">Nenhuma atividade recente</p>
-                                );
-                            }
-
-                            return recentActivities.map((activity, i) => (
-                                <div key={i} className="flex items-center space-x-4 pb-4 border-b border-gray-100 last:border-0 last:pb-0 hover:bg-orange-50 -mx-6 px-6 py-3 transition-colors cursor-pointer rounded-lg">
-                                    <div className={`h-10 w-10 rounded-full ${activity.bgColor} flex items-center justify-center`}>
-                                        {activity.icon}
-                                    </div>
-                                    <div className="flex-1">
-                                        <p className="text-sm font-medium text-gray-900">{activity.title}</p>
-                                        <p className="text-xs text-gray-500">{activity.time}</p>
-                                    </div>
-                                </div>
-                            ));
-                        })()}
-                    </div>
-                </div>
-            </div>
-
-
-            <footer className="mt-12 text-center text-gray-400 text-sm pb-4">
-                <p>Criado por Manifold IA.</p>
+            <footer className="mt-12 text-center text-sm pb-4 login-uppercase" style={{ color: '#9CA3AF' }}>
+                <p></p>
             </footer>
         </div >
     );

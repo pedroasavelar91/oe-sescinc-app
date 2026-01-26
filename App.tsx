@@ -14,7 +14,9 @@ import { EvaluationsPage } from './pages/Evaluations';
 import { FinancePage } from './pages/Finance';
 import { ProfilePage } from './pages/Profile';
 import { AttendancePage } from './pages/Attendance';
-import { ChecklistsPage } from './pages/Checklists';
+import { ChecklistMedTruckPage } from './pages/ChecklistMedTruck';
+import { ChecklistEquipamentosPage } from './pages/ChecklistEquipamentos';
+import { ChecklistCursoPage } from './pages/ChecklistCurso';
 import { CertificatesPage } from './pages/Certificates';
 import { FirefightersPage } from './pages/Firefighters';
 import { DocumentsPage } from './pages/Documents';
@@ -24,6 +26,7 @@ import { OrganogramPage } from './pages/Organogram';
 import { SchedulePage } from './pages/Schedule';
 import { isSupabaseConfigured } from './services/supabase';
 import { AlertTriangle } from 'lucide-react';
+import { ClassPhotosPage } from './pages/ClassPhotos';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -99,7 +102,9 @@ const AppRoutes = () => {
       <Route path="/attendance" element={<ProtectedRoute><AttendancePage /></ProtectedRoute>} />
       <Route path="/tasks" element={<ProtectedRoute><TasksPage /></ProtectedRoute>} />
       <Route path="/evaluations" element={<ProtectedRoute><EvaluationsPage /></ProtectedRoute>} />
-      <Route path="/checklists" element={<ProtectedRoute><ChecklistsPage /></ProtectedRoute>} />
+      <Route path="/checklist-medtruck" element={<ProtectedRoute><ChecklistMedTruckPage /></ProtectedRoute>} />
+      <Route path="/checklist-equipamentos" element={<ProtectedRoute><ChecklistEquipamentosPage /></ProtectedRoute>} />
+      <Route path="/checklist-curso" element={<ProtectedRoute><ChecklistCursoPage /></ProtectedRoute>} />
       <Route path="/finance" element={<ProtectedRoute><FinancePage /></ProtectedRoute>} />
       <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
       <Route path="/certificates" element={<ProtectedRoute><CertificatesPage /></ProtectedRoute>} />
@@ -107,6 +112,7 @@ const AppRoutes = () => {
       <Route path="/documents" element={<ProtectedRoute><DocumentsPage /></ProtectedRoute>} />
       <Route path="/setup-teardown" element={<ProtectedRoute><SetupTeardownPage /></ProtectedRoute>} />
       <Route path="/schedule" element={<ProtectedRoute><SchedulePage /></ProtectedRoute>} />
+      <Route path="/class-photos" element={<ProtectedRoute><ClassPhotosPage /></ProtectedRoute>} />
       <Route path="/question-bank" element={<ProtectedRoute><QuestionBankPage /></ProtectedRoute>} />
     </Routes>
   );

@@ -1,13 +1,13 @@
 import React, { useState, useMemo } from 'react';
 import { useStore } from '../context/AppStore';
 import { UserRole, Folder, DocumentFile } from '../types';
-import { Folder as FolderIcon, FileText, Plus, Trash2, Download, Search, ChevronRight, Upload, Edit2 } from 'lucide-react';
+import { Folder as FolderIcon, FileText, ChevronRight } from 'lucide-react';
 import { FileUpload } from '../components/FileUpload';
+import { StandardModal, StandardModalHeader, StandardModalBody, StandardModalFooter, inputClass, labelClass } from '../components/StandardModal';
 
 export const DocumentsPage: React.FC = () => {
     const { currentUser, folders, documents, addFolder, updateFolder, deleteFolder, addDocument, deleteDocument, uploadDocument, getSignedDocumentUrl } = useStore();
     const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
-    const [searchTerm, setSearchTerm] = useState('');
     const [showFolderModal, setShowFolderModal] = useState(false);
     const [showDocModal, setShowDocModal] = useState(false);
     const [newFolderName, setNewFolderName] = useState('');
@@ -111,12 +111,12 @@ export const DocumentsPage: React.FC = () => {
 
     const handleAddDocument = async () => {
         if (!newDocData.name) {
-            alert('Digite um nome para o documento');
+            alert('DIGITE UM NOME PARA O DOCUMENTO');
             return;
         }
 
         if (!uploadingFile) {
-            alert('Selecione um arquivo');
+            alert('SELECIONE UM ARQUIVO');
             return;
         }
 
@@ -144,7 +144,7 @@ export const DocumentsPage: React.FC = () => {
             setUploadingFile(null);
             setShowDocModal(false);
         } catch (error) {
-            alert('Erro ao fazer upload: ' + (error as Error).message);
+            alert('ERRO AO FAZER UPLOAD: ' + (error as Error).message);
         } finally {
             setIsUploading(false);
         }
@@ -188,7 +188,7 @@ export const DocumentsPage: React.FC = () => {
 
         } catch (e) {
             console.error('Erro ao abrir documento:', e);
-            alert(`Não foi possível abrir o arquivo. \nErro: ${(e as Error).message}\n\nVerifique se a política de segurança foi salva corretamente no Supabase.`);
+            alert(`NÃO FOI POSSÍVEL ABRIR O ARQUIVO. \nERRO: ${(e as Error).message}\n\nVERIFIQUE SE A POLÍTICA DE SEGURANÇA FOI SALVA CORRETAMENTE NO SUPABASE.`);
         }
     };
 
@@ -212,7 +212,7 @@ export const DocumentsPage: React.FC = () => {
                     const textDecoder = new TextDecoder();
                     const contentSample = textDecoder.decode(arrayBuffer.slice(0, 100)); // Lê o começo para debug
                     console.error('Conteúdo inválido encontrado:', contentSample);
-                    alert(`O arquivo baixado NÃO é um PDF válido.\n\nTamanho: ${arrayBuffer.byteLength} bytes\n\nProvavelmente o Supabase retornou uma página de erro (XML/HTML) em vez do arquivo.\n\nConteúdo inicial: ${contentSample}`);
+                    alert(`O ARQUIVO BAIXADO NÃO É UM PDF VÁLIDO.\n\nTAMANHO: ${arrayBuffer.byteLength} BYTES\n\nPROVAVELMENTE O SUPABASE RETORNOU UMA PÁGINA DE ERRO (XML/HTML) EM VEZ DO ARQUIVO.\n\nCONTEÚDO INICIAL: ${contentSample}`);
                     return;
                 }
             }
@@ -231,304 +231,297 @@ export const DocumentsPage: React.FC = () => {
 
         } catch (e) {
             console.error('Erro no download:', e);
-            alert('Falha ao baixar arquivo: ' + (e as Error).message);
+            alert('FALHA AO BAIXAR ARQUIVO: ' + (e as Error).message);
         }
     };
 
-    const inputClass = "appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm bg-white text-gray-900";
-
     return (
-        <div className="space-y-6 animate-fade-in">
-            <div className="flex justify-between items-center animate-slide-down">
-                <div>
-                    <h1 className="text-3xl font-bold text-gray-900">Documentos</h1>
-                    <p className="text-gray-500 mt-1">Gestão de arquivos e procedimentos</p>
-                </div>
-                {(canManageFolders || canUploadDocuments) && (
-                    <div className="flex gap-2">
-                        {canManageFolders && (
-                            <button
-                                onClick={() => setShowFolderModal(true)}
-                                className="flex items-center space-x-2 bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-50 transition"
-                            >
-                                <Plus size={18} /> <span>Nova Pasta</span>
-                            </button>
-                        )}
-                        {canUploadDocuments && currentFolderId !== null && (
-                            <button
-                                onClick={() => setShowDocModal(true)}
-                                className="btn-premium flex items-center space-x-2 bg-gradient-to-r from-primary-600 to-primary-500 hover:from-primary-700 hover:to-primary-600 text-white px-4 py-2 rounded-lg shadow-md transition"
-                            >
-                                <Upload size={18} /> <span>Novo Arquivo</span>
-                            </button>
-                        )}
-                    </div>
-                )}
-            </div>
-
-            {/* Breadcrumbs */}
-            <div className="flex items-center text-sm text-gray-600 bg-white p-3 rounded-lg border border-gray-200 shadow-sm">
-                <button
-                    onClick={() => setCurrentFolderId(null)}
-                    className="hover:text-primary-600 font-medium flex items-center"
-                >
-                    Raiz
-                </button>
-                {breadcrumbs.map(folder => (
-                    <React.Fragment key={folder.id}>
-                        <ChevronRight size={16} className="mx-2 text-gray-400" />
+        <>
+            <div className="space-y-6 animate-fade-in">
+                {/* Header Controls */}
+                <div className="flex flex-col md:flex-row justify-between items-center gap-4 animate-slide-down">
+                    {/* Breadcrumbs */}
+                    <div className="flex items-center text-sm text-gray-600 bg-white p-3 rounded-lg border border-gray-200 shadow-sm">
                         <button
-                            onClick={() => setCurrentFolderId(folder.id)}
-                            className="hover:text-primary-600 font-medium"
+                            onClick={() => setCurrentFolderId(null)}
+                            className="hover:text-primary-600 font-bold flex items-center uppercase"
                         >
-                            {folder.name}
+                            RAIZ
                         </button>
-                    </React.Fragment>
-                ))}
-            </div>
-
-            {/* Content Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                {/* Folders */}
-                {currentFolders.map(folder => (
-                    <div
-                        key={folder.id}
-                        className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition cursor-pointer group relative"
-                        onClick={() => setCurrentFolderId(folder.id)}
-                    >
-                        <div className="flex items-center justify-between mb-2">
-                            <FolderIcon className="text-yellow-500 fill-current" size={32} />
-                            {canManageFolders && (
-                                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition">
-                                    <button
-                                        onClick={(e) => { e.stopPropagation(); handleStartRename(folder); }}
-                                        className="text-gray-400 hover:text-blue-500 p-1"
-                                        title="Renomear Pasta"
-                                    >
-                                        <Edit2 size={16} />
-                                    </button>
-                                    <button
-                                        onClick={(e) => { e.stopPropagation(); deleteFolder(folder.id); }}
-                                        className="text-gray-400 hover:text-red-500 p-1"
-                                        title="Excluir Pasta"
-                                    >
-                                        <Trash2 size={16} />
-                                    </button>
-                                </div>
-                            )}
-                        </div>
-                        <h3 className="font-medium text-gray-900 truncate">{folder.name}</h3>
-                        <div className="flex justify-between items-center mt-2">
-                            <p className="text-xs text-gray-500">{new Date(folder.createdAt).toLocaleDateString()}</p>
-                            {folder.allowedRoles && folder.allowedRoles.length > 0 ? (
-                                <span className="text-[10px] bg-red-100 text-red-700 px-1.5 py-0.5 rounded border border-red-200" title={`Restrito a: ${folder.allowedRoles.join(', ')}`}>
-                                    Restrito
-                                </span>
-                            ) : (
-                                <span className="text-[10px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded border border-green-200">
-                                    Público
-                                </span>
-                            )}
-                        </div>
-                    </div>
-                ))}
-
-                {/* Documents */}
-                {currentDocs.map(doc => (
-                    <div
-                        key={doc.id}
-                        className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition cursor-pointer group relative"
-                        onClick={() => handleOpenDocument(doc)}
-                    >
-                        <div className="flex items-center justify-between mb-2">
-                            <FileText className="text-blue-500" size={32} />
-                            <div className="flex space-x-1">
+                        {breadcrumbs.map(folder => (
+                            <React.Fragment key={folder.id}>
+                                <ChevronRight size={16} className="mx-2 text-gray-400" />
                                 <button
-                                    onClick={(e) => { e.stopPropagation(); handleDownload(doc); }}
-                                    className="text-gray-400 hover:text-blue-500 p-1 rounded-full hover:bg-blue-50 transition"
-                                    title="Baixar arquivo (Verificação de Integridade)"
+                                    onClick={() => setCurrentFolderId(folder.id)}
+                                    className="hover:text-primary-600 font-bold uppercase"
                                 >
-                                    <Download size={16} />
+                                    {folder.name}
                                 </button>
-                                {(canManageFolders || doc.uploadedBy === currentUser.id) && (
-                                    <button
-                                        onClick={(e) => { e.stopPropagation(); deleteDocument(doc.id); }}
-                                        className="text-gray-400 hover:text-red-500 p-1 rounded-full hover:bg-red-50 transition"
-                                        title="Excluir arquivo"
-                                    >
-                                        <Trash2 size={16} />
-                                    </button>
-                                )}
-                            </div>
-                        </div>
-                        <h3 className="font-medium text-gray-900 truncate" title={doc.name}>{doc.name}</h3>
-                        <p className="text-xs text-gray-500">{doc.type} • {new Date(doc.uploadedAt).toLocaleDateString()}</p>
+                            </React.Fragment>
+                        ))}
                     </div>
-                ))}
 
-                {currentFolders.length === 0 && currentDocs.length === 0 && (
-                    <div className="col-span-full text-center py-12 text-gray-400 italic">
-                        Esta pasta está vazia.
+                    {/* Action Buttons */}
+                    {(canManageFolders || canUploadDocuments) && (
+                        <div className="flex gap-2">
+                            {canManageFolders && (
+                                <button
+                                    onClick={() => setShowFolderModal(true)}
+                                    className="btn-base bg-blue-600 text-white hover:bg-blue-700 shadow-lg shadow-blue-500/30 px-6 py-2 uppercase font-bold"
+                                >
+                                    NOVA PASTA
+                                </button>
+                            )}
+                            {canUploadDocuments && currentFolderId !== null && (
+                                <button
+                                    onClick={() => setShowDocModal(true)}
+                                    className="btn-base btn-insert shadow-lg shadow-green-500/30 px-6 py-2 uppercase font-bold"
+                                >
+                                    NOVO ARQUIVO
+                                </button>
+                            )}
+                        </div>
+                    )}
+                </div>
+
+                {/* Content Grid */}
+                <div className="card-premium animate-fade-in text-gray-800">
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        {/* Folders */}
+                        {currentFolders.map(folder => (
+                            <div
+                                key={folder.id}
+                                className="bg-white p-4 rounded-lg shadow-sm hover:shadow-md transition cursor-pointer group relative"
+                                style={{ border: '1px solid #E5E7EB', borderLeft: '4px solid #FF6B35' }}
+                                onClick={() => setCurrentFolderId(folder.id)}
+                            >
+                                <div className="flex items-center justify-between mb-2">
+                                    <FolderIcon className="text-yellow-500 fill-current" size={32} />
+                                    {canManageFolders && (
+                                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition">
+                                            <button
+                                                onClick={(e) => { e.stopPropagation(); handleStartRename(folder); }}
+                                                className="text-white hover:text-white bg-blue-500 hover:bg-blue-600 px-2 py-0.5 rounded text-[10px] font-bold uppercase transition-colors"
+                                                title="RENOMEAR PASTA"
+                                            >
+                                                RENOMEAR
+                                            </button>
+                                            <button
+                                                onClick={(e) => { e.stopPropagation(); deleteFolder(folder.id); }}
+                                                className="text-white hover:text-white bg-red-500 hover:bg-red-600 px-2 py-0.5 rounded text-[10px] font-bold uppercase transition-colors"
+                                                title="EXCLUIR PASTA"
+                                            >
+                                                EXCLUIR
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                                <h3 className="font-bold text-gray-900 truncate uppercase">{folder.name}</h3>
+                                <div className="flex justify-between items-center mt-2">
+                                    <p className="text-xs text-gray-500">{new Date(folder.createdAt).toLocaleDateString()}</p>
+                                    {folder.allowedRoles && folder.allowedRoles.length > 0 ? (
+                                        <span className="text-[10px] bg-red-100 text-red-700 px-1.5 py-0.5 rounded border border-red-200 font-bold uppercase" title={`Restrito a: ${folder.allowedRoles.join(', ')}`}>
+                                            RESTRITO
+                                        </span>
+                                    ) : (
+                                        <span className="text-[10px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded border border-green-200 font-bold uppercase">
+                                            PÚBLICO
+                                        </span>
+                                    )}
+                                </div>
+                            </div>
+                        ))}
+
+                        {/* Documents */}
+                        {currentDocs.map(doc => (
+                            <div
+                                key={doc.id}
+                                className="bg-white p-4 rounded-lg shadow-sm hover:shadow-md transition cursor-pointer group relative"
+                                style={{ border: '1px solid #E5E7EB', borderLeft: '4px solid #FF6B35' }}
+                                onClick={() => handleOpenDocument(doc)}
+                            >
+                                <div className="flex items-center justify-between mb-2">
+                                    <FileText className="text-blue-500" size={32} />
+                                    <div className="flex space-x-1">
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); handleDownload(doc); }}
+                                            className="text-blue-600 hover:text-blue-800 hover:bg-blue-50 px-2 py-1 rounded transition text-[10px] font-bold uppercase"
+                                            title="BAIXAR ARQUIVO"
+                                        >
+                                            BAIXAR
+                                        </button>
+                                        {(canManageFolders || doc.uploadedBy === currentUser.id) && (
+                                            <button
+                                                onClick={(e) => { e.stopPropagation(); deleteDocument(doc.id); }}
+                                                className="text-red-600 hover:text-red-800 hover:bg-red-50 px-2 py-1 rounded transition text-[10px] font-bold uppercase"
+                                                title="EXCLUIR ARQUIVO"
+                                            >
+                                                EXCLUIR
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+                                <h3 className="font-bold text-gray-900 truncate uppercase" title={doc.name}>{doc.name}</h3>
+                                <p className="text-xs text-gray-500 uppercase">{doc.type} • {new Date(doc.uploadedAt).toLocaleDateString()}</p>
+                            </div>
+                        ))}
+
+                        {currentFolders.length === 0 && currentDocs.length === 0 && (
+                            <div className="col-span-full text-center py-12 text-gray-400 italic uppercase">
+                                ESTA PASTA ESTÁ VAZIA.
+                            </div>
+                        )}
                     </div>
-                )}
+                </div>
+
             </div>
 
             {/* Create Folder Modal */}
-            {
-                showFolderModal && (
-                    <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50 animate-backdrop">
-                        <div className="bg-white p-6 rounded-xl shadow-2xl w-full max-w-md animate-scale-in">
-                            <h3 className="text-lg font-bold mb-4 text-gray-900">Nova Pasta</h3>
+            <StandardModal isOpen={showFolderModal} onClose={() => { setShowFolderModal(false); setSelectedRoles([]); }}>
+                <StandardModalHeader title="" onClose={() => { setShowFolderModal(false); setSelectedRoles([]); }} />
+                <StandardModalBody>
+                    <div className="space-y-4">
+                        <div>
+                            <label className={labelClass}>NOME DA PASTA</label>
+                            <input
+                                className={inputClass}
+                                placeholder="DIGITE O NOME DA PASTA"
+                                value={newFolderName}
+                                onChange={e => setNewFolderName(e.target.value)}
+                                autoFocus
+                            />
+                        </div>
 
-                            <div className="space-y-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Nome da Pasta</label>
-                                    <input
-                                        className={`${inputClass} no-uppercase`}
-                                        placeholder="Digite o nome da pasta"
-                                        value={newFolderName}
-                                        onChange={e => setNewFolderName(e.target.value)}
-                                        autoFocus
-                                    />
-                                </div>
+                        <div>
+                            <label className={labelClass}>CONTROLE DE ACESSO</label>
+                            <p className="text-xs text-gray-500 mb-3 uppercase">SELECIONE QUEM PODE VISUALIZAR ESTA PASTA. SE NENHUM FOR SELECIONADO, A PASTA SERÁ PÚBLICA.</p>
 
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">Controle de Acesso</label>
-                                    <p className="text-xs text-gray-500 mb-3">Selecione quem pode visualizar esta pasta. Se nenhum for selecionado, a pasta será pública.</p>
-
-                                    <div className="grid grid-cols-2 gap-2">
-                                        {availableRoles.map(role => (
-                                            <label
-                                                key={role}
-                                                className={`flex items-center space-x-2 p-2 rounded-lg border-2 cursor-pointer transition-all ${selectedRoles.includes(role)
-                                                    ? 'border-primary-500 bg-primary-50'
-                                                    : 'border-gray-200 hover:border-gray-300 bg-white'
-                                                    }`}
-                                            >
-                                                <input
-                                                    type="checkbox"
-                                                    checked={selectedRoles.includes(role)}
-                                                    onChange={() => toggleRole(role)}
-                                                    className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
-                                                />
-                                                <span className="text-sm font-medium text-gray-700">{role}</span>
-                                            </label>
-                                        ))}
-                                    </div>
-
-                                    {selectedRoles.length === 0 && (
-                                        <p className="text-xs text-green-600 mt-2 flex items-center">
-                                            <span className="mr-1">✓</span> Pasta pública (todos podem ver)
-                                        </p>
-                                    )}
-                                    {selectedRoles.length > 0 && (
-                                        <p className="text-xs text-primary-600 mt-2">
-                                            Acesso restrito a: {selectedRoles.join(', ')}
-                                        </p>
-                                    )}
-                                </div>
+                            <div className="grid grid-cols-2 gap-2">
+                                {availableRoles.map(role => (
+                                    <label
+                                        key={role}
+                                        className={`flex items-center space-x-2 p-2 rounded-lg border-2 cursor-pointer transition-all ${selectedRoles.includes(role)
+                                            ? 'border-primary-500 bg-primary-50'
+                                            : 'border-gray-200 hover:border-gray-300 bg-white'
+                                            }`}
+                                    >
+                                        <input
+                                            type="checkbox"
+                                            checked={selectedRoles.includes(role)}
+                                            onChange={() => toggleRole(role)}
+                                            className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                                        />
+                                        <span className="text-sm font-medium text-gray-700 uppercase">{role}</span>
+                                    </label>
+                                ))}
                             </div>
 
-                            <div className="flex justify-end gap-2 mt-6">
-                                <button
-                                    onClick={() => { setShowFolderModal(false); setSelectedRoles([]); }}
-                                    className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 font-medium transition"
-                                >
-                                    Cancelar
-                                </button>
-                                <button
-                                    onClick={handleCreateFolder}
-                                    className="px-6 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 font-medium shadow-md transition"
-                                >
-                                    Criar Pasta
-                                </button>
-                            </div>
+                            {selectedRoles.length === 0 && (
+                                <p className="text-xs text-green-600 mt-2 flex items-center uppercase font-bold">
+                                    <span className="mr-1">✓</span> PASTA PÚBLICA (TODOS PODEM VER)
+                                </p>
+                            )}
+                            {selectedRoles.length > 0 && (
+                                <p className="text-xs text-primary-600 mt-2 uppercase font-bold">
+                                    ACESSO RESTRITO A: {selectedRoles.join(', ')}
+                                </p>
+                            )}
                         </div>
                     </div>
-                )
-            }
+                </StandardModalBody>
+                <StandardModalFooter>
+                    <button
+                        onClick={() => { setShowFolderModal(false); setSelectedRoles([]); }}
+                        className="btn-base bg-red-500 text-white hover:bg-red-600 shadow-lg shadow-red-500/30 px-6 py-2 uppercase font-bold"
+                    >
+                        CANCELAR
+                    </button>
+                    <button
+                        onClick={handleCreateFolder}
+                        className="btn-base btn-insert shadow-lg shadow-green-500/30"
+                    >
+                        CRIAR PASTA
+                    </button>
+                </StandardModalFooter>
+            </StandardModal>
 
             {/* Add Document Modal */}
-            {
-                showDocModal && (
-                    <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50 animate-backdrop">
-                        <div className="bg-white p-6 rounded-xl shadow-xl w-96 animate-scale-in">
-                            <h3 className="text-lg font-bold mb-4">Novo Documento</h3>
-                            <div className="space-y-4">
-                                <div>
-                                    <label className="block text-xs font-medium text-gray-700 mb-1">Nome</label>
-                                    <input
-                                        className={`${inputClass} no-uppercase`}
-                                        value={newDocData.name}
-                                        onChange={e => setNewDocData({ ...newDocData, name: e.target.value })}
-                                        placeholder="Ex: Manual de Procedimentos"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-medium text-gray-700 mb-1">Arquivo</label>
-                                    <FileUpload
-                                        onFileSelect={setUploadingFile}
-                                        accept="application/pdf,image/*"
-                                        maxSize={50}
-                                        label="Clique para selecionar arquivo"
-                                    />
-                                </div>
-                            </div>
-                            <div className="flex justify-end gap-2 mt-6">
-                                <button
-                                    onClick={() => setShowDocModal(false)}
-                                    className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded"
-                                    disabled={isUploading}
-                                >
-                                    Cancelar
-                                </button>
-                                <button
-                                    onClick={handleAddDocument}
-                                    className="px-4 py-2 bg-primary-600 text-white rounded hover:bg-primary-700 disabled:opacity-50"
-                                    disabled={isUploading}
-                                >
-                                    {isUploading ? 'Enviando...' : 'Adicionar'}
-                                </button>
-                            </div>
+            <StandardModal isOpen={showDocModal} onClose={() => setShowDocModal(false)}>
+                <StandardModalHeader title="" onClose={() => setShowDocModal(false)} />
+                <StandardModalBody>
+                    <div className="space-y-4">
+                        <div>
+                            <label className={labelClass}>NOME</label>
+                            <input
+                                className={inputClass}
+                                value={newDocData.name}
+                                onChange={e => setNewDocData({ ...newDocData, name: e.target.value })}
+                                placeholder="EX: MANUAL DE PROCEDIMENTOS"
+                            />
+                        </div>
+                        <div>
+                            <label className={labelClass}>ARQUIVO</label>
+                            <FileUpload
+                                onFileSelect={setUploadingFile}
+                                accept="application/pdf,image/*"
+                                maxSize={50}
+                                label="CLIQUE PARA SELECIONAR ARQUIVO"
+                            />
                         </div>
                     </div>
-                )
-            }
+                </StandardModalBody>
+                <StandardModalFooter>
+                    <button
+                        onClick={() => setShowDocModal(false)}
+                        className="btn-base bg-red-500 text-white hover:bg-red-600 shadow-lg shadow-red-500/30 px-6 py-2 uppercase font-bold"
+                        disabled={isUploading}
+                    >
+                        CANCELAR
+                    </button>
+                    <button
+                        onClick={handleAddDocument}
+                        className="btn-base btn-insert shadow-lg shadow-green-500/30 disabled:opacity-50"
+                        disabled={isUploading}
+                    >
+                        {isUploading ? 'ENVIANDO...' : 'ADICIONAR'}
+                    </button>
+                </StandardModalFooter>
+            </StandardModal>
+
             {/* Rename Folder Modal */}
-            {renamingFolder && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50 animate-backdrop">
-                    <div className="bg-white p-6 rounded-xl shadow-2xl w-full max-w-sm animate-scale-in">
-                        <h3 className="text-lg font-bold mb-4 text-gray-900">Renomear Pasta</h3>
-                        <div className="space-y-4">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Novo Nome</label>
-                                <input
-                                    className={`${inputClass} no-uppercase`}
-                                    value={renameString}
-                                    onChange={e => setRenameString(e.target.value)}
-                                    autoFocus
-                                    placeholder="Nome da pasta"
-                                />
-                                <p className="text-xs text-gray-500 mt-1">Dica: O sistema diferencia maiúsculas de minúsculas.</p>
-                            </div>
-                        </div>
-                        <div className="flex justify-end gap-2 mt-6">
-                            <button
-                                onClick={() => setRenamingFolder(null)}
-                                className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 font-medium transition"
-                            >
-                                Cancelar
-                            </button>
-                            <button
-                                onClick={handleConfirmRename}
-                                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium shadow-md transition"
-                            >
-                                Salvar
-                            </button>
+            <StandardModal isOpen={!!renamingFolder} onClose={() => setRenamingFolder(null)}>
+                <StandardModalHeader title="" onClose={() => setRenamingFolder(null)} />
+                <StandardModalBody>
+                    <div className="space-y-4">
+                        <div>
+                            <label className={labelClass}>NOVO NOME</label>
+                            <input
+                                className={inputClass}
+                                value={renameString}
+                                onChange={e => setRenameString(e.target.value)}
+                                autoFocus
+                                placeholder="NOME DA PASTA"
+                            />
+                            <p className="text-xs text-gray-500 mt-1 uppercase">DICA: O SISTEMA DIFERENCIA MAIÚSCULAS DE MINÚSCULAS.</p>
                         </div>
                     </div>
-                </div>
-            )}
-        </div >
+                </StandardModalBody>
+                <StandardModalFooter>
+                    <button
+                        onClick={() => setRenamingFolder(null)}
+                        className="btn-base bg-red-500 text-white hover:bg-red-600 shadow-lg shadow-red-500/30 px-6 py-2 uppercase font-bold"
+                    >
+                        CANCELAR
+                    </button>
+                    <button
+                        onClick={handleConfirmRename}
+                        className="btn-base btn-insert shadow-lg shadow-green-500/30"
+                    >
+                        SALVAR
+                    </button>
+                </StandardModalFooter>
+            </StandardModal>
+        </>
     );
 };
+

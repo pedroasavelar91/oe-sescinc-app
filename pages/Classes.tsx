@@ -1,10 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useStore } from '../context/AppStore';
 import { ClassGroup, UserRole, ClassScheduleItem, Course, Subject, CourseType, User } from '../types';
-import { Plus, Calendar as CalendarIcon, Clock, ChevronRight, FileText, Download, Save, Trash2, X, ChevronDown, Check, RefreshCw, Edit, MapPin, Hash, ArrowUp, ArrowDown } from 'lucide-react';
-import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+import { Plus, Calendar as CalendarIcon, Clock, ChevronRight, FileText, Download, Save, Trash2, X, ChevronDown, Check, RefreshCw, Edit, MapPin, Hash, ArrowUp, ArrowDown, Pencil, ChevronLeft } from 'lucide-react';
+
+
 import { formatDate } from '../utils/dateUtils';
+import { generateStandardPDF } from '../utils/pdf';
+
+import { StandardModal, StandardModalHeader, StandardModalBody, StandardModalFooter, inputClass, labelClass } from '../components/StandardModal';
+import { StandardSelect } from '../components/StandardSelect';
+import { StandardCard } from '../components/StandardCard';
 
 // --- Components ---
 
@@ -75,6 +80,7 @@ const MultiSelect: React.FC<MultiSelectProps> = ({ options, selectedIds, onChang
                 </div>
             )}
         </div>
+
     );
 };
 
@@ -96,6 +102,7 @@ export const ClassesPage: React.FC = () => {
     const [swapModalOpen, setSwapModalOpen] = useState(false);
     const [swapTargetId, setSwapTargetId] = useState('');
     const [swapItem, setSwapItem] = useState<ClassScheduleItem | null>(null);
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     // Creation State
     const [newClass, setNewClass] = useState<Partial<ClassGroup>>({
@@ -131,7 +138,7 @@ export const ClassesPage: React.FC = () => {
         u.role === UserRole.GESTOR
     ).sort((a, b) => a.name.localeCompare(b.name));
 
-    const inputClass = "appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm bg-white text-gray-900";
+
 
     const canEdit = currentUser?.role === UserRole.GESTOR || currentUser?.role === UserRole.COORDENADOR;
 
@@ -164,16 +171,32 @@ export const ClassesPage: React.FC = () => {
     const generateSubSchedule = (
         subjects: Subject[],
         startDateStr: string,
-        config: { includeSat: boolean, includeSun: boolean, hoursPerDay: number, defaultInstructorIds?: string[] }
+        config: { includeSat: boolean, includeSun: boolean, hoursPerDay: number, defaultInstructorIds?: string[] },
+        existingItems: ClassScheduleItem[] = []
     ): ClassScheduleItem[] => {
         if (!startDateStr || subjects.length === 0) return [];
+
+        // Pre-process existing items into queues by SubjectId
+        const existingQueues: { [key: string]: ClassScheduleItem[] } = {};
+        existingItems.forEach(item => {
+            if (!existingQueues[item.subjectId]) {
+                existingQueues[item.subjectId] = [];
+            }
+            // Only add if it belongs to this subject
+            existingQueues[item.subjectId].push(item);
+        });
 
         const schedule: ClassScheduleItem[] = [];
         const start = getLocalDate(startDateStr);
         let currentDate = new Date(start);
 
         // Deep copy subjects to track remaining hours
-        let subjectQueue = subjects.map(s => ({ ...s, remaining: Number(s.hours) || 0 }));
+        let subjectQueue = subjects.map(s => ({
+            ...s,
+            remaining: Number(s.hours) || 0,
+            // Track how many "slots" we've created for this subject to match with existing
+            generatedSlots: 0
+        }));
 
         const dayStartHour = 8; // 08:00
         const lunchStartHour = 12; // 12:00
@@ -187,11 +210,8 @@ export const ClassesPage: React.FC = () => {
         while (subjectQueue.length > 0 && safeGuard < 365) {
             safeGuard++;
             const day = currentDate.getDay(); // 0 = Sunday, 6 = Saturday
-            const isWeekend = day === 0 || day === 6;
 
             // Skip logic: 
-            // If it's Sunday (0) and NOT includeSunday -> Skip
-            // If it's Saturday (6) and NOT includeSaturday -> Skip
             const skipDay = (day === 0 && !config.includeSun) || (day === 6 && !config.includeSat);
 
             if (!skipDay) {
@@ -208,7 +228,7 @@ export const ClassesPage: React.FC = () => {
 
                     const currentSubject = subjectQueue[0];
 
-                    // Calculate max duration for this slot (until lunch or until end of day)
+                    // Calculate max duration for this slot
                     let timeUntilNextBreak = (currentHour < lunchStartHour)
                         ? lunchStartHour - currentHour
                         : dayEndHour - currentHour;
@@ -216,21 +236,50 @@ export const ClassesPage: React.FC = () => {
                     const slotDuration = Math.min(currentSubject.remaining, timeUntilNextBreak, hoursAvailableToday);
 
                     if (slotDuration > 0) {
+                        // --- PRESERVATION LOGIC ---
+                        // Try to find a matching existing item for this subject
+                        let preservedItem: ClassScheduleItem | undefined;
+                        if (existingQueues[currentSubject.id] && existingQueues[currentSubject.id].length > 0) {
+                            preservedItem = existingQueues[currentSubject.id].shift();
+                        }
+
+                        // Determine Instructors:
+                        let finalInstructors: string[] = [];
+
+                        // 1. If we have a SPECIFIC default (e.g. Practice), use it (overwrite).
+                        if (config.defaultInstructorIds && config.defaultInstructorIds.length > 0) {
+                            finalInstructors = config.defaultInstructorIds;
+                        }
+                        // 2. If NO specific default (e.g. Theory), try to keep existing.
+                        else if (preservedItem && preservedItem.instructorIds && preservedItem.instructorIds.length > 0) {
+                            finalInstructors = preservedItem.instructorIds;
+                        }
+                        // 3. Fallback to empty
+                        else {
+                            finalInstructors = [];
+                        }
+
+                        // Determine ID and Completion Status
+                        const itemId = preservedItem ? preservedItem.id : Math.random().toString(36).substr(2, 9);
+                        const isCompleted = preservedItem ? preservedItem.isCompleted : false;
+                        // ---------------------------
+
                         schedule.push({
-                            id: Math.random().toString(36).substr(2, 9),
+                            id: itemId,
                             date: currentDate.toISOString().split('T')[0],
                             startTime: formatTime(currentHour),
                             endTime: formatTime(currentHour + slotDuration),
                             duration: slotDuration,
                             subjectId: currentSubject.id,
                             moduleId: currentSubject.module,
-                            instructorIds: config.defaultInstructorIds || [],
-                            isCompleted: false
+                            instructorIds: finalInstructors,
+                            isCompleted: isCompleted
                         });
 
                         currentHour += slotDuration;
                         hoursAvailableToday -= slotDuration;
                         currentSubject.remaining -= slotDuration;
+                        currentSubject.generatedSlots++; // Increment slot count if we need more complex matching later
 
                         if (currentSubject.remaining <= 0) {
                             subjectQueue.shift();
@@ -279,26 +328,19 @@ export const ClassesPage: React.FC = () => {
             hoursPerDay: newClass.hoursPerDay || 8
         };
 
-        console.log('DEBUG: Calculating Schedule', {
-            courseId: newClass.courseId,
-            courseName: course.name,
-            totalSubjects: course.subjects?.length,
-            theorySubjects,
-            practiceSubjects,
-            theoryStart: newClass.theoryStartDate,
-            practiceStart: newClass.practiceStartDate
-        });
-
+        // Pass current previewSchedule (containing manual edits) as existingItems
         const theorySchedule = generateSubSchedule(
             theorySubjects,
             newClass.theoryStartDate || '',
-            config
+            config,
+            previewSchedule // Pass existing items!
         );
 
         const practiceSchedule = generateSubSchedule(
             practiceSubjects,
             newClass.practiceStartDate || '',
-            { ...config, defaultInstructorIds: defaultPracticeInstructors }
+            { ...config, defaultInstructorIds: defaultPracticeInstructors },
+            previewSchedule // Pass existing items!
         );
 
         // Merge and sort
@@ -371,6 +413,28 @@ export const ClassesPage: React.FC = () => {
             setClassNumber('');
             setClassYear(new Date().getFullYear().toString());
         }
+
+        // --- NEW: Pre-fill Default Instructors from Existing Schedule ---
+        const course = courses.find(c => c.id === cls.courseId);
+        const existingInstructors = new Set<string>();
+
+        if (course) {
+            cls.schedule.forEach(item => {
+                const subject = course.subjects.find(s => s.id === item.subjectId);
+                const isPractice = subject && (
+                    subject.modality === 'Prática' ||
+                    subject.modality === 'Pratica' ||
+                    (subject.modality && subject.modality.includes('Pr'))
+                );
+
+                if (isPractice && item.instructorIds && item.instructorIds.length > 0) {
+                    item.instructorIds.forEach(id => existingInstructors.add(id));
+                }
+            });
+        }
+
+        setDefaultPracticeInstructors(Array.from(existingInstructors));
+        // ----------------------------------------------------------------
 
         setPreviewSchedule(cls.schedule);
         setView('create');
@@ -457,37 +521,40 @@ export const ClassesPage: React.FC = () => {
         setSwapTargetId('');
     };
 
-    const confirmSwap = () => {
+    const confirmSwap = async () => {
         if (!swapItem || !swapTargetId || !selectedClass || !currentUser) return;
+        if (isSubmitting) return;
 
-        const targetUser = users.find(u => u.id === swapTargetId);
+        setIsSubmitting(true);
+        try {
+            const targetUser = users.find(u => u.id === swapTargetId);
 
-        requestSwap({
-            targetInstructorId: swapTargetId,
-            targetInstructorName: targetUser?.name,
-            classId: selectedClass.id,
-            className: selectedClass.name,
-            scheduleId: swapItem.id,
-            date: swapItem.date,
-            time: `${swapItem.startTime} - ${swapItem.endTime}`
-        });
+            await requestSwap({
+                targetInstructorId: swapTargetId,
+                targetInstructorName: targetUser?.name,
+                classId: selectedClass.id,
+                className: selectedClass.name,
+                scheduleId: swapItem.id,
+                date: swapItem.date,
+                time: `${swapItem.startTime} - ${swapItem.endTime}`
+            });
 
-        alert('Solicitação de troca enviada com sucesso!');
-        setSwapModalOpen(false);
+            alert('Solicitação de troca enviada com sucesso!');
+            setSwapModalOpen(false);
+        } catch (error) {
+            console.error(error);
+            alert('Erro ao solicitar troca.');
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
 
     const exportToPDF = (cls: ClassGroup) => {
-        const doc: any = new jsPDF();
         const course = courses.find(c => c.id === cls.courseId);
 
-        doc.setFontSize(16);
-        doc.text(`Cronograma: ${cls.name}`, 14, 15);
-        doc.setFontSize(12);
-        doc.text(`Curso: ${course?.name}`, 14, 22);
-        doc.text(`Registro: ${cls.registrationNumber || 'N/A'}`, 14, 28);
-        if (cls.capBa) doc.text(`CAP-BA: ${cls.capBa}`, 100, 28);
-        if (cls.location) doc.text(`Localidade: ${cls.location}`, 14, 34);
+
+
 
 
         const tableData = cls.schedule.map(item => {
@@ -495,32 +562,44 @@ export const ClassesPage: React.FC = () => {
 
             const instructorNames = users
                 .filter(u => item.instructorIds?.includes(u.id))
-                .map(u => u.name)
-                .join(', ') || 'Não atribuído';
+                .map(u => u.name.toUpperCase())
+                .join(', ') || 'NÃO ATRIBUÍDO';
 
             const dateObj = getLocalDate(item.date);
 
             return [
                 dateObj.toLocaleDateString('pt-BR'),
-                `${item.startTime} às ${item.endTime}`,
-                item.moduleId,
-                subject?.name || '',
+                `${item.startTime} ÀS ${item.endTime}`,
+                item.moduleId.toUpperCase(),
+                (subject?.name || '').toUpperCase(),
                 item.duration,
                 instructorNames
             ];
         });
 
-        doc.autoTable({
-            startY: cls.location ? 40 : 35, // Adjust startY if location is present
-            head: [['Data', 'Horário', 'Módulo', 'Disciplina', 'Tempos', 'Instrutor(es)']],
-            body: tableData,
-            theme: 'grid',
-            headStyles: { fillColor: [234, 88, 12] },
-            styles: { fontSize: 8, cellPadding: 2 },
-        });
 
-        doc.save(`cronograma_${cls.name}.pdf`);
+
+        // Prepare Details
+        const details = [
+            { label: 'CURSO', value: course?.name || '' },
+            { label: 'REGISTRO', value: cls.registrationNumber || 'N/A' }
+        ];
+
+        if (cls.capBa) details.push({ label: 'CAP-BA', value: cls.capBa });
+        if (cls.location) details.push({ label: 'LOCALIDADE', value: cls.location });
+
+        generateStandardPDF({
+            title: `CRONOGRAMA: ${cls.name}`,
+            filename: `cronograma_${cls.name}`,
+            details: details,
+            table: {
+                headers: ['DATA', 'HORÁRIO', 'MÓDULO', 'DISCIPLINA', 'TEMPOS', 'INSTRUTOR(ES)'],
+                data: tableData
+            },
+            user: currentUser
+        });
     };
+
 
     const getStatus = (cls: ClassGroup) => {
         const today = new Date();
@@ -528,9 +607,9 @@ export const ClassesPage: React.FC = () => {
         const start = getLocalDate(cls.startDate);
         const end = getLocalDate(cls.endDate);
 
-        if (today < start) return { label: 'A Iniciar', color: 'bg-blue-50 text-blue-700 border border-blue-200' };
-        if (today > end) return { label: 'Finalizada', color: 'bg-transparent text-gray-600 border border-gray-200' };
-        return { label: 'Em Andamento', color: 'bg-green-50 text-green-700 border border-green-200' };
+        if (today < start) return { label: 'A INICIAR', color: 'bg-blue-50 text-blue-700 border border-blue-200' };
+        if (today > end) return { label: 'FINALIZADA', color: 'bg-transparent text-gray-600 border border-gray-200' };
+        return { label: 'EM ANDAMENTO', color: 'bg-green-50 text-green-700 border border-green-200' };
     };
 
     const getRowSpan = (schedule: ClassScheduleItem[], index: number, key: keyof ClassScheduleItem) => {
@@ -578,15 +657,15 @@ export const ClassesPage: React.FC = () => {
                 <div className="overflow-x-auto">
                     <table className="min-w-full divide-y divide-gray-200 border-collapse">
                         <thead>
-                            <tr className="bg-orange-100 text-orange-900">
-                                {!readOnly && <th className="px-2 py-3 text-center text-xs font-bold uppercase border border-orange-200 w-16">Ordem</th>}
-                                <th className="px-4 py-3 text-center text-xs font-bold uppercase border border-orange-200">DATA</th>
-                                <th className="px-4 py-3 text-center text-xs font-bold uppercase border border-orange-200">Horário</th>
-                                <th className="px-4 py-3 text-center text-xs font-bold uppercase border border-orange-200 min-w-[150px]">Módulo</th>
-                                <th className="px-4 py-3 text-left text-xs font-bold uppercase border border-orange-200 min-w-[300px]">Disciplina</th>
-                                <th className="px-2 py-3 text-center text-xs font-bold uppercase border border-orange-200">Tempos</th>
-                                <th className="px-4 py-3 text-center text-xs font-bold uppercase border border-orange-200 min-w-[280px]">Instrutor(es)</th>
-                                {readOnly && currentUser?.role === UserRole.INSTRUTOR && <th className="px-4 py-3 text-center text-xs font-bold uppercase border border-orange-200">Ações</th>}
+                            <tr className="bg-white text-gray-700">
+                                {!readOnly && <th className="px-2 py-3 text-center text-xs font-bold uppercase border border-gray-200 w-16 text-gray-700">Ordem</th>}
+                                <th className="px-4 py-3 text-center text-xs font-bold uppercase border border-gray-200 text-gray-700">DATA</th>
+                                <th className="px-4 py-3 text-center text-xs font-bold uppercase border border-gray-200 text-gray-700">HORÁRIO</th>
+                                <th className="px-4 py-3 text-center text-xs font-bold uppercase border border-gray-200 min-w-[150px] text-gray-700">MÓDULO</th>
+                                <th className="px-4 py-3 text-left text-xs font-bold uppercase border border-gray-200 min-w-[300px] text-gray-700">DISCIPLINA</th>
+                                <th className="px-2 py-3 text-center text-xs font-bold uppercase border border-gray-200 text-gray-700">TEMPOS</th>
+                                <th className="px-4 py-3 text-center text-xs font-bold uppercase border border-gray-200 min-w-[280px] text-gray-700">INSTRUTOR(ES)</th>
+                                {readOnly && currentUser?.role === UserRole.INSTRUTOR && <th className="px-4 py-3 text-center text-xs font-bold uppercase border border-gray-200 text-gray-700">AÇÕES</th>}
                             </tr>
                         </thead>
                         <tbody className="bg-white">
@@ -602,37 +681,37 @@ export const ClassesPage: React.FC = () => {
                                 const isAssignedToMe = item.instructorIds.includes(currentUser?.id || '');
 
                                 return (
-                                    <tr key={item.id} className="hover:bg-orange-50">
+                                    <tr key={item.id} className="hover:bg-gray-50">
                                         {!readOnly && (
-                                            <td className="px-2 py-2 border border-gray-300 text-center bg-white">
+                                            <td className="px-2 py-2 border border-gray-200 text-center bg-white">
                                                 <div className="flex flex-col items-center gap-1">
                                                     <button
                                                         onClick={() => moveScheduleItem(index, 'up')}
                                                         disabled={index === 0}
-                                                        className={`p-1 rounded hover:bg-gray-100 transition ${index === 0 ? 'opacity-30 cursor-not-allowed' : 'text-gray-600 hover:text-blue-600'}`}
+                                                        className={`text-orange-500 p-0.5 transition-transform hover:scale-110 ${index === 0 ? 'opacity-30 cursor-not-allowed' : 'hover:text-orange-700'}`}
                                                         title="Mover para cima"
                                                     >
-                                                        <ArrowUp size={14} />
+                                                        <ArrowUp size={16} />
                                                     </button>
                                                     <button
                                                         onClick={() => moveScheduleItem(index, 'down')}
                                                         disabled={index === schedule.length - 1}
-                                                        className={`p-1 rounded hover:bg-gray-100 transition ${index === schedule.length - 1 ? 'opacity-30 cursor-not-allowed' : 'text-gray-600 hover:text-blue-600'}`}
+                                                        className={`text-orange-500 p-0.5 transition-transform hover:scale-110 ${index === schedule.length - 1 ? 'opacity-30 cursor-not-allowed' : 'hover:text-orange-700'}`}
                                                         title="Mover para baixo"
                                                     >
-                                                        <ArrowDown size={14} />
+                                                        <ArrowDown size={16} />
                                                     </button>
                                                 </div>
                                             </td>
                                         )}
                                         {showDate && (
-                                            <td rowSpan={dateSpan} className="px-4 py-2 whitespace-nowrap text-sm font-bold text-gray-900 bg-white border border-orange-200 text-center align-middle">
+                                            <td rowSpan={dateSpan} className="px-4 py-2 whitespace-nowrap text-sm font-bold text-gray-900 bg-white border border-gray-200 text-center align-middle">
                                                 {readOnly ? dateObj.toLocaleDateString('pt-BR') : (
                                                     <input type="date" value={item.date} onChange={e => onUpdate && onUpdate(item.id, 'date', e.target.value)} className="bg-transparent border-none text-center focus:ring-0 p-0 text-sm font-bold text-gray-900" />
                                                 )}
                                             </td>
                                         )}
-                                        <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900 border border-orange-200 text-center bg-white font-medium">
+                                        <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900 border border-gray-200 text-center bg-white font-medium">
                                             {readOnly ? `${item.startTime} às ${item.endTime}` : (
                                                 <div className="flex items-center justify-center space-x-1">
                                                     <input type="time" value={item.startTime} onChange={e => onUpdate && onUpdate(item.id, 'startTime', e.target.value)} className="w-16 bg-white rounded border border-gray-300 text-xs p-1 focus:ring-0 text-center text-gray-900" />
@@ -642,18 +721,18 @@ export const ClassesPage: React.FC = () => {
                                             )}
                                         </td>
                                         {showModule && (
-                                            <td rowSpan={moduleSpan} className="px-4 py-2 text-sm text-gray-900 border border-orange-200 text-center align-middle bg-white font-bold break-words">
+                                            <td rowSpan={moduleSpan} className="px-4 py-2 text-sm text-gray-900 border border-gray-200 text-center align-middle bg-white font-bold break-words uppercase">
                                                 {item.moduleId}
                                             </td>
                                         )}
-                                        <td className="px-4 py-2 text-sm font-medium text-gray-900 border border-orange-200 bg-white break-words">
+                                        <td className="px-4 py-2 text-sm font-medium text-gray-900 border border-gray-200 bg-white break-words uppercase">
                                             {subject?.name}
-                                            <div className="text-xs text-gray-500 font-normal">{subject?.modality}</div>
+                                            <div className="text-xs text-gray-500 font-normal uppercase">{subject?.modality}</div>
                                         </td>
-                                        <td className="px-4 py-2 text-sm text-gray-900 border border-orange-200 text-center bg-white">
+                                        <td className="px-4 py-2 text-sm text-gray-900 border border-gray-200 text-center bg-white">
                                             {item.duration}
                                         </td>
-                                        <td className="px-2 py-1 border border-orange-200 bg-white">
+                                        <td className="px-2 py-1 border border-gray-200 bg-white">
                                             <MultiSelect
                                                 options={instructors}
                                                 selectedIds={item.instructorIds || []}
@@ -662,14 +741,14 @@ export const ClassesPage: React.FC = () => {
                                             />
                                         </td>
                                         {readOnly && currentUser?.role === UserRole.INSTRUTOR && (
-                                            <td className="px-2 py-1 border border-orange-200 text-center bg-white">
+                                            <td className="px-2 py-1 border border-gray-200 text-center bg-white">
                                                 {isAssignedToMe && (
                                                     <button
                                                         onClick={() => handleSwapClick(item)}
-                                                        className="p-1 text-primary-600 hover:bg-primary-50 rounded"
+                                                        className="btn-base btn-edit px-3 py-1 text-xs"
                                                         title="Solicitar Troca"
                                                     >
-                                                        <RefreshCw size={16} />
+                                                        TROCAR
                                                     </button>
                                                 )}
                                             </td>
@@ -688,254 +767,168 @@ export const ClassesPage: React.FC = () => {
     const selectedCourseName = courses.find(c => c.id === newClass.courseId)?.name;
     const isCBAATModuloResgate = selectedCourseName?.includes('Módulo Resgate');
 
-    if (view === 'create') {
+    // Scroll to top when view changes to create
+    useEffect(() => {
+        if (view === 'create') {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+    }, [view]);
+
+    // --- Render Helpers ---
+
+    const renderCreateModal = () => {
+        if (view !== 'create') return null;
         return (
-            <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
-                <div className="bg-white rounded-xl shadow-2xl w-full max-w-6xl max-h-[90vh] overflow-y-auto animate-scale-in">
-                    <div className="p-6 border-b border-gray-100 flex justify-between items-center sticky top-0 bg-white z-10 rounded-t-xl">
-                        <h2 className="text-xl font-bold text-gray-900">{isEditing ? 'Editar Turma' : 'Nova Turma'}</h2>
-                        <button onClick={() => { setView('list'); resetForm(); setIsEditing(false); }} className="text-gray-400 hover:text-gray-600 transition-colors">
-                            <X size={24} />
-                        </button>
-                    </div>
-
-                    <div className="p-6">
-
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                            {/* Column 1: Identification */}
+            <StandardModal isOpen={true} onClose={() => { setView('list'); resetForm(); setIsEditing(false); }}>
+                <StandardModalHeader onClose={() => { setView('list'); resetForm(); setIsEditing(false); }}>
+                    <div></div>
+                </StandardModalHeader>
+                <StandardModalBody>
+                    <div className="p-6 overflow-y-auto flex-grow">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
                             <div className="space-y-4">
-                                <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider border-b pb-1">Identificação</h3>
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Curso</label>
-                                    <select className={inputClass} value={newClass.courseId || ''} onChange={e => setNewClass({ ...newClass, courseId: e.target.value })}>
-                                        <option value="">Selecione um curso...</option>
-                                        {courses.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                                    </select>
+                                    <StandardSelect
+                                        label="CURSO"
+                                        placeholder="Selecione um curso..."
+                                        options={courses.map(c => ({ value: c.id, label: c.name }))}
+                                        value={newClass.courseId || ''}
+                                        onChange={e => setNewClass({ ...newClass, courseId: e.target.value })}
+                                        className="mb-1"
+                                    />
                                 </div>
                                 <div className="grid grid-cols-2 gap-4">
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">Nº Turma</label>
-                                        <input
-                                            type="number"
-                                            className={inputClass}
-                                            value={classNumber}
-                                            onChange={e => setClassNumber(e.target.value)}
-                                            placeholder="ex: 20"
-                                        />
+                                        <label className={labelClass}>Nº TURMA</label>
+                                        <input type="number" className={inputClass} value={classNumber} onChange={e => setClassNumber(e.target.value)} placeholder="ex: 20" />
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">Ano</label>
-                                        <input
-                                            type="number"
-                                            className={inputClass}
-                                            value={classYear}
-                                            onChange={e => setClassYear(e.target.value)}
-                                        />
+                                        <label className={labelClass}>ANO</label>
+                                        <input type="number" className={inputClass} value={classYear} onChange={e => setClassYear(e.target.value)} />
                                     </div>
                                 </div>
-
-                                {/* Only show Registration and CAP-BA for non-CBA-AT Módulo Resgate courses */}
                                 {!isCBAATModuloResgate && (
                                     <>
                                         <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-1">Registro</label>
-                                            <input
-                                                type="text"
-                                                maxLength={4}
-                                                className={inputClass}
-                                                value={newClass.registrationNumber}
-                                                onChange={e => setNewClass({ ...newClass, registrationNumber: e.target.value.toUpperCase() })}
-                                            />
+                                            <label className={labelClass}>REGISTRO</label>
+                                            <input type="text" maxLength={4} className={inputClass} value={newClass.registrationNumber} onChange={e => setNewClass({ ...newClass, registrationNumber: e.target.value.toUpperCase() })} />
                                         </div>
-
                                         {selectedCourseType !== CourseType.CBA_CE && (
                                             <div>
-                                                <label className="block text-sm font-medium text-gray-700 mb-1">CAP-BA</label>
-                                                <input
-                                                    type="text"
-                                                    maxLength={4}
-                                                    className={inputClass}
-                                                    value={newClass.capBa}
-                                                    onChange={e => setNewClass({ ...newClass, capBa: e.target.value.toUpperCase() })}
-                                                />
+                                                <label className={labelClass}>CAP-BA</label>
+                                                <input type="text" maxLength={4} className={inputClass} value={newClass.capBa} onChange={e => setNewClass({ ...newClass, capBa: e.target.value.toUpperCase() })} />
                                             </div>
                                         )}
                                     </>
                                 )}
                             </div>
-
-                            {/* Column 2: Dates */}
-                            <div className="space-y-4">
-                                <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider border-b pb-1">Datas de Início</h3>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Localidade</label>
-                                    <input
-                                        type="text"
-                                        className={inputClass}
-                                        value={newClass.location || ''}
-                                        onChange={e => setNewClass({ ...newClass, location: e.target.value.toUpperCase() })}
-                                    />
-                                </div>
-                                {/* Hide theory start date for CBA-AT Módulo Resgate (no theoretical classes) */}
-                                {!isCBAATModuloResgate && (
+                            <div className="space-y-6">
+                                <div className="space-y-4">
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">Início Aulas Teóricas</label>
-                                        <input type="date" className={inputClass} value={newClass.theoryStartDate || ''} onChange={e => setNewClass({ ...newClass, theoryStartDate: e.target.value })} />
+                                        <label className={labelClass}>LOCALIDADE</label>
+                                        <input type="text" className={inputClass} value={newClass.location || ''} onChange={e => setNewClass({ ...newClass, location: e.target.value.toUpperCase() })} />
                                     </div>
-                                )}
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Início Aulas Práticas</label>
-                                    <input type="date" className={inputClass} value={newClass.practiceStartDate || ''} onChange={e => setNewClass({ ...newClass, practiceStartDate: e.target.value })} />
+                                    {!isCBAATModuloResgate && (
+                                        <div>
+                                            <label className="block text-xs font-bold login-uppercase tracking-wider mb-1" style={{ color: '#6B7280' }}>INÍCIO AULAS TEÓRICAS</label>
+                                            <input type="date" className={inputClass} value={newClass.theoryStartDate || ''} onChange={e => setNewClass({ ...newClass, theoryStartDate: e.target.value })} />
+                                        </div>
+                                    )}
+                                    <div>
+                                        <label className="block text-xs font-bold login-uppercase tracking-wider mb-1" style={{ color: '#6B7280' }}>INÍCIO AULAS PRÁTICAS</label>
+                                        <input type="date" className={inputClass} value={newClass.practiceStartDate || ''} onChange={e => setNewClass({ ...newClass, practiceStartDate: e.target.value })} />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold login-uppercase tracking-wider mb-1" style={{ color: '#6B7280' }}>HORAS/DIA</label>
+                                        <input type="number" className={inputClass} value={newClass.hoursPerDay} onChange={e => setNewClass({ ...newClass, hoursPerDay: parseInt(e.target.value) })} />
+                                    </div>
                                 </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Horas/Dia</label>
-                                    <input
-                                        type="number"
-                                        className={inputClass}
-                                        value={newClass.hoursPerDay}
-                                        onChange={e => setNewClass({ ...newClass, hoursPerDay: parseInt(e.target.value) })}
-                                    />
-                                </div>
-                            </div>
-
-                            {/* Column 3: Configuration */}
-                            <div className="space-y-4">
                                 <div className="bg-orange-50 p-4 rounded-lg border border-orange-100 shadow-sm">
                                     <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3 flex items-center">
                                         <span className="w-2 h-2 bg-primary-500 rounded-full mr-2"></span>
-                                        Configuração
+                                        CONFIGURAÇÃO
                                     </h3>
-
                                     <div className="space-y-3">
                                         <label className="flex items-center space-x-3 p-2 hover:bg-white rounded transition cursor-pointer">
-                                            <input
-                                                type="checkbox"
-                                                className="h-5 w-5 text-primary-600 focus:ring-primary-500 border-gray-300 rounded transition"
-                                                checked={newClass.includeSaturday}
-                                                onChange={e => setNewClass({ ...newClass, includeSaturday: e.target.checked })}
-                                            />
-                                            <span className="text-sm text-gray-700 font-medium">Incluir Sábados</span>
+                                            <input type="checkbox" className="h-5 w-5 text-primary-600 focus:ring-primary-500 border-gray-300 rounded transition" checked={newClass.includeSaturday} onChange={e => setNewClass({ ...newClass, includeSaturday: e.target.checked })} />
+                                            <span className="text-sm font-bold login-uppercase tracking-wider" style={{ color: '#6B7280' }}>INCLUIR SÁBADOS</span>
                                         </label>
                                         <label className="flex items-center space-x-3 p-2 hover:bg-white rounded transition cursor-pointer">
-                                            <input
-                                                type="checkbox"
-                                                className="h-5 w-5 text-primary-600 focus:ring-primary-500 border-gray-300 rounded transition"
-                                                checked={newClass.includeSunday}
-                                                onChange={e => setNewClass({ ...newClass, includeSunday: e.target.checked })}
-                                            />
-                                            <span className="text-sm text-gray-700 font-medium">Incluir Domingos</span>
+                                            <input type="checkbox" className="h-5 w-5 text-primary-600 focus:ring-primary-500 border-gray-300 rounded transition" checked={newClass.includeSunday} onChange={e => setNewClass({ ...newClass, includeSunday: e.target.checked })} />
+                                            <span className="text-sm font-bold login-uppercase tracking-wider" style={{ color: '#6B7280' }}>INCLUIR DOMINGOS</span>
                                         </label>
                                     </div>
-
-                                    {/* Hide instructor field for CBA-AT Módulo Resgate (no assigned instructors) */}
                                     {!isCBAATModuloResgate && (
                                         <div className="mt-4 pt-4 border-t border-gray-200">
-                                            <label className="block text-sm font-medium text-gray-700 mb-1">Instrutor Padrão (Prática)</label>
-                                            <MultiSelect
-                                                options={instructors}
-                                                selectedIds={defaultPracticeInstructors}
-                                                onChange={setDefaultPracticeInstructors}
-                                            />
+                                            <label className="block text-xs font-bold login-uppercase tracking-wider mb-1" style={{ color: '#6B7280' }}>INSTRUTOR PADRÃO (PRÁTICA)</label>
+                                            <MultiSelect options={instructors} selectedIds={defaultPracticeInstructors} onChange={setDefaultPracticeInstructors} />
                                             <p className="text-xs text-gray-500 mt-1">Atribuído automaticamente às aulas práticas.</p>
                                         </div>
                                     )}
                                 </div>
                             </div>
                         </div>
-                    </div>
-
-                    {/* Preview Section */}
-                    <div className="mt-8">
-                        <div className="flex justify-between items-center mb-4">
-                            <h3 className="text-lg font-bold text-gray-900">Cronograma Calculado</h3>
-                            <span className="text-sm text-gray-500">O sistema calculou as datas com base na carga horária. Ajuste manualmente se necessário.</span>
+                        <div className="mt-8">
+                            <div className="flex justify-between items-center mb-4">
+                            </div>
+                            <ScheduleTable schedule={previewSchedule} onUpdate={updatePreviewItem} />
                         </div>
-
-                        <ScheduleTable schedule={previewSchedule} onUpdate={updatePreviewItem} />
                     </div>
-
-                    <div className="mt-8 flex justify-end space-x-3 pt-4 border-t border-gray-100">
-                        <button onClick={() => { setView('list'); resetForm(); }} className="px-6 py-2.5 border rounded-lg text-gray-700 bg-white hover:bg-gray-50 font-medium transition-colors">Cancelar</button>
-                        <button onClick={handleSaveClass} className="btn-premium px-8 py-2.5 bg-gradient-to-r from-primary-600 to-primary-500 hover:from-primary-700 hover:to-primary-600 text-white rounded-lg flex items-center font-semibold shadow-md transition-all duration-200">
-                            <Save size={18} className="mr-2" />
-                            Salvar Turma
-                        </button>
+                </StandardModalBody>
+                <StandardModalFooter>
+                    <div className="flex justify-end gap-3 p-4">
+                        <button onClick={() => { setView('list'); resetForm(); }} className="btn-base btn-delete px-6 py-2.5 text-xs">CANCELAR</button>
+                        <button onClick={handleSaveClass} className="btn-base btn-save px-8 py-2.5">SALVAR TURMA</button>
                     </div>
-                </div>
-            </div>
+                </StandardModalFooter>
+            </StandardModal>
         );
-    }
+    };
 
-    if (view === 'details' && selectedClass) {
+    const renderDetailsModal = () => {
+        if (view !== 'details' || !selectedClass) return null;
         const course = courses.find(c => c.id === selectedClass.courseId);
         return (
-            <div className="space-y-6 relative">
-                <div className="flex items-center justify-between">
-                    <div>
-                        <button onClick={() => setView('list')} className="text-sm text-gray-500 hover:text-gray-900 mb-2 flex items-center"><ChevronRight className="rotate-180 mr-1" size={14} /> Voltar</button>
-                        <h1 className="text-2xl font-bold text-gray-900">{selectedClass.name}</h1>
-                        <div className="flex items-center space-x-4 mt-1 text-sm text-gray-600">
-                            <span>{course?.name}</span>
-                            <span className="text-gray-300">|</span>
-                            <span>Reg: {selectedClass.registrationNumber || 'N/A'}</span>
-                            {selectedClass.capBa && (
-                                <>
-                                    <span className="text-gray-300">|</span>
-                                    <span>CAP-BA: {selectedClass.capBa}</span>
-                                </>
-                            )}
-                            {selectedClass.location && (
-                                <>
-                                    <span className="text-gray-300">|</span>
-                                    <span>Local: {selectedClass.location}</span>
-                                </>
-                            )}
-                        </div>
+            <StandardModal isOpen={true} onClose={() => setView('list')}>
+                <StandardModalHeader onClose={() => setView('list')}>
+                    <div className="flex flex-col items-start">
+                        <h1 className="text-xl font-bold login-uppercase text-gray-900">{selectedClass.name}</h1>
                     </div>
-                    <button onClick={() => exportToPDF(selectedClass)} className="flex items-center space-x-2 bg-red-600 text-white px-4 py-2 rounded shadow hover:bg-red-700 transition">
-                        <Download size={20} />
-                        <span>Exportar PDF</span>
-                    </button>
-                </div>
+                </StandardModalHeader>
+                <StandardModalBody>
+                    <div className="p-6">
+                        <ScheduleTable schedule={selectedClass.schedule} readOnly={true} />
 
-                <ScheduleTable schedule={selectedClass.schedule} readOnly={true} />
-
-                {/* Swap Modal */}
-                {swapModalOpen && (
-                    <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-backdrop">
-                        <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-2xl animate-scale-in">
-                            <h3 className="text-lg font-bold mb-4">Solicitar Permuta de Aula</h3>
-                            <p className="text-sm text-gray-600 mb-4">
-                                Data: {new Date(swapItem?.date || '').toLocaleDateString()} <br />
-                                Horário: {swapItem?.startTime} - {swapItem?.endTime}
-                            </p>
-
-                            <div className="mb-4">
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Selecione o Instrutor Substituto</label>
-                                <select
-                                    className={inputClass}
-                                    value={swapTargetId}
-                                    onChange={e => setSwapTargetId(e.target.value)}
-                                >
-                                    <option value="">Selecione...</option>
-                                    {instructors.filter(u => u.id !== currentUser?.id).map(u => (
-                                        <option key={u.id} value={u.id}>{u.name}</option>
-                                    ))}
-                                </select>
+                        {/* Swap Modal Nested */}
+                        {swapModalOpen && (
+                            <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-[60] p-4 animate-backdrop">
+                                <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-2xl animate-scale-in">
+                                    <h3 className="text-lg font-bold mb-4">Solicitar Permuta de Aula</h3>
+                                    <p className="text-sm text-gray-600 mb-4">
+                                        Data: {new Date(swapItem?.date || '').toLocaleDateString()} <br />
+                                        Horário: {swapItem?.startTime} - {swapItem?.endTime}
+                                    </p>
+                                    <div className="mb-4">
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Selecione o Instrutor Substituto</label>
+                                        <select className={inputClass} value={swapTargetId} onChange={e => setSwapTargetId(e.target.value)}>
+                                            <option value="">Selecione...</option>
+                                            {instructors.filter(u => u.id !== currentUser?.id).map(u => (
+                                                <option key={u.id} value={u.id}>{u.name}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <div className="flex justify-end space-x-2">
+                                        <button onClick={() => setSwapModalOpen(false)} className="btn-premium btn-premium-orange btn-premium-shimmer px-4 py-2 login-uppercase">CANCELAR</button>
+                                        <button onClick={confirmSwap} className="btn-premium btn-premium-orange btn-premium-shimmer px-4 py-2 login-uppercase">SOLICITAR</button>
+                                    </div>
+                                </div>
                             </div>
-
-                            <div className="flex justify-end space-x-2">
-                                <button onClick={() => setSwapModalOpen(false)} className="px-4 py-2 text-gray-600 bg-gray-100 rounded hover:bg-gray-200">Cancelar</button>
-                                <button onClick={confirmSwap} className="px-4 py-2 bg-primary-600 text-white rounded hover:bg-primary-700">Solicitar</button>
-                            </div>
-                        </div>
+                        )}
                     </div>
-                )}
-            </div>
+                </StandardModalBody>
+            </StandardModal>
         );
-    }
-
-
+    };
 
     // Derived Data for Filters
     const availableYears = Array.from(new Set(classes.map(c => new Date(c.startDate).getFullYear()))).sort((a, b) => b - a);
@@ -955,152 +948,159 @@ export const ClassesPage: React.FC = () => {
 
     // List View
     return (
-        <div className="space-y-6">
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                <div>
-                    <h1 className="text-3xl font-bold text-gray-900">Gerenciamento de Turmas</h1>
-                    <p className="text-gray-500 mt-1">Gerencie turmas e cronogramas</p>
-                </div>
-                <div className="flex flex-wrap gap-2 w-full md:w-auto">
-                    {/* Filters */}
-                    <select
-                        className="input-premium px-3 py-2 rounded-lg border border-gray-300 bg-white text-sm"
-                        value={selectedCourseFilter}
-                        onChange={e => { setSelectedCourseFilter(e.target.value); setCurrentPage(1); }}
-                    >
-                        <option value="">Todos os Cursos</option>
-                        {courses.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                    </select>
+        <>
+            {renderCreateModal()}
+            {renderDetailsModal()}
+            <div className="space-y-6">
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                    <div className="flex flex-wrap gap-2 w-full md:w-auto">
+                        {/* Filters */}
+                        <div className="w-full md:w-64">
+                            <StandardSelect
+                                placeholder="TODOS OS CURSOS"
+                                options={courses.map(c => ({ value: c.id, label: c.name }))}
+                                value={selectedCourseFilter}
+                                onChange={e => { setSelectedCourseFilter(e.target.value); setCurrentPage(1); }}
+                            />
+                        </div>
 
-                    <select
-                        className="input-premium px-3 py-2 rounded-lg border border-gray-300 bg-white text-sm"
-                        value={selectedYearFilter}
-                        onChange={e => { setSelectedYearFilter(e.target.value); setCurrentPage(1); }}
-                    >
-                        <option value="">Todos os Anos</option>
-                        {availableYears.map(year => <option key={year} value={year}>{year}</option>)}
-                    </select>
+                        <div className="w-full md:w-48">
+                            <StandardSelect
+                                placeholder="TODOS OS ANOS"
+                                options={availableYears.map(year => ({ value: year, label: year.toString() }))}
+                                value={selectedYearFilter}
+                                onChange={e => { setSelectedYearFilter(e.target.value); setCurrentPage(1); }}
+                            />
+                        </div>
 
-                    {canEdit && (
-                        <button
-                            onClick={() => setView('create')}
-                            className="btn-premium flex items-center space-x-2 bg-gradient-to-r from-primary-600 to-primary-500 hover:from-primary-700 hover:to-primary-600 text-white px-6 py-2 rounded-lg shadow-md transition-all duration-200"
-                        >
-                            <Plus size={20} />
-                            <span className="font-semibold">Nova Turma</span>
-                        </button>
-                    )}
-                </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {displayedClasses.length === 0 && (
-                    <div className="col-span-full text-center py-12 bg-white rounded-lg border border-dashed border-gray-300">
-                        <p className="text-gray-500">Nenhuma turma encontrada com os filtros selecionados.</p>
+                        {canEdit && (
+                            <button
+                                onClick={() => setView('create')}
+                                className="btn-base btn-insert flex items-center justify-center px-6 py-2"
+                            >
+                                <span className="">INSERIR</span>
+                            </button>
+                        )}
                     </div>
-                )}
-                {displayedClasses.map(cls => {
-                    const course = courses.find(c => c.id === cls.courseId);
-                    const status = getStatus(cls);
+                </div>
 
-                    return (
-                        <div key={cls.id} className="card-premium flex flex-col h-full group">
-                            <div className="p-6 flex-1 cursor-pointer" onClick={() => {
-                                if (cls && cls.id && cls.schedule) {
-                                    setSelectedClass(cls);
-                                    setView('details');
-                                } else {
-                                    console.error('Invalid class data:', cls);
-                                    alert('Erro ao carregar dados da turma. Por favor, tente novamente.');
-                                }
-                            }}>
-                                <div className="flex justify-between items-start">
-                                    <h3 className="text-lg font-bold text-gray-900">{cls.name}</h3>
-                                    <span className="bg-gray-100 text-gray-600 text-xs px-2 py-1 rounded">{course?.type}</span>
-                                </div>
-                                <p className="text-sm text-primary-600 font-medium mt-1">{course?.name}</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {displayedClasses.length === 0 && (
+                        <div className="col-span-full text-center py-12 bg-white rounded-lg border border-dashed border-gray-300">
+                            <p className="text-gray-500">Nenhuma turma encontrada com os filtros selecionados.</p>
+                        </div>
+                    )}
+                    {displayedClasses.map(cls => {
+                        const course = courses.find(c => c.id === cls.courseId);
+                        const status = getStatus(cls);
 
-                                <div className="mt-4 space-y-2">
-                                    <div className="flex items-center text-sm text-gray-500">
-                                        <CalendarIcon size={16} className="mr-2" />
-                                        {formatDate(cls.startDate)} - {formatDate(cls.endDate)}
+                        return (
+                            <StandardCard
+                                key={cls.id}
+                                onClick={() => {
+                                    if (cls && cls.id && cls.schedule) {
+                                        setSelectedClass(cls);
+                                        setView('details');
+                                    } else {
+                                        console.error('Invalid class data:', cls);
+                                        alert('Erro ao carregar dados da turma. Por favor, tente novamente.');
+                                    }
+                                }}
+                                accentColor="#FF6B35"
+                                className="flex flex-col h-full"
+                            >
+                                <div className="p-6 flex-1">
+                                    <div className="flex justify-between items-start">
+                                        <h3 className="text-lg font-bold login-uppercase" style={{ color: '#1F2937' }}>{cls.name}</h3>
                                     </div>
-                                    <div className="flex items-center text-sm text-gray-500">
-                                        <Clock size={16} className="mr-2" />
-                                        {cls.schedule.length} Blocos de Aula
+
+
+                                    <div className="mt-4 space-y-2">
+                                        <div className="flex items-center text-xs text-gray-500 uppercase">
+                                            <CalendarIcon size={16} className="mr-2" />
+                                            {formatDate(cls.startDate)} - {formatDate(cls.endDate)}
+                                        </div>
+                                        <div className="flex items-center text-xs text-gray-500 uppercase">
+                                            <Clock size={16} className="mr-2" />
+                                            {cls.schedule.length} Blocos de Aula
+                                        </div>
                                     </div>
-                                </div>
-                                {cls.location && (
-                                    <div className="text-xs text-gray-500 mt-1 break-words">
-                                        <MapPin size={14} className="inline mr-1" />
-                                        Local: {cls.location.toUpperCase()}
-                                    </div>
-                                )}
-                            </div>
-                            <div className="bg-transparent px-6 py-3 border-t border-gray-100 flex justify-between items-center">
-                                <span className={`text-xs font-medium px-2 py-1 rounded-full ${status.color}`}>
-                                    {status.label}
-                                </span>
-                                <div className="flex space-x-2">
-                                    <button
-                                        onClick={(e) => { e.stopPropagation(); exportToPDF(cls); }}
-                                        className="text-red-500 hover:text-red-700 p-1 rounded-full hover:bg-red-50 transition"
-                                        title="Baixar PDF"
-                                    >
-                                        <Download size={18} />
-                                    </button>
-                                    {(currentUser?.role === UserRole.GESTOR || currentUser?.role === UserRole.COORDENADOR) && (
-                                        <>
-                                            <button
-                                                onClick={(e) => { e.stopPropagation(); handleEditClass(cls); }}
-                                                className="text-blue-500 hover:text-blue-700 p-1 rounded-full hover:bg-blue-50 transition"
-                                                title="Editar Turma"
-                                            >
-                                                <Edit size={18} />
-                                            </button>
-                                            <button
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    if (window.confirm(`Tem certeza que deseja excluir a turma "${cls.name}"? Esta ação não pode ser desfeita.`)) {
-                                                        deleteClass(cls.id);
-                                                    }
-                                                }}
-                                                className="text-gray-400 hover:text-red-600 p-1 rounded-full hover:bg-red-50 transition"
-                                                title="Excluir Turma"
-                                            >
-                                                <Trash2 size={18} />
-                                            </button>
-                                        </>
+                                    {cls.location && (
+                                        <div className="text-xs text-gray-500 mt-1 break-words uppercase">
+                                            <MapPin size={14} className="inline mr-1" />
+                                            Local: {cls.location.toUpperCase()}
+                                        </div>
                                     )}
                                 </div>
+                                <div className="bg-transparent px-6 py-3 border-t border-gray-100 flex justify-between items-center bg-gray-50/50">
+                                    <span className={`text-xs font-medium px-2 py-1 rounded-full ${status.color}`}>
+                                        {status.label}
+                                    </span>
+                                    <div className="flex space-x-2">
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); exportToPDF(cls); }}
+                                            className="btn-base btn-edit px-3 py-1 text-xs"
+                                            title="Baixar PDF"
+                                        >
+                                            PDF
+                                        </button>
+                                        {(currentUser?.role === UserRole.GESTOR || currentUser?.role === UserRole.COORDENADOR) && (
+                                            <>
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); handleEditClass(cls); }}
+                                                    className="btn-base btn-edit px-3 py-1 text-xs"
+                                                    title="Editar Turma"
+                                                >
+                                                    EDITAR
+                                                </button>
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        if (window.confirm(`Tem certeza que deseja excluir a turma "${cls.name}"? Esta ação não pode ser desfeita.`)) {
+                                                            deleteClass(cls.id);
+                                                        }
+                                                    }}
+                                                    className="btn-base btn-delete px-3 py-1 text-xs"
+                                                    title="Excluir Turma"
+                                                >
+                                                    EXCLUIR
+                                                </button>
+                                            </>
+                                        )}
+                                    </div>
+                                </div>
+                            </StandardCard>
+                        )
+                    })}
+                </div>
+
+                {/* Pagination Controls */}
+                {
+                    totalPages > 1 && (
+                        <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between bg-gray-50">
+                            <span className="text-sm text-gray-700 uppercase">
+                                Mostrando <span className="font-medium">{((currentPage - 1) * ITEMS_PER_PAGE) + 1}</span> a <span className="font-medium">{Math.min(currentPage * ITEMS_PER_PAGE, filteredClasses.length)}</span> de <span className="font-medium">{filteredClasses.length}</span> resultados
+                            </span>
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                                    disabled={currentPage === 1}
+                                    className={`btn-base btn-pagination px-4 py-2 text-xs ${currentPage === 1 ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                >
+                                    ANTERIOR
+                                </button>
+                                <button
+                                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                                    disabled={currentPage === totalPages}
+                                    className={`btn-base btn-pagination px-4 py-2 text-xs ${currentPage === totalPages ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                >
+                                    PRÓXIMO
+                                </button>
                             </div>
                         </div>
                     )
-                })}
+                }
             </div>
-
-            {/* Pagination Controls */}
-            {totalPages > 1 && (
-                <div className="flex justify-center space-x-2 mt-6">
-                    <button
-                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                        disabled={currentPage === 1}
-                        className={`px-4 py-2 rounded-md ${currentPage === 1 ? 'bg-gray-200 text-gray-400' : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-300'}`}
-                    >
-                        Anterior
-                    </button>
-                    <span className="px-4 py-2 text-gray-700">
-                        Página {currentPage} de {totalPages}
-                    </span>
-                    <button
-                        onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                        disabled={currentPage === totalPages}
-                        className={`px-4 py-2 rounded-md ${currentPage === totalPages ? 'bg-gray-200 text-gray-400' : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-300'}`}
-                    >
-                        Próxima
-                    </button>
-                </div>
-            )}
-        </div>
+        </>
     );
 };
