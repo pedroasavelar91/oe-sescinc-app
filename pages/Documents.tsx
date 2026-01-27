@@ -70,7 +70,7 @@ export const DocumentsPage: React.FC = () => {
     const handleCreateFolder = () => {
         if (!newFolderName) return;
         const folder: Folder = {
-            id: Math.random().toString(36).substr(2, 9),
+            id: crypto.randomUUID(),
             name: newFolderName,
             parentId: currentFolderId ?? undefined,
             allowedRoles: selectedRoles.length > 0 ? selectedRoles : [], // Empty array = public
@@ -128,7 +128,7 @@ export const DocumentsPage: React.FC = () => {
 
             // Criar registro do documento
             const doc: DocumentFile = {
-                id: Math.random().toString(36).substr(2, 9),
+                id: crypto.randomUUID(),
                 folderId: currentFolderId ?? '',
                 name: newDocData.name,
                 url: url,

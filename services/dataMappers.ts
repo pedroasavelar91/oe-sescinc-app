@@ -1,67 +1,72 @@
 // Data mappers for converting between database snake_case and TypeScript camelCase
 
-import { Student, Task, AttendanceLog, GradeLog, PaymentRecord, ChecklistTemplate, ChecklistLog, Firefighter, FirefighterLog, Base, Region, AirportClass, User, UserRole, Question, QuestionReview, QuestionApprover } from '../types';
+import { Student, Task, AttendanceLog, GradeLog, PaymentRecord, ChecklistTemplate, ChecklistLog, Firefighter, FirefighterLog, Base, Region, AirportClass, User, UserRole, Question, QuestionReview, QuestionApprover, ClassPhoto } from '../types';
 
 // Student Mappers
-export const mapStudentFromDB = (db: any): Student => ({
-    id: db.id,
-    name: db.name,
-    cpf: db.cpf,
-    classId: db.class_id,
-    enrollmentStatus: db.enrollment_status,
-    rg: db.rg,
-    rgIssuer: db.rg_issuer,
-    birthDate: db.birth_date,
-    phone: db.phone,
-    email: db.email,
-    origin: db.origin,
-    address: db.address,
-    nationality: db.nationality,
-    motherName: db.mother_name,
-    fatherName: db.father_name,
-    matricula: db.matricula,
-    registro: db.registro,
-    capCode: db.cap_code,
-    className: db.class_name,
-    grades: db.grades || {},
-    finalTheory: db.final_theory || 0,
-    finalPractical: db.final_practical || 0,
-    finalGrade: db.final_grade || 0,
-    isEmployee: db.is_employee,
-    baseId: db.base_id,
-    documents: db.documents || {},
-    team: db.team // Optional load if column exists
-});
+// Student Mappers
+export const mapStudentFromDB = (db: any): Student => {
+    return {
+        id: db.id,
+        name: db.name,
+        cpf: db.cpf,
+        classId: db.class_id,
+        enrollmentStatus: db.enrollment_status,
+        rg: db.rg,
+        rgIssuer: db.rg_issuer,
+        birthDate: db.birth_date,
+        phone: db.phone,
+        email: db.email,
+        origin: db.origin,
+        address: db.address,
+        nationality: db.nationality,
+        motherName: db.mother_name,
+        fatherName: db.father_name,
+        matricula: db.matricula,
+        registro: db.registro,
+        capCode: db.cap_code,
+        className: db.class_name,
+        grades: db.grades || {},
+        finalTheory: db.final_theory || 0,
+        finalPractical: db.final_practical || 0,
+        finalGrade: db.final_grade || 0,
+        isEmployee: db.is_employee,
+        baseId: db.base_id,
+        documents: db.documents || {},
+        team: db.team
+    };
+};
 
-export const mapStudentToDB = (student: Student) => ({
-    id: student.id,
-    name: student.name,
-    cpf: student.cpf,
-    class_id: student.classId,
-    enrollment_status: student.enrollmentStatus,
-    rg: student.rg,
-    rg_issuer: student.rgIssuer,
-    birth_date: student.birthDate,
-    phone: student.phone,
-    email: student.email,
-    origin: student.origin,
-    address: student.address,
-    nationality: student.nationality,
-    mother_name: student.motherName,
-    father_name: student.fatherName,
-    matricula: student.matricula,
-    registro: student.registro,
-    cap_code: student.capCode,
-    class_name: student.className,
-    grades: student.grades,
-    final_theory: student.finalTheory,
-    final_practical: student.finalPractical,
-    final_grade: student.finalGrade,
-    is_employee: student.isEmployee,
-    base_id: student.baseId
-    // documents: student.documents, // EXCLUDED: Virtual field, not in DB
-    // team: student.team // EXCLUDED: Virtual field, not in DB
-});
+export const mapStudentToDB = (student: Student) => {
+    const dbData = {
+        id: student.id,
+        name: student.name,
+        cpf: student.cpf,
+        class_id: student.classId,
+        enrollment_status: student.enrollmentStatus,
+        rg: student.rg,
+        rg_issuer: student.rgIssuer,
+        birth_date: student.birthDate,
+        phone: student.phone,
+        email: student.email,
+        origin: student.origin,
+        address: student.address,
+        nationality: student.nationality,
+        mother_name: student.motherName,
+        father_name: student.fatherName,
+        matricula: student.matricula,
+        registro: student.registro,
+        cap_code: student.capCode,
+        class_name: student.className,
+        grades: student.grades,
+        final_theory: student.finalTheory,
+        final_practical: student.finalPractical,
+        final_grade: student.finalGrade,
+        is_employee: student.isEmployee,
+        base_id: student.baseId,
+        documents: student.documents || {},
+    };
+    return dbData;
+};
 
 // Task Mappers
 export const mapTaskFromDB = (db: any): Task => ({
@@ -204,6 +209,7 @@ export const mapChecklistLogToDB = (log: ChecklistLog) => ({
 export const mapFirefighterFromDB = (db: any): Firefighter => ({
     id: db.id,
     name: db.name,
+    cpf: db.cpf || '',
     base: db.base,
     region: db.region as Region,
     airportClass: db.airport_class as AirportClass,
@@ -220,6 +226,7 @@ export const mapFirefighterFromDB = (db: any): Firefighter => ({
 export const mapFirefighterToDB = (ff: Firefighter) => ({
     id: ff.id,
     name: ff.name,
+    cpf: ff.cpf,
     base: ff.base,
     region: ff.region,
     airport_class: ff.airportClass,

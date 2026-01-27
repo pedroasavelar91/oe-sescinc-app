@@ -83,7 +83,7 @@ export const ChecklistsPage: React.FC = () => {
         const isCompliant = resultsArray.every(r => r.status === 'Conforme' || r.status === 'N/A');
 
         const log: ChecklistLog = {
-            id: Math.random().toString(36).substr(2, 9),
+            id: crypto.randomUUID(),
             templateId: activeTemplate.id,
             type: activeTemplate.type,
             date: getCurrentDateString(),
@@ -110,7 +110,7 @@ export const ChecklistsPage: React.FC = () => {
     const handleAddItem = () => {
         if (!newItemText || !manageTemplate) return;
         const newItem: ChecklistItemDefinition = {
-            id: Math.random().toString(36).substr(2, 9),
+            id: crypto.randomUUID(),
             text: newItemText,
             category: newItemCategory || 'Geral',
             quantity: newItemQuantity !== '' ? Number(newItemQuantity) : undefined

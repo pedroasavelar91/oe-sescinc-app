@@ -96,10 +96,46 @@ export const FirefighterStatusChart: React.FC = () => {
     const [baseFilter, setBaseFilter] = useState<string>('all');
     const [activeSeries, setActiveSeries] = useState<'AT' | 'FOGO'>('AT');
 
-    // Get unique bases for filter
+    // Get unique bases for filter (sorted alphabetically)
     const bases = useMemo(() => {
         const uniqueBases = new Set(firefighters.map(f => f.base).filter(Boolean));
         return Array.from(uniqueBases).sort();
+    }, [firefighters]);
+
+    // Calculate validity helper
+    const calculateExpirations = (ff: any) => {
+        const validityYears = (ff.airportClass === 'I' || ff.airportClass === 'II') ? 4 : 2;
+        const baseDateStr = ff.isNotUpdated ? ff.graduationDate : ff.lastUpdateDate;
+        const baseDate = new Date(baseDateStr);
+        const atExpiry = new Date(baseDate);
+        atExpiry.setFullYear(atExpiry.getFullYear() + validityYears);
+
+        let fireExpiry: Date | null = null;
+        if (ff.airportClass === 'IV') {
+            const fireBaseStr = ff.isNotUpdated ? ff.graduationDate : (ff.lastFireExerciseDate || ff.graduationDate);
+            const fireBase = new Date(fireBaseStr);
+            fireExpiry = new Date(fireBase);
+            fireExpiry.setFullYear(fireExpiry.getFullYear() + 2);
+        }
+        return { atExpiry, fireExpiry };
+    };
+
+    // Calculate available years for the year filter (from current year to max expiration year)
+    const availableYears = useMemo(() => {
+        const currentYear = new Date().getFullYear();
+        let maxYear = currentYear;
+
+        firefighters.forEach(ff => {
+            const { atExpiry, fireExpiry } = calculateExpirations(ff);
+            if (atExpiry.getFullYear() > maxYear) maxYear = atExpiry.getFullYear();
+            if (fireExpiry && fireExpiry.getFullYear() > maxYear) maxYear = fireExpiry.getFullYear();
+        });
+
+        const years: string[] = [];
+        for (let y = currentYear; y <= maxYear; y++) {
+            years.push(y.toString());
+        }
+        return years;
     }, [firefighters]);
 
     const data = useMemo(() => {
@@ -113,18 +149,30 @@ export const FirefighterStatusChart: React.FC = () => {
         const stats = months.map(m => ({ name: m, updates: 0, exercises: 0 }));
 
         filteredFirefighters.forEach(ff => {
-            if (ff.lastUpdateDate) {
-                const date = new Date(ff.lastUpdateDate);
-                const expDate = new Date(date.setFullYear(date.getFullYear() + 1));
+            // Calculate validity years based on airport class
+            const validityYears = (ff.airportClass === 'I' || ff.airportClass === 'II') ? 4 : 2;
+
+            // AT Expiration (based on lastUpdateDate or graduationDate if not updated)
+            const baseDateStr = ff.isNotUpdated ? ff.graduationDate : ff.lastUpdateDate;
+            if (baseDateStr) {
+                const baseDate = new Date(baseDateStr);
+                const expDate = new Date(baseDate);
+                expDate.setFullYear(expDate.getFullYear() + validityYears);
                 if (expDate.getFullYear().toString() === yearFilter) {
                     stats[expDate.getMonth()].updates++;
                 }
             }
-            if (ff.lastFireExerciseDate) {
-                const date = new Date(ff.lastFireExerciseDate);
-                const expDate = new Date(date.setFullYear(date.getFullYear() + 1));
-                if (expDate.getFullYear().toString() === yearFilter) {
-                    stats[expDate.getMonth()].exercises++;
+
+            // Fire Exercise Expiration (only for Class IV, always 2 years)
+            if (ff.airportClass === 'IV') {
+                const fireBaseDateStr = ff.isNotUpdated ? ff.graduationDate : (ff.lastFireExerciseDate || ff.graduationDate);
+                if (fireBaseDateStr) {
+                    const fireBaseDate = new Date(fireBaseDateStr);
+                    const fireExpDate = new Date(fireBaseDate);
+                    fireExpDate.setFullYear(fireExpDate.getFullYear() + 2);
+                    if (fireExpDate.getFullYear().toString() === yearFilter) {
+                        stats[fireExpDate.getMonth()].exercises++;
+                    }
                 }
             }
         });
@@ -149,7 +197,7 @@ export const FirefighterStatusChart: React.FC = () => {
                         <StandardSelect
                             value={yearFilter}
                             onChange={(e) => setYearFilter(e.target.value)}
-                            options={['2024', '2025', '2026', '2027'].map(y => ({ value: y, label: y }))}
+                            options={availableYears.map(y => ({ value: y, label: y }))}
                             className="w-24"
                         />
                         <StandardSelect

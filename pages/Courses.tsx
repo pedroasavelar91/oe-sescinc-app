@@ -44,7 +44,7 @@ export const CoursesPage: React.FC = () => {
         if (!tempSubject.name) return;
 
         const sub: Subject = {
-            id: Math.random().toString(36).substr(2, 5),
+            id: crypto.randomUUID(),
             module: tempSubject.module || 'Geral',
             name: tempSubject.name,
             hours: tempSubject.hours || 4,
@@ -133,7 +133,7 @@ export const CoursesPage: React.FC = () => {
         }
 
         const courseData: Course = {
-            id: editingId || Math.random().toString(36).substr(2, 9),
+            id: editingId || crypto.randomUUID(),
             name: finalCourseName,
             type: courseForm.type as CourseType,
             subjects: courseForm.subjects || []
@@ -186,9 +186,9 @@ export const CoursesPage: React.FC = () => {
 
         const newCourse: Course = {
             ...course,
-            id: Math.random().toString(36).substr(2, 9),
+            id: crypto.randomUUID(),
             name: `${course.name} (Cópia)`,
-            subjects: course.subjects.map(s => ({ ...s, id: Math.random().toString(36).substr(2, 5) }))
+            subjects: course.subjects.map(s => ({ ...s, id: crypto.randomUUID() }))
         };
 
         addCourse(newCourse);

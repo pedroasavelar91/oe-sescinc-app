@@ -9,10 +9,39 @@ export interface PhotoPDFConfig {
     details?: { label: string; value: string }[];
     data: any[][]; // The row data
     user?: User | null;
+    backgroundImage?: string;
 }
 
-export const generatePhotoReportPDF = (config: PhotoPDFConfig) => {
+const loadImage = (src: string): Promise<HTMLImageElement> => {
+    return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.src = src;
+        img.onload = () => resolve(img);
+        img.onerror = (e) => reject(e);
+    });
+};
+
+export const generatePhotoReportPDF = async (config: PhotoPDFConfig) => {
     const doc: any = new jsPDF('p'); // Portrait
+
+    // 0. Load Background Image (if any)
+    let bgImage: HTMLImageElement | null = null;
+    if (config.backgroundImage) {
+        try {
+            bgImage = await loadImage(config.backgroundImage);
+        } catch (e) {
+            console.error('Failed to load background image:', e);
+        }
+    }
+
+    const addBackground = () => {
+        if (bgImage) {
+            const pageWidth = doc.internal.pageSize.width || doc.internal.pageSize.getWidth();
+            const pageHeight = doc.internal.pageSize.height || doc.internal.pageSize.getHeight();
+            // Draw at 0,0 with full width/height
+            doc.addImage(bgImage, 'PNG', 0, 0, pageWidth, pageHeight);
+        }
+    };
 
     // Calculate Header Height
     // Title (approx 10) + Details (6 each) + Padding (10)
@@ -51,6 +80,9 @@ export const generatePhotoReportPDF = (config: PhotoPDFConfig) => {
         if (i > 0) {
             doc.addPage();
         }
+
+        // Add Background (First thing on the page)
+        addBackground();
 
         const currentData = config.data.slice(i * itemsPerPage, (i + 1) * itemsPerPage);
 

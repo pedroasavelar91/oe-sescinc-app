@@ -49,7 +49,7 @@ export const TasksPage: React.FC = () => {
     const handleSave = () => {
         if (!currentUser || !newTask.title) return;
         const t: Task = {
-            id: Math.random().toString(36).substr(2, 9),
+            id: crypto.randomUUID(),
             title: newTask.title,
             description: newTask.description || '',
             startDate: newTask.startDate || getCurrentDateString(),
@@ -112,7 +112,7 @@ export const TasksPage: React.FC = () => {
         }
 
         const newLog = {
-            id: Math.random().toString(36).substr(2, 9),
+            id: crypto.randomUUID(),
             timestamp: new Date().toISOString(),
             userId: currentUser?.id || 'system',
             userName: currentUser?.name || 'Sistema',

@@ -106,6 +106,7 @@ interface StoreContextType {
     getSignedDocumentUrl: (url: string) => Promise<string | null>;
     uploadProfilePhoto: (file: File, userId: string) => Promise<string>;
     deleteFile: (bucket: string, path: string) => Promise<void>;
+    uploadStudentDocument: (file: File, studentId: string, docType: string) => Promise<string>;
     seedDatabase: () => Promise<void>;
 }
 
@@ -114,7 +115,7 @@ const StoreContext = createContext<StoreContextType | undefined>(undefined);
 // --- Helpers for Data Mapping ---
 
 const mapClassFromDB = (dbClass: any): ClassGroup => {
-    console.log('📚 mapClassFromDB - Raw DB data:', dbClass);
+    console.log('📚 [V2] mapClassFromDB - Raw DB data:', dbClass);
     const mapped = {
         id: dbClass.id,
         name: dbClass.name,
@@ -382,6 +383,46 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             )
             .on(
                 'postgres_changes',
+                { event: '*', schema: 'public', table: 'students' },
+                (payload) => {
+                    console.log('🔔 Realtime Student Update:', payload);
+                    if (payload.eventType === 'INSERT') {
+                        const newStudent = mapStudentFromDB(payload.new);
+                        setStudents(prev => {
+                            if (prev.some(s => s.id === newStudent.id)) return prev;
+                            const updated = [...prev, newStudent];
+                            return updated.sort((a, b) => a.name.localeCompare(b.name));
+                        });
+                    } else if (payload.eventType === 'UPDATE') {
+                        const updatedStudent = mapStudentFromDB(payload.new);
+                        setStudents(prev => prev.map(s => s.id === updatedStudent.id ? updatedStudent : s));
+                    } else if (payload.eventType === 'DELETE') {
+                        setStudents(prev => prev.filter(s => s.id !== payload.old.id));
+                    }
+                }
+            )
+            .on(
+                'postgres_changes',
+                { event: '*', schema: 'public', table: 'firefighters' },
+                (payload) => {
+                    console.log('🔔 Realtime Firefighter Update:', payload);
+                    if (payload.eventType === 'INSERT') {
+                        const newFF = mapFirefighterFromDB(payload.new);
+                        setFirefighters(prev => {
+                            if (prev.some(f => f.id === newFF.id)) return prev;
+                            const updated = [...prev, newFF];
+                            return updated.sort((a, b) => a.name.localeCompare(b.name));
+                        });
+                    } else if (payload.eventType === 'UPDATE') {
+                        const updatedFF = mapFirefighterFromDB(payload.new);
+                        setFirefighters(prev => prev.map(f => f.id === updatedFF.id ? updatedFF : f));
+                    } else if (payload.eventType === 'DELETE') {
+                        setFirefighters(prev => prev.filter(f => f.id !== payload.old.id));
+                    }
+                }
+            )
+            .on(
+                'postgres_changes',
                 { event: '*', schema: 'public', table: 'payments' },
                 (payload) => {
                     console.log('🔔 Realtime Payment Update:', payload);
@@ -390,6 +431,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                         setPayments(prev => {
                             if (prev.some(p => p.id === newPayment.id)) return prev;
                             return [...prev, newPayment];
+                            // Don't sort payments by default or logic differs? Keeping existing logic.
                         });
                     } else if (payload.eventType === 'DELETE') {
                         setPayments(prev => prev.filter(p => p.id !== payload.old.id));
@@ -1288,9 +1330,69 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                 }
             },
 
+            uploadStudentDocument: async (file: File, studentId: string, docType: string) => {
+                try {
+                    // Validar tipo de arquivo
+                    const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/jpg'];
+                    if (!allowedTypes.includes(file.type)) {
+                        throw new Error('Tipo de arquivo não permitido. Use PDF ou imagens.');
+                    }
+
+                    // Validar tamanho (10MB)
+                    if (file.size > 10 * 1024 * 1024) {
+                        throw new Error('Arquivo muito grande. Tamanho máximo: 10MB');
+                    }
+
+                    // Sanitizar nome do aluno/ID para path
+                    // Estrutura: student-docs/STUDENT_ID/DOC_TYPE-TIMESTAMP.EXT
+                    const fileExt = file.name.split('.').pop();
+                    const fileName = `${docType}-${Date.now()}.${fileExt}`;
+                    const filePath = `student-docs/${studentId}/${fileName}`;
+
+                    // Upload para Supabase (Bucket 'documents')
+                    const { data, error } = await supabase.storage
+                        .from('documents')
+                        .upload(filePath, file, {
+                            cacheControl: '3600',
+                            upsert: false
+                        });
+
+                    if (error) throw error;
+
+                    // Obter URL pública
+                    const { data: { publicUrl } } = supabase.storage
+                        .from('documents')
+                        .getPublicUrl(filePath);
+
+                    return publicUrl;
+                } catch (error) {
+                    console.error('Erro ao fazer upload de documento do aluno:', error);
+                    throw error;
+                }
+            },
+
             // Question Bank Functions
             addQuestion: async (question: Question) => {
                 setQuestions([...questions, question]);
+
+                // Notify all active approvers about the new question
+                const activeApprovers = questionApprovers.filter(a => a.isActive);
+                for (const approver of activeApprovers) {
+                    const notif: Notification = {
+                        id: crypto.randomUUID(),
+                        userId: approver.userId,
+                        title: 'Nova Questão Pendente',
+                        message: `${question.createdByName} submeteu uma nova questão para aprovação: "${question.subject}"`,
+                        type: 'info',
+                        read: false,
+                        timestamp: new Date().toISOString()
+                    };
+                    setNotifications(prev => [notif, ...prev]);
+                    if (isSupabaseConfigured()) {
+                        await syncWithSupabase('notifications', 'INSERT', mapNotificationToDB(notif));
+                    }
+                }
+
                 // Sync with Supabase if configured
                 if (isSupabaseConfigured()) {
                     await syncWithSupabase('questions', 'INSERT', {
@@ -1377,6 +1479,23 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                     notes
                 };
                 setQuestionReviews([...questionReviews, review]);
+
+                // Notify creator if question is rejected
+                if (action === 'Rejeitada' && question.createdBy) {
+                    const notif: Notification = {
+                        id: crypto.randomUUID(),
+                        userId: question.createdBy,
+                        title: 'Questão Rejeitada',
+                        message: `Sua questão "${question.subject}" foi rejeitada por ${reviewer?.name || 'um aprovador'}. Motivo: ${notes}`,
+                        type: 'info',
+                        read: false,
+                        timestamp: new Date().toISOString()
+                    };
+                    setNotifications(prev => [notif, ...prev]);
+                    if (isSupabaseConfigured()) {
+                        await syncWithSupabase('notifications', 'INSERT', mapNotificationToDB(notif));
+                    }
+                }
 
                 if (isSupabaseConfigured()) {
                     await syncWithSupabase('questions', 'UPDATE', {

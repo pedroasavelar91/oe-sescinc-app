@@ -160,3 +160,6 @@ create table if not exists public.setup_teardown_assignments (
 
 alter table public.setup_teardown_assignments enable row level security;
 create policy "Public access" on public.setup_teardown_assignments for all using (true);
+
+-- Add documents column to students table
+ALTER TABLE public.students ADD COLUMN IF NOT EXISTS documents jsonb default '{}'::jsonb;

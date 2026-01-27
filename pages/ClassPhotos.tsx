@@ -58,7 +58,7 @@ export const ClassPhotosPage: React.FC = () => {
 
     const canDownload = currentUser && (currentUser.role === UserRole.GESTOR || currentUser.role === UserRole.COORDENADOR);
 
-    const handleExportPDF = () => {
+    const handleExportPDF = async () => {
         if (!selectedClass || !selectedCourse || !currentUser) return;
 
         // Custom Data for Photo Report: 2 Columns [Photo, Info]
@@ -81,7 +81,7 @@ export const ClassPhotosPage: React.FC = () => {
             ];
         });
 
-        generatePhotoReportPDF({
+        await generatePhotoReportPDF({
             title: 'RELATÓRIO DE EVIDÊNCIAS DE AULAS',
             filename: `evidencias_${selectedClass.name}`,
             details: [
@@ -89,7 +89,8 @@ export const ClassPhotosPage: React.FC = () => {
                 { label: 'TURMA', value: selectedClass.name }
             ],
             data: tableData,
-            user: currentUser
+            user: currentUser,
+            backgroundImage: '/pdf-background.png'
         });
     };
 
@@ -115,7 +116,7 @@ export const ClassPhotosPage: React.FC = () => {
             const base64 = await convertFileToBase64(file);
 
             const newPhoto: ClassPhoto = {
-                id: Math.random().toString(36).substr(2, 9),
+                id: crypto.randomUUID(),
                 classId: selectedClassId,
                 subjectId: subjectId,
                 type: type,

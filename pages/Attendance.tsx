@@ -183,7 +183,7 @@ export const AttendancePage: React.FC = () => {
         });
 
         const log: AttendanceLog = {
-            id: editingLogId || Math.random().toString(36).substr(2, 9),
+            id: editingLogId || crypto.randomUUID(),
             classId: selectedClassId,
             date: attendanceDate,
             time: attendanceTime,

@@ -9,7 +9,7 @@ import { generateStandardPDF } from '../utils/pdf';
 import { StandardModal, StandardModalHeader, StandardModalBody, StandardModalFooter, inputClass, labelClass } from '../components/StandardModal';
 
 export const StudentsPage: React.FC = () => {
-    const { students, classes, addStudent, updateStudent, deleteStudent, courses, bases, currentUser, firefighters, updateFirefighter } = useStore();
+    const { students, classes, addStudent, updateStudent, deleteStudent, courses, bases, currentUser, firefighters, addFirefighter, updateFirefighter, uploadStudentDocument } = useStore();
     const [showModal, setShowModal] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedClassFilter, setSelectedClassFilter] = useState('');
@@ -25,6 +25,7 @@ export const StudentsPage: React.FC = () => {
     const [studentForm, setStudentForm] = useState<Partial<Student>>({
         enrollmentStatus: 'Pendente'
     });
+    const [uploadingDocs, setUploadingDocs] = useState<{ [key: string]: boolean }>({});
 
     // Helper to get Course Letter code
     const getCourseLetter = (type: CourseType) => {
@@ -129,7 +130,8 @@ export const StudentsPage: React.FC = () => {
         e.preventDefault();
 
         const studentData: Student = {
-            id: editingId || Math.random().toString(36).substr(2, 9),
+            id: editingId || studentForm.id || crypto.randomUUID(),
+            ...studentForm, // Spread all existing properties (including documents, matricula, etc.)
             name: studentForm.name || '',
             cpf: studentForm.cpf || '',
             classId: studentForm.classId || undefined,
@@ -148,6 +150,14 @@ export const StudentsPage: React.FC = () => {
             finalTheory: studentForm.finalTheory || 0,
             finalPractical: studentForm.finalPractical || 0,
             finalGrade: studentForm.finalGrade || 0,
+            documents: studentForm.documents || {}, // Explicitly ensure documents are kept
+            isEmployee: studentForm.isEmployee ?? false,
+            baseId: studentForm.baseId,
+            matricula: studentForm.matricula || '',
+            registro: studentForm.registro || '',
+            capCode: studentForm.capCode || '',
+            className: studentForm.className,
+            team: studentForm.team
         };
 
         if (editingId) {
@@ -156,26 +166,43 @@ export const StudentsPage: React.FC = () => {
             addStudent(studentData);
         }
 
-        // Automatic Firefighter Validity Update Logic
-        // IF: Student is Employee AND Approved AND Course is CBA-AT
-        if (studentData.isEmployee && studentData.enrollmentStatus === 'Aprovado' && studentData.classId) {
+        // Automatic Firefighter Creation/Update Logic
+        // IF: Student is Employee AND has CPF AND has a Class
+        if (studentData.isEmployee && studentData.cpf && studentData.classId) {
             const cls = classes.find(c => c.id === studentData.classId);
             const course = courses.find(c => c.id === cls?.courseId);
 
-            if (course?.type === CourseType.CBA_AT && studentData.cpf) {
-                // Find Firefighter by clean CPF
+            // Only for CBA-AT courses (firefighter training)
+            if (course?.type === CourseType.CBA_AT) {
+                // Find Firefighter by clean CPF (deduplication check)
                 const cleanCPF = studentData.cpf.replace(/\D/g, '');
-                const firefighter = firefighters.find(f => f.cpf.replace(/\D/g, '') === cleanCPF);
+                const existingFirefighter = firefighters.find(f => f.cpf.replace(/\D/g, '') === cleanCPF);
 
-                if (firefighter && cls?.endDate) {
-                    // Update Validity
+                // Get base info from student's baseId
+                const studentBase = bases.find(b => b.id === studentData.baseId);
+
+                if (existingFirefighter && cls?.endDate) {
+                    // UPDATE existing firefighter validity
                     updateFirefighter({
-                        ...firefighter,
+                        ...existingFirefighter,
                         lastUpdateDate: cls.endDate,
-                        isNotUpdated: false // Ensure flag is cleared
+                        isNotUpdated: false
                     });
-                    // Optional: Notify user or log? User didn't ask for explicit notification, but it's good practice.
-                    // For now, silent update as per "automatic" request.
+                } else if (!existingFirefighter && cls?.endDate && studentBase) {
+                    // CREATE new firefighter (no duplicate found)
+                    const newFirefighter = {
+                        id: crypto.randomUUID(),
+                        name: studentData.name,
+                        cpf: studentData.cpf,
+                        base: studentBase.name,
+                        region: studentBase.region,
+                        airportClass: studentBase.airportClass,
+                        graduationDate: cls.endDate,
+                        lastUpdateDate: cls.endDate,
+                        isNotUpdated: false,
+                        isAway: false
+                    };
+                    addFirefighter(newFirefighter);
                 }
             }
         }
@@ -270,7 +297,7 @@ export const StudentsPage: React.FC = () => {
         link.click();
     };
 
-    const handleExportPDF = () => {
+    const handleExportPDF = async () => {
         const tableData = filtered.map(s => [
             s.matricula,
             s.name,
@@ -284,14 +311,15 @@ export const StudentsPage: React.FC = () => {
             s.finalGrade?.toFixed(2) || '-'
         ]);
 
-        generateStandardPDF({
+        await generateStandardPDF({
             title: 'LISTA DE ALUNOS',
             filename: 'lista_alunos',
             table: {
                 headers: ['MATRÍCULA', 'NOME', 'TURMA', 'STATUS', 'CPF', 'REGISTRO', 'CAP-BA', 'TEÓRICA', 'PRÁTICA', 'FINAL'],
                 data: tableData
             },
-            user: null // Or existing user context if available, but component didn't use it before
+            user: null, // Or existing user context if available, but component didn't use it before
+            backgroundImage: '/pdf-background.png'
         });
     };
 
@@ -372,6 +400,7 @@ export const StudentsPage: React.FC = () => {
                                     <th className="px-3 py-3 text-center text-xs font-bold uppercase border border-gray-200">Nome</th>
                                     <th className="px-3 py-3 text-center text-xs font-bold uppercase border border-gray-200">Turma</th>
                                     <th className="px-3 py-3 text-center text-xs font-bold uppercase border border-gray-200 whitespace-nowrap">Status</th>
+                                    <th className="px-3 py-3 text-center text-xs font-bold uppercase border border-gray-200 whitespace-nowrap">Funcionário</th>
                                     <th className="px-3 py-3 text-center text-xs font-bold uppercase border border-gray-200 whitespace-nowrap">Registro</th>
                                     <th className="px-3 py-3 text-center text-xs font-bold uppercase border border-gray-200 whitespace-nowrap">CAP-BA</th>
 
@@ -414,6 +443,13 @@ export const StudentsPage: React.FC = () => {
                                                 <span className={`badge px-2 inline-flex text-[10px] leading-4 font-semibold rounded-full ${statusColor}`}>
                                                     {s.enrollmentStatus.toUpperCase()}
                                                 </span>
+                                            </td>
+                                            <td className="px-3 py-2 text-xs text-gray-500 border border-gray-200 text-center">
+                                                {s.isEmployee ? (
+                                                    <span className="bg-blue-100 text-blue-800 text-[10px] px-2 py-0.5 rounded-full font-bold">SIM</span>
+                                                ) : (
+                                                    <span className="text-gray-400">-</span>
+                                                )}
                                             </td>
                                             <td className="px-3 py-2 text-xs text-gray-500 font-mono border border-gray-200 whitespace-nowrap">{s.registro}</td>
                                             <td className="px-3 py-2 text-xs text-gray-500 font-mono border border-gray-200 whitespace-nowrap">{s.capCode}</td>
@@ -691,7 +727,7 @@ export const StudentsPage: React.FC = () => {
                                                 onChange={e => setStudentForm({ ...studentForm, baseId: e.target.value })}
                                             >
                                                 <option value="">Selecione a Base</option>
-                                                {bases.map(base => (
+                                                {[...bases].sort((a, b) => a.name.localeCompare(b.name)).map(base => (
                                                     <option key={base.id} value={base.id}>
                                                         {base.name}
                                                     </option>
@@ -797,13 +833,26 @@ export const StudentsPage: React.FC = () => {
                                                                             ? 'text-green-600 file:bg-green-100 file:text-green-700 hover:file:bg-green-200'
                                                                             : 'text-gray-500 file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200'
                                                                         }`}
-                                                                    onChange={(e) => {
+                                                                    onChange={async (e) => {
                                                                         const file = e.target.files?.[0];
                                                                         if (file) {
-                                                                            setStudentForm(prev => {
-                                                                                const newDocs = { ...prev.documents, [doc.key]: URL.createObjectURL(file) };
-                                                                                return { ...prev, documents: newDocs };
-                                                                            });
+                                                                            try {
+                                                                                setUploadingDocs(prev => ({ ...prev, [doc.key]: true }));
+
+                                                                                // Generate temporary ID if new student
+                                                                                const tempId = editingId || studentForm.id || 'temp-' + Date.now();
+
+                                                                                const publicUrl = await uploadStudentDocument(file, tempId, doc.key);
+
+                                                                                setStudentForm(prev => {
+                                                                                    const newDocs = { ...prev.documents, [doc.key]: publicUrl };
+                                                                                    return { ...prev, documents: newDocs };
+                                                                                });
+                                                                            } catch (error: any) {
+                                                                                alert('Erro ao enviar documento: ' + error.message);
+                                                                            } finally {
+                                                                                setUploadingDocs(prev => ({ ...prev, [doc.key]: false }));
+                                                                            }
                                                                         }
                                                                     }}
                                                                 />
@@ -812,15 +861,22 @@ export const StudentsPage: React.FC = () => {
                                                             {hasFile && isManagerOrCoord && (
                                                                 <a
                                                                     href={fileUrl}
-                                                                    download={`${doc.key}.pdf`} // Simple mock download
+                                                                    target="_blank"
+                                                                    rel="noopener noreferrer"
                                                                     className="p-1.5 bg-gray-100 text-gray-600 rounded hover:bg-gray-200 transition-colors"
-                                                                    title="Baixar Documento"
+                                                                    title="Visualizar/Baixar Documento"
                                                                 >
                                                                     <Download size={14} />
                                                                 </a>
                                                             )}
 
-                                                            {hasFile && (
+                                                            {uploadingDocs[doc.key] && (
+                                                                <div className="text-blue-500 animate-pulse text-[10px] font-bold">
+                                                                    ENVIANDO...
+                                                                </div>
+                                                            )}
+
+                                                            {!uploadingDocs[doc.key] && hasFile && (
                                                                 <div className="text-green-500" title="Documento Anexado">
                                                                     <CheckSquare size={16} />
                                                                 </div>

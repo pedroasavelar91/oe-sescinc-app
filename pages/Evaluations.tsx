@@ -341,7 +341,7 @@ export const EvaluationsPage: React.FC = () => {
 
         // Create Log
         const log: GradeLog = {
-            id: Math.random().toString(36).substr(2, 9),
+            id: crypto.randomUUID(),
             classId: selectedClassId,
             timestamp: new Date().toISOString(),
             userId: currentUser.id,

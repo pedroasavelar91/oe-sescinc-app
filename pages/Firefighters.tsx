@@ -48,7 +48,7 @@ export const FirefightersPage: React.FC = () => {
 
     // Pagination State
     const [currentPage, setCurrentPage] = useState(1);
-    const ITEMS_PER_PAGE = 20;
+    const ITEMS_PER_PAGE = 15;
 
     // Reset pagination when filters change
     React.useEffect(() => {
@@ -60,13 +60,15 @@ export const FirefightersPage: React.FC = () => {
     const isManager = currentUser.role === UserRole.GESTOR || currentUser.role === UserRole.COORDENADOR;
 
     // --- Base Restriction Logic ---
+    // Treat '-' or empty string as "no base" (show all firefighters)
     const userBase = currentUser.base;
+    const hasBaseRestriction = userBase && userBase !== '-' && userBase.trim() !== '';
     const displayedFirefighters = useMemo(() => {
-        if (userBase) {
+        if (hasBaseRestriction) {
             return firefighters.filter(f => f.base === userBase);
         }
         return firefighters;
-    }, [firefighters, userBase]);
+    }, [firefighters, userBase, hasBaseRestriction]);
 
     // --- Logic ---
 
@@ -113,7 +115,7 @@ export const FirefightersPage: React.FC = () => {
         }
 
         const newFF: Firefighter = {
-            id: editingId || Math.random().toString(36).substr(2, 9),
+            id: editingId || crypto.randomUUID(),
             name: formData.name,
             cpf: formData.cpf || '',
             base: formData.base,
@@ -130,7 +132,7 @@ export const FirefightersPage: React.FC = () => {
         };
 
         const log: FirefighterLog = {
-            id: Math.random().toString(36).substr(2, 9),
+            id: crypto.randomUUID(),
             firefighterId: newFF.id,
             firefighterName: newFF.name,
             timestamp: new Date().toISOString(),
@@ -153,7 +155,7 @@ export const FirefightersPage: React.FC = () => {
     const handleAddBase = () => {
         if (!newBase.name) return;
         const b: Base = {
-            id: Math.random().toString(36).substr(2, 5),
+            id: crypto.randomUUID(),
             name: newBase.name,
             region: newBase.region as Region,
             airportClass: newBase.airportClass as AirportClass
@@ -242,7 +244,7 @@ export const FirefightersPage: React.FC = () => {
         const baseObj = bases.find(b => b.name === selectedFirefighterForEnroll.base);
 
         const newStudent: Student = {
-            id: Math.random().toString(36).substr(2, 9),
+            id: crypto.randomUUID(),
             name: selectedFirefighterForEnroll.name,
             cpf: selectedFirefighterForEnroll.cpf,
             classId: selectedClassForEnroll,
@@ -315,6 +317,24 @@ export const FirefightersPage: React.FC = () => {
         return filteredFirefighters.slice(start, start + ITEMS_PER_PAGE);
     }, [filteredFirefighters, currentPage]);
 
+    // Calculate available years for the year filter (from current year to max expiration year)
+    const availableYears = useMemo(() => {
+        const currentYear = new Date().getFullYear();
+        let maxYear = currentYear;
+
+        displayedFirefighters.forEach(ff => {
+            const { atExpiry, fireExpiry } = calculateExpirations(ff);
+            if (atExpiry.getFullYear() > maxYear) maxYear = atExpiry.getFullYear();
+            if (fireExpiry && fireExpiry.getFullYear() > maxYear) maxYear = fireExpiry.getFullYear();
+        });
+
+        const years: string[] = [];
+        for (let y = currentYear; y <= maxYear; y++) {
+            years.push(y.toString());
+        }
+        return years;
+    }, [displayedFirefighters]);
+
     // Calculate chart data using page filters
     const chartData = useMemo(() => {
         const months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
@@ -344,7 +364,6 @@ export const FirefightersPage: React.FC = () => {
     return (
         <>
             <div className="space-y-6 animate-fade-in">
-
 
                 {/* Tabs */}
                 <div className="border-b border-gray-200">
@@ -389,7 +408,7 @@ export const FirefightersPage: React.FC = () => {
                                 <div className="w-full md:w-48">
                                     <select className={inputClass} value={baseFilter} onChange={e => setBaseFilter(e.target.value)}>
                                         <option value="">TODAS AS BASES</option>
-                                        {bases.map(b => <option key={b.id} value={b.name}>{b.name}</option>)}
+                                        {[...bases].sort((a, b) => a.name.localeCompare(b.name)).map(b => <option key={b.id} value={b.name}>{b.name}</option>)}
                                     </select>
                                 </div>
                                 <div className="w-full md:w-48">
@@ -423,15 +442,15 @@ export const FirefightersPage: React.FC = () => {
                         <div className="card-premium animate-fade-in text-gray-800">
                             <div className="overflow-x-auto custom-scrollbar relative">
                                 <table className="min-w-full divide-y divide-gray-200">
-                                    <thead className="bg-gray-50">
+                                    <thead className="bg-white text-gray-700">
                                         <tr>
-                                            <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider bg-gray-50 border-b border-gray-100">Nome</th>
-                                            <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider bg-gray-50 border-b border-gray-100">Base / Região</th>
-                                            <th className="px-6 py-3 text-center text-xs font-bold text-gray-700 uppercase tracking-wider bg-gray-50 border-b border-gray-100">Classe</th>
-                                            <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider bg-gray-50 border-b border-gray-100">Atualização</th>
-                                            <th className="px-6 py-3 text-center text-xs font-bold text-gray-700 uppercase tracking-wider bg-gray-50 border-b border-gray-100">Exerc. Fogo</th>
-                                            <th className="px-6 py-3 text-center text-xs font-bold text-gray-700 uppercase tracking-wider bg-gray-50 border-b border-gray-100">Status</th>
-                                            {canEdit && <th className="px-6 py-3 text-right text-xs font-bold text-gray-700 uppercase tracking-wider bg-gray-50 border-b border-gray-100">Ações</th>}
+                                            <th className="px-3 py-3 text-left text-xs font-bold uppercase border border-gray-200">Nome</th>
+                                            <th className="px-3 py-3 text-left text-xs font-bold uppercase border border-gray-200">Base / Região</th>
+                                            <th className="px-3 py-3 text-center text-xs font-bold uppercase border border-gray-200">Classe</th>
+                                            <th className="px-3 py-3 text-left text-xs font-bold uppercase border border-gray-200">Atualização</th>
+                                            <th className="px-3 py-3 text-center text-xs font-bold uppercase border border-gray-200">Exerc. Fogo</th>
+                                            <th className="px-3 py-3 text-center text-xs font-bold uppercase border border-gray-200">Status</th>
+                                            {canEdit && <th className="px-3 py-3 text-center text-xs font-bold uppercase border border-gray-200 min-w-[200px]">Ações</th>}
                                         </tr>
                                     </thead>
                                     <tbody className="bg-white divide-y divide-gray-200">
@@ -444,12 +463,12 @@ export const FirefightersPage: React.FC = () => {
 
                                                 return (
                                                     <tr key={ff.id} className="hover:bg-gray-50 transition-colors duration-150">
-                                                        <td className="px-6 py-4 text-sm font-bold text-gray-900 uppercase">{ff.name}</td>
-                                                        <td className="px-6 py-4 text-sm text-gray-500 uppercase">
+                                                        <td className="px-3 py-2 text-xs font-bold text-gray-900 uppercase border border-gray-200">{ff.name}</td>
+                                                        <td className="px-3 py-2 text-xs text-gray-500 uppercase border border-gray-200">
                                                             {ff.base} <span className="text-xs text-gray-400">({ff.region})</span>
                                                         </td>
-                                                        <td className="px-6 py-4 text-center text-sm font-bold uppercase">{ff.airportClass}</td>
-                                                        <td className="px-6 py-4 text-sm">
+                                                        <td className="px-3 py-2 text-center text-xs font-bold uppercase border border-gray-200">{ff.airportClass}</td>
+                                                        <td className="px-3 py-2 text-xs border border-gray-200">
                                                             <div className="space-y-1">
                                                                 <div className="flex items-center space-x-2">
                                                                     <span className="text-xs text-gray-500 uppercase">ÚLTIMA:</span>
@@ -469,7 +488,7 @@ export const FirefightersPage: React.FC = () => {
                                                                 </div>
                                                             </div>
                                                         </td>
-                                                        <td className="px-6 py-4 text-sm text-center">
+                                                        <td className="px-3 py-2 text-xs text-center border border-gray-200">
                                                             {ff.airportClass === 'IV' ? (
                                                                 <div className="space-y-1 inline-block text-left">
                                                                     <div className="flex items-center space-x-2">
@@ -497,7 +516,7 @@ export const FirefightersPage: React.FC = () => {
                                                                 </span>
                                                             )}
                                                         </td>
-                                                        <td className="px-6 py-4 text-center">
+                                                        <td className="px-3 py-2 text-center border border-gray-200">
                                                             {ff.isAway ? (
                                                                 <span className="px-2 py-1 bg-gray-200 text-gray-700 text-xs font-bold rounded-full uppercase">AFASTADO</span>
                                                             ) : (
@@ -505,17 +524,19 @@ export const FirefightersPage: React.FC = () => {
                                                             )}
                                                         </td>
                                                         {canEdit && (
-                                                            <td className="px-6 py-4 text-right space-x-2 whitespace-nowrap">
-                                                                <button onClick={() => handleEdit(ff)} className="text-blue-600 hover:text-blue-800 transition-colors font-bold text-xs uppercase underline">EDITAR</button>
-                                                                <button onClick={() => handleDelete(ff.id)} className="text-red-600 hover:text-red-800 transition-colors font-bold text-xs uppercase underline">EXCLUIR</button>
-                                                                <button
-                                                                    onClick={() => handleOpenEnrollModal(ff)}
-                                                                    className="text-orange-600 hover:text-orange-800 transition-colors font-bold text-xs uppercase underline flex items-center gap-1"
-                                                                    title="Matricular em Turma"
-                                                                >
-                                                                    <UserPlus size={14} />
-                                                                    MATRICULAR
-                                                                </button>
+                                                            <td className="px-3 py-2 text-center border border-gray-200">
+                                                                <div className="flex justify-center gap-2">
+                                                                    <button onClick={() => handleEdit(ff)} className="btn-base btn-edit px-3 py-1 text-xs">EDITAR</button>
+                                                                    <button onClick={() => handleDelete(ff.id)} className="btn-base btn-delete px-3 py-1 text-xs">EXCLUIR</button>
+                                                                    <button
+                                                                        onClick={() => handleOpenEnrollModal(ff)}
+                                                                        className="btn-base btn-insert px-3 py-1 text-xs flex items-center gap-1"
+                                                                        title="Matricular em Turma"
+                                                                    >
+                                                                        <UserPlus size={14} />
+                                                                        MATRICULAR
+                                                                    </button>
+                                                                </div>
                                                             </td>
                                                         )}
                                                     </tr>
@@ -533,43 +554,26 @@ export const FirefightersPage: React.FC = () => {
                             </div>
 
                             {/* Pagination Controls */}
-                            {filteredFirefighters.length > 0 && (
-                                <div className="flex items-center justify-between px-6 py-3 border-t border-gray-200 bg-gray-50">
-                                    <div className="flex-1 flex justify-between sm:hidden">
+                            {totalPages > 1 && (
+                                <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between bg-gray-50">
+                                    <span className="text-sm text-gray-700 uppercase">
+                                        Mostrando <span className="font-medium">{(currentPage - 1) * ITEMS_PER_PAGE + 1}</span> a <span className="font-medium">{Math.min(currentPage * ITEMS_PER_PAGE, filteredFirefighters.length)}</span> de <span className="font-medium">{filteredFirefighters.length}</span> resultados
+                                    </span>
+                                    <div className="flex gap-2">
                                         <button
                                             onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                                             disabled={currentPage === 1}
-                                            className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
+                                            className={`btn-base btn-pagination px-4 py-2 text-xs ${currentPage === 1 ? 'opacity-50 cursor-not-allowed' : ''}`}
                                         >
-                                            Anterior
+                                            ANTERIOR
                                         </button>
                                         <button
                                             onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                                             disabled={currentPage === totalPages}
-                                            className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
+                                            className={`btn-base btn-pagination px-4 py-2 text-xs ${currentPage === totalPages ? 'opacity-50 cursor-not-allowed' : ''}`}
                                         >
-                                            Próxima
+                                            PRÓXIMO
                                         </button>
-                                    </div>
-                                    <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-end">
-                                        <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
-                                            <button
-                                                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                                                disabled={currentPage === 1}
-                                                className="relative inline-flex items-center px-4 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
-                                            >
-                                                <span className="sr-only">Anterior</span>
-                                                <span className="font-bold text-xs uppercase">ANTERIOR</span>
-                                            </button>
-                                            <button
-                                                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                                                disabled={currentPage === totalPages}
-                                                className="relative inline-flex items-center px-4 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
-                                            >
-                                                <span className="sr-only">Próxima</span>
-                                                <span className="font-bold text-xs uppercase">PRÓXIMO</span>
-                                            </button>
-                                        </nav>
                                     </div>
                                 </div>
                             )}
@@ -609,10 +613,9 @@ export const FirefightersPage: React.FC = () => {
                             {/* Filters for Graph */}
                             <div className="flex items-center gap-2 w-full sm:w-auto">
                                 <select className={inputClass + " w-24"} value={yearFilter} onChange={e => setYearFilter(e.target.value)}>
-                                    <option value="2024">2024</option>
-                                    <option value="2025">2025</option>
-                                    <option value="2026">2026</option>
-                                    <option value="2027">2027</option>
+                                    {availableYears.map(year => (
+                                        <option key={year} value={year}>{year}</option>
+                                    ))}
                                 </select>
                                 <select className={inputClass + " w-32"} value={regionFilter} onChange={e => setRegionFilter(e.target.value)}>
                                     <option value="">REGIÃO</option>
@@ -624,7 +627,7 @@ export const FirefightersPage: React.FC = () => {
                                 </select>
                                 <select className={inputClass + " w-32"} value={baseFilter} onChange={e => setBaseFilter(e.target.value)}>
                                     <option value="">BASE</option>
-                                    {bases.map(b => <option key={b.id} value={b.name}>{b.name}</option>)}
+                                    {[...bases].sort((a, b) => a.name.localeCompare(b.name)).map(b => <option key={b.id} value={b.name}>{b.name}</option>)}
                                 </select>
                             </div>
 
@@ -861,7 +864,7 @@ export const FirefightersPage: React.FC = () => {
                         <div>
 
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                {bases.map(base => (
+                                {[...bases].sort((a, b) => a.name.localeCompare(b.name)).map(base => (
                                     <div key={base.id} className="bg-white rounded-lg shadow-sm overflow-hidden hover:shadow-lg hover:-translate-y-1 transition-all duration-300 group" style={{ border: '1px solid #E5E7EB', borderLeft: '4px solid #FF6B35' }}>
                                         <div className="bg-white px-6 py-5 flex justify-between items-center transition-colors" style={{ borderBottom: '1px solid #E5E7EB' }}>
                                             <div>
@@ -1006,6 +1009,68 @@ export const FirefightersPage: React.FC = () => {
                     </StandardModalFooter>
                 </form>
             </StandardModal >
+
+            {/* Enrollment Modal */}
+            <StandardModal
+                isOpen={showEnrollModal}
+                onClose={() => setShowEnrollModal(false)}
+                maxWidth="max-w-md"
+            >
+                <StandardModalHeader onClose={() => setShowEnrollModal(false)} title="" />
+                <div className="w-full">
+                    <StandardModalBody>
+                        <div className="text-center mb-6">
+                            <div className="mx-auto w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center mb-4">
+                                <UserPlus className="text-orange-600" size={24} />
+                            </div>
+                            <h3 className="text-lg font-bold text-gray-900 uppercase">MATRICULAR BOMBEIRO</h3>
+                            <p className="text-sm text-gray-500 mt-1 uppercase font-bold text-orange-600">{selectedFirefighterForEnroll?.name}</p>
+                        </div>
+
+                        <div className="space-y-4">
+                            <div>
+                                <label className={labelClass}>SELECIONE A TURMA</label>
+                                <select
+                                    className={inputClass}
+                                    value={selectedClassForEnroll}
+                                    onChange={e => setSelectedClassForEnroll(e.target.value)}
+                                >
+                                    <option value="">SELECIONE...</option>
+                                    {classes
+                                        .filter(c => {
+                                            // Show only ongoing and upcoming classes (endDate >= today)
+                                            const today = new Date().toISOString().split('T')[0];
+                                            return c.endDate >= today;
+                                        })
+                                        .sort((a, b) => a.name.localeCompare(b.name))
+                                        .map(c => (
+                                            <option key={c.id} value={c.id}>{c.name}</option>
+                                        ))}
+                                </select>
+                            </div>
+                        </div>
+                    </StandardModalBody>
+                    <StandardModalFooter className="px-6 pb-6">
+                        <div className="flex justify-end gap-2 w-full">
+                            <button
+                                type="button"
+                                onClick={() => setShowEnrollModal(false)}
+                                className="btn-base btn-delete px-6 py-3 text-xs font-bold uppercase transition-colors"
+                            >
+                                CANCELAR
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleEnrollment}
+                                disabled={!selectedClassForEnroll}
+                                className="btn-base btn-save px-6 py-3 text-xs font-bold uppercase transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                CONFIRMAR
+                            </button>
+                        </div>
+                    </StandardModalFooter>
+                </div>
+            </StandardModal>
         </>
     );
 };

@@ -319,17 +319,17 @@ export const QuestionBankPage: React.FC = () => {
                                                     <>
                                                         <button
                                                             onClick={() => handleOpenModal(question)}
-                                                            className="text-blue-600 hover:text-blue-800 p-1 rounded-md hover:bg-blue-50 transition-colors"
+                                                            className="btn-base btn-edit px-2 py-1 text-[10px]"
                                                             title="Editar"
                                                         >
-                                                            <Edit2 size={16} />
+                                                            EDITAR
                                                         </button>
                                                         <button
                                                             onClick={() => handleDeleteQuestion(question.id)}
-                                                            className="text-red-600 hover:text-red-800 p-1 rounded-md hover:bg-red-50 transition-colors"
+                                                            className="btn-base btn-delete px-2 py-1 text-[10px]"
                                                             title="Excluir"
                                                         >
-                                                            <Trash2 size={16} />
+                                                            EXCLUIR
                                                         </button>
                                                     </>
                                                 )}

@@ -260,7 +260,7 @@ export const ClassesPage: React.FC = () => {
                         }
 
                         // Determine ID and Completion Status
-                        const itemId = preservedItem ? preservedItem.id : Math.random().toString(36).substr(2, 9);
+                        const itemId = preservedItem ? preservedItem.id : crypto.randomUUID();
                         const isCompleted = preservedItem ? preservedItem.isCompleted : false;
                         // ---------------------------
 
@@ -422,9 +422,9 @@ export const ClassesPage: React.FC = () => {
             cls.schedule.forEach(item => {
                 const subject = course.subjects.find(s => s.id === item.subjectId);
                 const isPractice = subject && (
-                    subject.modality === 'Prática' ||
-                    subject.modality === 'Pratica' ||
-                    (subject.modality && subject.modality.includes('Pr'))
+                    (subject.modality as string) === 'Prática' ||
+                    (subject.modality as string) === 'Pratica' ||
+                    (subject.modality && (subject.modality as string).includes('Pr'))
                 );
 
                 if (isPractice && item.instructorIds && item.instructorIds.length > 0) {
@@ -455,7 +455,7 @@ export const ClassesPage: React.FC = () => {
         const maxDate = new Date(Math.max(...dates));
 
         const clsData: ClassGroup = {
-            id: isEditing && selectedClass ? selectedClass.id : Math.random().toString(36).substr(2, 9),
+            id: isEditing && selectedClass ? selectedClass.id : crypto.randomUUID(),
             name: className,
             startDate: minDate.toISOString().split('T')[0],
             endDate: maxDate.toISOString().split('T')[0],
@@ -550,12 +550,8 @@ export const ClassesPage: React.FC = () => {
     };
 
 
-    const exportToPDF = (cls: ClassGroup) => {
+    const exportToPDF = async (cls: ClassGroup) => {
         const course = courses.find(c => c.id === cls.courseId);
-
-
-
-
 
         const tableData = cls.schedule.map(item => {
             const subject = course?.subjects.find(s => s.id === item.subjectId);
@@ -577,8 +573,6 @@ export const ClassesPage: React.FC = () => {
             ];
         });
 
-
-
         // Prepare Details
         const details = [
             { label: 'CURSO', value: course?.name || '' },
@@ -588,7 +582,7 @@ export const ClassesPage: React.FC = () => {
         if (cls.capBa) details.push({ label: 'CAP-BA', value: cls.capBa });
         if (cls.location) details.push({ label: 'LOCALIDADE', value: cls.location });
 
-        generateStandardPDF({
+        await generateStandardPDF({
             title: `CRONOGRAMA: ${cls.name}`,
             filename: `cronograma_${cls.name}`,
             details: details,
@@ -596,7 +590,8 @@ export const ClassesPage: React.FC = () => {
                 headers: ['DATA', 'HORÁRIO', 'MÓDULO', 'DISCIPLINA', 'TEMPOS', 'INSTRUTOR(ES)'],
                 data: tableData
             },
-            user: currentUser
+            user: currentUser,
+            backgroundImage: '/pdf-background.png'
         });
     };
 
@@ -780,9 +775,7 @@ export const ClassesPage: React.FC = () => {
         if (view !== 'create') return null;
         return (
             <StandardModal isOpen={true} onClose={() => { setView('list'); resetForm(); setIsEditing(false); }}>
-                <StandardModalHeader onClose={() => { setView('list'); resetForm(); setIsEditing(false); }}>
-                    <div></div>
-                </StandardModalHeader>
+                <StandardModalHeader title="NOVA TURMA" onClose={() => { setView('list'); resetForm(); setIsEditing(false); }} />
                 <StandardModalBody>
                     <div className="p-6 overflow-y-auto flex-grow">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
@@ -890,11 +883,7 @@ export const ClassesPage: React.FC = () => {
         const course = courses.find(c => c.id === selectedClass.courseId);
         return (
             <StandardModal isOpen={true} onClose={() => setView('list')}>
-                <StandardModalHeader onClose={() => setView('list')}>
-                    <div className="flex flex-col items-start">
-                        <h1 className="text-xl font-bold login-uppercase text-gray-900">{selectedClass.name}</h1>
-                    </div>
-                </StandardModalHeader>
+                <StandardModalHeader title={selectedClass.name} onClose={() => setView('list')} />
                 <StandardModalBody>
                     <div className="p-6">
                         <ScheduleTable schedule={selectedClass.schedule} readOnly={true} />

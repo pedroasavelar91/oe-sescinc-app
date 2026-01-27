@@ -13,10 +13,42 @@ export interface PDFConfig {
     };
     orientation?: 'p' | 'portrait' | 'l' | 'landscape';
     user?: User | null;
+    backgroundImage?: string;
 }
 
-export const generateStandardPDF = (config: PDFConfig) => {
+const loadImage = (src: string): Promise<HTMLImageElement> => {
+    return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.src = src;
+        img.onload = () => resolve(img);
+        img.onerror = (e) => reject(e);
+    });
+};
+
+export const generateStandardPDF = async (config: PDFConfig) => {
     const doc: any = new jsPDF(config.orientation || 'p');
+
+    // 0. Load Background Image (if any)
+    let bgImage: HTMLImageElement | null = null;
+    if (config.backgroundImage) {
+        try {
+            bgImage = await loadImage(config.backgroundImage);
+        } catch (e) {
+            console.error('Failed to load background image:', e);
+        }
+    }
+
+    // Helper to add background to current page
+    const addBackground = () => {
+        if (bgImage) {
+            const pageWidth = doc.internal.pageSize.width || doc.internal.pageSize.getWidth();
+            const pageHeight = doc.internal.pageSize.height || doc.internal.pageSize.getHeight();
+            doc.addImage(bgImage, 'PNG', 0, 0, pageWidth, pageHeight);
+        }
+    };
+
+    // Add background to first page
+    addBackground();
 
     // 1. Header & Title (Uppercase)
     doc.setFontSize(16);
@@ -47,6 +79,13 @@ export const generateStandardPDF = (config: PDFConfig) => {
 
     const upperHeaders = [config.table.headers.map(h => h.toUpperCase())];
 
+    const originalAddPage = doc.addPage;
+    doc.addPage = function () {
+        const ret = originalAddPage.apply(this, arguments);
+        addBackground();
+        return ret;
+    };
+
     autoTable(doc, {
         startY: startY,
         head: upperHeaders,
@@ -65,30 +104,92 @@ export const generateStandardPDF = (config: PDFConfig) => {
             halign: 'center',
             overflow: 'linebreak'
         },
-        didDrawCell: (data: any) => {
-            if (data.cell.raw && typeof data.cell.raw === 'object' && data.cell.raw.images) {
-                const { images } = data.cell.raw;
-                if (images && images.length > 0) {
-                    const cellWidth = data.cell.width;
-                    const cellHeight = data.cell.height;
-                    const x = data.cell.x;
-                    const y = data.cell.y;
+        didDrawPage: (data) => {
+            // Add background to new pages (automatically added by autoTable)
+            // Note: didDrawPage is called AFTER the page is added but BEFORE content? 
+            // Actually autoTable adds a new page, hooks might be needed.
+            // But simpler: we can loop pages at the end if we want to be sure, 
+            // OR use didDrawPage. Let's try looping at the end to force z-index "under" 
+            // (actually jsPDF paints in order, so "under" means painting BEFORE text).
+            // If I paint at the end, it will be ON TOP.
+            // So I must use hooks or paint before content.
+            // autoTable hook `didDrawPage` is useful for headers/footers.
 
-                    // Standard tiny thumbnail render for generic tables (if any)
-                    try {
-                        const img = images[0];
-                        const size = Math.min(cellWidth - 2, cellHeight - 2, 10); // Small size
-                        doc.addImage(img, 'JPEG', x + 1, y + 1, size, size);
-                    } catch (e) { }
-                }
-            }
+            // Issue: autoTable manages page breaks.
+            // If I use `didDrawPage`, I can draw the image. 
+            // But `didDrawPage` might be called after some content?
+            // "didDrawPage" is called after the plugin has finished drawing everything on the page? No.
+            // Documentation: "Called after the plugin has finished drawing the table on the page"
+
+            // Better approach with jsPDF:
+            // 1. Generate everything.
+            // 2. Loop through all pages.
+            // 3. Move to page -> Add Image -> Oops, that puts it on top.
+
+            // Correct approach with jsPDF for Background:
+            // Use `didDrawPage` hook of autoTable to draw background ONLY if it's a new page.
+            // BUT `didDrawPage` happens after table content?
+            // Let's check `willDrawPage` or similar? No such thing easily exposed in this version maybe.
+
+            // ALTERNATIVE: Use the `hooks` to restart. 
+            // OR: Since `doc` is mutable, I can just use `didDrawPage` and set global composite operation? No.
+
+            // Simplest robust way: 
+            // Loop pages at end, but that covers text.
+
+            // Let's stick to `didDrawPage`. doc.addImage usually overwrites?
+            // If the background is transparent (watermark), it might be fine on top?
+            // The user provided image looks opaque white with sidebar. It will COVER text if on top.
+
+            // So I MUST draw it first.
+            // `didDrawPage` is called *after* everything on that page is drawn by autoTable?
+            // Let's verify autoTable docs (mental check).
+            // `didDrawPage` is called after the table is drawn on the page.
+
+            // Wait, `hooks`: `didParseCell`, `willDrawCell`, `didDrawCell`, `willDrawPage`?
+            // Older versions had `addPageContent`.
+
+            // Let's try `willDrawPage` if available? 
+            // Check types... autoTable types not fully visible.
+
+            // Hack: Modifying `doc.addPage`?
+            // The safest "underneath" method with existing jsPDF + autoTable:
+            // 1. Add background to Page 1 manually (done).
+            // 2. For subsequent pages, autoTable calls `doc.addPage()`.
+            // We can monkey-patch `doc.addPage` temporarily?
         },
     });
 
-    // 4. Footer
+    // FIX: autoTable hooks are tricky for "underneath" background.
+    // However, the user wants "background".
+    // Let's try to monkeypatch addPage for this instance, it's a common valid strategy in jsPDF.
+
+    // Monkey patch active for subsequent pages if needed, though usually autoTable does the heavy lifting.
+    // No need to re-patch.
+
+    // Wait, autoTable is already running. Monkey patching needs to happen BEFORE autoTable.
+
+    // Let's refactor:
+    // 1. Monkey patch doc.addPage
+    // 2. Run autoTable
+    // 3. Restore doc.addPage (optional but good)
+
+    // Wait, I messed up the order in my thought process. 
+    // `autoTable` is called synchronously. 
+    // If I patch `doc.addPage` before `autoTable`, it should work.
+
+    // BUT `generateStandardPDF` logic being replaced below.
+
+    // Let's rewrite the replacement content to include the monkey patch.
+
     const pageCount = doc.internal.getNumberOfPages();
+    // Re-loop to adding footer is fine (on top).
     for (let i = 1; i <= pageCount; i++) {
         doc.setPage(i);
+
+        // If we didn't use the monkeypatch, we can try to mess with the PDF object stream, but that's hard.
+        // Let's use the monkeypatch strategy in the replacement.
+
         const str = "INFORMAÇÃO EXTRAÍDA DO APLICATIVO DA OE-SESCINC MED MAIS. GERADO POR: " +
             (config.user?.name.toUpperCase() || 'USUÁRIO') + " - CPF: " + (config.user?.cpf || '000.000.000-00') +
             " EM " + new Date().toLocaleDateString('pt-BR') + " ÀS " + new Date().toLocaleTimeString('pt-BR') +

@@ -60,7 +60,7 @@ export const UsersPage: React.FC = () => {
     } else {
       // Create new user
       const user: User = {
-        id: Math.random().toString(36).substr(2, 9),
+        id: crypto.randomUUID(),
         name: newUser.name || '',
         cpf: newUser.cpf || '',
         role: newUser.role as UserRole,

@@ -1,0 +1,3 @@
+name,cpf,base,region,airport_class,graduation_date,last_update_date,last_fire_exercise_date,is_not_updated,is_away,away_reason
+"JOAO DA SILVA","123.456.789-00","sbgr","Sudeste","IV","2020-01-01","2023-01-01","2023-06-15",FALSE,FALSE,""
+"MARIA OLIVEIRA","987.654.321-00","sbrj","Sudeste","III","2021-05-10","2023-05-10","",FALSE,TRUE,"FERIAS"
