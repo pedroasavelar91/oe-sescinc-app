@@ -77,6 +77,7 @@ interface StoreContextType {
     addFirefighterLog: (log: FirefighterLog) => Promise<void>;
 
     addBase: (base: Base) => Promise<void>;
+    updateBase: (base: Base) => Promise<void>;
     deleteBase: (id: string) => Promise<void>;
 
     updateUser: (user: User) => Promise<void>;
@@ -1130,6 +1131,11 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         await syncWithSupabase('bases', 'INSERT', mapBaseToDB(base));
     };
 
+    const updateBase = async (base: Base) => {
+        setBases(prev => prev.map(b => b.id === base.id ? base : b));
+        await syncWithSupabase('bases', 'UPDATE', mapBaseToDB(base));
+    };
+
     const deleteBase = async (id: string) => {
         setBases(bases.filter(b => b.id !== id));
         await syncWithSupabase('bases', 'DELETE', null, id);
@@ -1172,7 +1178,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             addPayment, deletePayment, addChecklistLog, updateChecklistTemplate,
             markNotificationAsRead, requestSwap, resolveSwapRequest,
             addFirefighter, updateFirefighter, deleteFirefighter, addFirefighterLog,
-            addBase, deleteBase, updateUser, deleteUser,
+            addBase, updateBase, deleteBase, updateUser, deleteUser,
 
             addFolder, updateFolder, deleteFolder, addDocument, deleteDocument,
 

@@ -8,7 +8,7 @@ import { FirefighterChartViz } from '../components/DashboardCharts';
 import { StandardModal, StandardModalHeader, StandardModalBody, StandardModalFooter, inputClass, labelClass } from '../components/StandardModal';
 
 export const FirefightersPage: React.FC = () => {
-    const { firefighters, firefighterLogs, addFirefighter, updateFirefighter, deleteFirefighter, addFirefighterLog, currentUser, bases, addBase, deleteBase, classes, addStudent } = useStore();
+    const { firefighters, firefighterLogs, addFirefighter, updateFirefighter, deleteFirefighter, addFirefighterLog, currentUser, bases, addBase, updateBase, deleteBase, classes, addStudent } = useStore();
     const [activeTab, setActiveTab] = useState<'list' | 'dashboard' | 'bases'>('list');
 
     const formatCPF = (value: string) => {
@@ -32,6 +32,7 @@ export const FirefightersPage: React.FC = () => {
 
     // Base Management State
     const [newBase, setNewBase] = useState<Partial<Base>>({ region: 'Sudeste', airportClass: 'I' });
+    const [editingBaseId, setEditingBaseId] = useState<string | null>(null);
     const [showBaseModal, setShowBaseModal] = useState(false);
 
     // Enrollment Modal State
@@ -152,16 +153,29 @@ export const FirefightersPage: React.FC = () => {
         resetForm();
     };
 
-    const handleAddBase = () => {
+    const handleSaveBase = () => {
         if (!newBase.name) return;
-        const b: Base = {
-            id: crypto.randomUUID(),
-            name: newBase.name,
-            region: newBase.region as Region,
-            airportClass: newBase.airportClass as AirportClass
-        };
-        addBase(b);
+
+        if (editingBaseId) {
+            const updated: Base = {
+                id: editingBaseId,
+                name: newBase.name,
+                region: newBase.region as Region,
+                airportClass: newBase.airportClass as AirportClass
+            };
+            updateBase(updated);
+        } else {
+            const b: Base = {
+                id: crypto.randomUUID(),
+                name: newBase.name,
+                region: newBase.region as Region,
+                airportClass: newBase.airportClass as AirportClass
+            };
+            addBase(b);
+        }
         setNewBase({ region: 'Sudeste', airportClass: 'I', name: '' });
+        setEditingBaseId(null);
+        setShowBaseModal(false);
     };
 
     const resetForm = () => {
@@ -190,7 +204,17 @@ export const FirefightersPage: React.FC = () => {
     // --- Matrix Data Calculation ---
     const matrixData = useMemo(() => {
         const selectedYear = parseInt(yearFilter);
-        const uniqueBases = Array.from(new Set(displayedFirefighters.map(f => f.base))).sort() as string[];
+
+        // First, filter the firefighters based on active filters (Region and Base)
+        // Note: displayedFirefighters is already filtered by current user's base restriction
+        const filteredList = displayedFirefighters.filter(ff => {
+            if (regionFilter && ff.region !== regionFilter) return false;
+            if (baseFilter && ff.base !== baseFilter) return false;
+            return true;
+        });
+
+        // Get unique bases from the FILTERED list only
+        const uniqueBases = Array.from(new Set(filteredList.map(f => f.base))).sort() as string[];
         const months = Array.from({ length: 12 }, (_, i) => i); // 0-11
 
         // Initialize Matrix: { [base]: { [month]: count } }
@@ -203,8 +227,7 @@ export const FirefightersPage: React.FC = () => {
         // Footer Totals
         const monthTotals: number[] = Array(12).fill(0);
 
-        displayedFirefighters.forEach(ff => {
-            if (regionFilter && ff.region !== regionFilter) return;
+        filteredList.forEach(ff => {
             if (ff.isAway && ff.awayEndDate && new Date() < new Date(ff.awayEndDate)) return; // Skip away if required
 
             const { atExpiry, fireExpiry } = calculateExpirations(ff);
@@ -212,6 +235,7 @@ export const FirefightersPage: React.FC = () => {
             if (validityType === 'AT') {
                 if (atExpiry.getFullYear() === selectedYear) {
                     const m = atExpiry.getMonth();
+                    // Safety check if base exists in map (it should, based on uniqueBases logic)
                     if (data[ff.base]) {
                         data[ff.base][m]++;
                         monthTotals[m]++;
@@ -228,8 +252,14 @@ export const FirefightersPage: React.FC = () => {
             }
         });
 
-        return { uniqueBases, data, monthTotals };
-    }, [displayedFirefighters, yearFilter, regionFilter, validityType]);
+        // Filter: Keep only bases that have data for the selected period
+        const basesWithData = uniqueBases.filter(base => {
+            const rowSum = Object.values(data[base]).reduce((sum, val) => sum + val, 0);
+            return rowSum > 0;
+        });
+
+        return { uniqueBases: basesWithData, data, monthTotals };
+    }, [displayedFirefighters, yearFilter, regionFilter, baseFilter, validityType]);
 
     const handleOpenEnrollModal = (ff: Firefighter) => {
         setSelectedFirefighterForEnroll(ff);
@@ -739,7 +769,11 @@ export const FirefightersPage: React.FC = () => {
                     <div className="card-premium animate-fade-in text-gray-800">
                         <div className="flex justify-end mb-4">
                             <button
-                                onClick={() => setShowBaseModal(true)}
+                                onClick={() => {
+                                    setEditingBaseId(null);
+                                    setNewBase({ region: 'Sudeste', airportClass: 'I', name: '' });
+                                    setShowBaseModal(true);
+                                }}
                                 className="btn-base btn-insert flex items-center justify-center px-6 py-2 text-sm font-bold uppercase transition-all duration-200"
                             >
                                 INSERIR
@@ -794,10 +828,7 @@ export const FirefightersPage: React.FC = () => {
                                             CANCELAR
                                         </button>
                                         <button
-                                            onClick={() => {
-                                                handleAddBase();
-                                                setShowBaseModal(false);
-                                            }}
+                                            onClick={handleSaveBase}
                                             className="btn-base btn-save px-6 py-3 text-xs font-bold uppercase transition-colors"
                                         >
                                             SALVAR
@@ -871,13 +902,30 @@ export const FirefightersPage: React.FC = () => {
                                                 <div className="font-bold text-gray-900 uppercase text-lg">{base.name}</div>
                                                 <div className="text-xs text-gray-500 uppercase font-medium mt-1">{base.region} • CLASSE {base.airportClass}</div>
                                             </div>
-                                            <button
-                                                onClick={() => deleteBase(base.id)}
-                                                className="btn-base btn-delete px-3 py-2 text-xs"
-                                                title="Excluir Base"
-                                            >
-                                                EXCLUIR
-                                            </button>
+                                            <div className="flex gap-2">
+                                                <button
+                                                    onClick={() => {
+                                                        setEditingBaseId(base.id);
+                                                        setNewBase({ ...base });
+                                                        setShowBaseModal(true);
+                                                    }}
+                                                    className="btn-base btn-edit px-3 py-2 text-xs"
+                                                    title="Editar Base"
+                                                >
+                                                    EDITAR
+                                                </button>
+                                                <button
+                                                    onClick={() => {
+                                                        if (confirm('Tem certeza que deseja excluir esta base?')) {
+                                                            deleteBase(base.id);
+                                                        }
+                                                    }}
+                                                    className="btn-base btn-delete px-3 py-2 text-xs"
+                                                    title="Excluir Base"
+                                                >
+                                                    EXCLUIR
+                                                </button>
+                                            </div>
                                         </div>
                                     </div>
                                 ))}

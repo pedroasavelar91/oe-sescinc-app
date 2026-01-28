@@ -24,14 +24,7 @@ export const DocumentsPage: React.FC = () => {
     const canUploadDocuments = currentUser.role === UserRole.GESTOR || currentUser.role === UserRole.COORDENADOR || currentUser.role === UserRole.INSTRUTOR;
 
     // Available roles for selection
-    const availableRoles = [
-        'Motorista',
-        'Instrutor',
-        'Coordenador',
-        'Gestor',
-        'Administrador',
-        'Embaixador'
-    ];
+    const availableRoles = Object.values(UserRole);
 
     // Navigation Breadcrumbs
     const breadcrumbs = useMemo(() => {
@@ -307,7 +300,12 @@ export const DocumentsPage: React.FC = () => {
                                                 RENOMEAR
                                             </button>
                                             <button
-                                                onClick={(e) => { e.stopPropagation(); deleteFolder(folder.id); }}
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    if (window.confirm('TEM CERTEZA QUE DESEJA EXCLUIR ESTA PASTA?')) {
+                                                        deleteFolder(folder.id);
+                                                    }
+                                                }}
                                                 className="text-white hover:text-white bg-red-500 hover:bg-red-600 px-2 py-0.5 rounded text-[10px] font-bold uppercase transition-colors"
                                                 title="EXCLUIR PASTA"
                                             >
@@ -352,7 +350,12 @@ export const DocumentsPage: React.FC = () => {
                                         </button>
                                         {(canManageFolders || doc.uploadedBy === currentUser.id) && (
                                             <button
-                                                onClick={(e) => { e.stopPropagation(); deleteDocument(doc.id); }}
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    if (window.confirm('TEM CERTEZA QUE DESEJA EXCLUIR ESTE ARQUIVO?')) {
+                                                        deleteDocument(doc.id);
+                                                    }
+                                                }}
                                                 className="text-red-600 hover:text-red-800 hover:bg-red-50 px-2 py-1 rounded transition text-[10px] font-bold uppercase"
                                                 title="EXCLUIR ARQUIVO"
                                             >
